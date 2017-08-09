@@ -143,11 +143,11 @@ module Neural
       @layers.reverse.each_with_index do |layer, i|
         #debug("Layer: #{i} #{layer.num_inputs} #{layer.size}")
         if i != 0
-          e = @layers[@layers.size - i - 1].transfer_error
-          errors += e
+          errors = @layers[@layers.size - i - 1].transfer_error
+          #errors += e
         else
-          e = layer.transfer_input_error(expecting)
-          errors += e
+          errors = layer.transfer_input_error(expecting)
+          #errors += e
         end
         layer.backprop(errors) # TODO proper layering
       end
@@ -162,67 +162,26 @@ module Neural
       end
     end
     
-    def train(training_data, learning_rate, num_epochs)
+    def train(training_data, learning_rate, num_epochs, output_divisor = 1)
+      t = Time.now
+      
       num_epochs.times do |epoch|
-        training_data.each do |expecting, input|
+        if(epoch % output_divisor == 0)
+          puts("Epoch #{epoch}")
+          t = Time.now
+        end
+        training_data.each do |(expecting, input)|
+          #debug("Expecting #{expecting} for #{input}")
           output = forward(input)
           backprop(expecting)
           update_weights(input, learning_rate)
         end
+        if(epoch % output_divisor == 0)
+          puts("\tTook #{(Time.now - t)} sec")
+          t = Time.now
+        end
+        $stdout.flush
       end
     end
   end
-end
-
-if __FILE__ == $0
-  average = Proc.new do |m|
-    e = m.each
-    NMatrix[[e.sum / e.count]]
-  end
-
-  xor = Proc.new do |m|
-    NMatrix[[m.to_a.flatten.inject(0) { |acc, n| acc ^ (255.0 * n).to_i } / 256.0]]
-  end
-
-  max = Proc.new do |m|
-    NMatrix[[m.each.max]]
-  end
-
-  def data(n, &block)
-    raise ArgumentError.new("Block not given") unless block_given?
-
-    out = Hash.new
-    n.times do
-      m = NMatrix.rand([1, 3])
-      out[block.(m)] = m
-    end
-    
-    out
-  end
-  
-  def print_prediction(model, input, expecting)
-    output = model.forward(input)
-    puts("#{input} -> #{output}, expecting #{expecting}, #{expecting - output}")
-  end
-  
-  Random.srand(123)
-
-  f = max
-  training_data = data(1000, &f)
-  model = Neural::Network.new()
-  model.layer(Neural::Layer.new(3, 8))
-  #model.layer(Neural::Layer.new(10, 10))
-  model.layer(Neural::Layer.new(8, 1))
-
-  debug("Training")
-  now = Time.now
-  model.train(training_data, 0.3, 250)
-  debug("\tElapsed #{(Time.now - now) / 60.0}")
-
-  puts("Predicting:")
-
-  print_prediction(model, training_data.values.first, training_data.keys.first)
-  print_prediction(model, NMatrix[[0.5, 0.75, 0.25]], f.(NMatrix[[0.5, 0.75, 0.25]]))
-  print_prediction(model, NMatrix[[0.25, 0.0, 0.0]], f.(NMatrix[[0.25, 0.0, 0.0]]))
-  print_prediction(model, NMatrix[[1.0, 0.0, 0.0]], f.(NMatrix[[1.0, 0.0, 0.0]]))
 end
