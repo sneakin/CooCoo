@@ -1,3 +1,4 @@
+require 'yaml'
 require 'nmatrix'
 
 def debug(msg, *args)
@@ -19,6 +20,12 @@ module Neural
       @output = 0.0
     end
 
+    def to_yaml
+      { num_inputs: @num_inputs,
+        weights: @weights.to_a
+      }
+    end
+    
     attr_reader :num_inputs
 
     def forward(input)
@@ -109,6 +116,10 @@ module Neural
     def output
       @neurons.collect(&:output).to_nm([1, @neurons.size])
     end
+
+    def to_yaml
+      { outputs: @neurons.size, neurons: @neurons.collect(&:to_yaml) }
+    end
   end
   
   class Network
@@ -143,11 +154,11 @@ module Neural
       @layers.reverse.each_with_index do |layer, i|
         #debug("Layer: #{i} #{layer.num_inputs} #{layer.size}")
         if i != 0
-          errors = @layers[@layers.size - i - 1].transfer_error
-          #errors += e
+          e = @layers[@layers.size - i - 1].transfer_error
+          errors += e
         else
-          errors = layer.transfer_input_error(expecting)
-          #errors += e
+          e = layer.transfer_input_error(expecting)
+          errors += e
         end
         layer.backprop(errors) # TODO proper layering
       end
@@ -171,7 +182,6 @@ module Neural
           t = Time.now
         end
         training_data.each do |(expecting, input)|
-          #debug("Expecting #{expecting} for #{input}")
           output = forward(input)
           backprop(expecting)
           update_weights(input, learning_rate)
@@ -182,6 +192,16 @@ module Neural
         end
         $stdout.flush
       end
+    end
+
+    def save(path)
+      File.open(path, "w") do |f|
+        f.write(to_yaml)
+      end
+    end
+
+    def to_yaml
+      @layers.collect { |l| l.to_yaml }.to_yaml
     end
   end
 end
