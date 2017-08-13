@@ -20,10 +20,16 @@ module Neural
       @output = 0.0
     end
 
-    def to_yaml
+    def to_hash
       { num_inputs: @num_inputs,
         weights: @weights.to_a
       }
+    end
+
+    def update_from_hash!(h)
+      @num_inputs = h[:num_inputs]
+      @weights = NMatrix[h[:weights]]
+      self
     end
     
     attr_reader :num_inputs
@@ -64,7 +70,7 @@ module Neural
 
     attr_reader :output
 
-    def update_weights(inputs, rate)
+    def update_weights!(inputs, rate)
       @weights += inputs * @delta * rate
     end
   end
@@ -77,6 +83,10 @@ module Neural
       end
     end
 
+    def neurons
+      @neurons
+    end
+    
     def num_inputs
       @neurons[0].num_inputs
     end
@@ -107,9 +117,9 @@ module Neural
       (expecting - NMatrix[@neurons.collect(&:output)]).to_a
     end
 
-    def update_weights(inputs, rate)
+    def update_weights!(inputs, rate)
       @neurons.each do |n|
-        n.update_weights(inputs, rate)
+        n.update_weights!(inputs, rate)
       end
     end
 
@@ -117,8 +127,43 @@ module Neural
       @neurons.collect(&:output).to_nm([1, @neurons.size])
     end
 
-    def to_yaml
-      { outputs: @neurons.size, neurons: @neurons.collect(&:to_yaml) }
+    def to_hash
+      { outputs: @neurons.size, neurons: @neurons.collect(&:to_hash) }
+    end
+
+    def update_neuron_from_hash!(neuron_index, h)
+      if neuron_index > @neurons.size
+        resize!(neuron_index)
+      end
+      
+      @neurons[neuron_index].update_from_hash!(h)
+    end
+
+    def resize!(new_size)
+      n = @neurons + Array.new(new_size - @neurons.size)
+      (@neurons.size...new_size).each do |i|
+        n[i] = Neuron.new(num_inputs)
+      end
+
+      @neurons = n
+
+      self
+    end
+
+    def update_from_hash!(h)
+      resize!(h[:outputs])
+      
+      h[:outputs].times do |i|
+        update_neuron_from_hash!(i, h[:neurons][i])
+      end
+
+      self
+    end
+    
+    class << self
+      def from_hash(h)
+        self.new(h[:neurons].size, h[:outputs]).update_from_hash!(h)
+      end
     end
   end
   
@@ -127,6 +172,10 @@ module Neural
       @layers = Array.new
     end
 
+    def layers
+      @layers
+    end
+    
     def layer(l)
       @layers << l
     end
@@ -164,12 +213,12 @@ module Neural
       end
     end
 
-    def update_weights(inputs, rate)
+    def update_weights!(inputs, rate)
       @layers.each_with_index do |layer, i|
         if i != 0
           inputs = (@layers[i - 1]).output
         end
-        layer.update_weights(inputs, rate)
+        layer.update_weights!(inputs, rate)
       end
     end
     
@@ -184,7 +233,7 @@ module Neural
         training_data.each do |(expecting, input)|
           output = forward(input)
           backprop(expecting)
-          update_weights(input, learning_rate)
+          update_weights!(input, learning_rate)
         end
         if(epoch % output_divisor == 0)
           puts("\tTook #{(Time.now - t)} sec")
@@ -196,12 +245,41 @@ module Neural
 
     def save(path)
       File.open(path, "w") do |f|
-        f.write(to_yaml)
+        f.write(to_a.to_yaml)
       end
     end
 
-    def to_yaml
-      @layers.collect { |l| l.to_yaml }.to_yaml
+    def load!(path)
+      yaml = YAML.load(File.read(path))
+      raise RuntimeError.new("Invalid YAML definition in #{path}") if yaml.nil?
+        
+      update_from_a!(yaml)
+
+      self
+    end
+
+    def update_from_a!(layers)
+      ls = layers.collect do |layer_hash|
+        Neural::Layer.from_hash(layer_hash)
+      end
+
+      @layers = ls
+
+      self
+    end
+
+    def to_a
+      @layers.collect { |l| l.to_hash }
+    end
+
+    class << self
+      def from_a(layers)
+        self.new().update_from_a!(layers)
+      end
+
+      def load(path)
+        self.new().load!(path)
+      end
     end
   end
 end

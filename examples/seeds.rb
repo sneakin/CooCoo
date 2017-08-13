@@ -104,18 +104,25 @@ DATA_FILE = Pathname.new(__FILE__).dirname.join("seeds_dataset.txt") # via http:
 
 training_data = SeedData.new(DATA_FILE)
 model = Neural::Network.new()
-model.layer(Neural::Layer.new(7, 10))
-model.layer(Neural::Layer.new(10, 5))
-model.layer(Neural::Layer.new(5, training_data.num_types))
 
-puts("Training")
-now = Time.now
-model.train(training_data.each_example, 0.3, 400, 10)
-model.train(training_data.each_example, 0.1, 200, 10)
-puts("\tElapsed #{(Time.now - now) / 60.0} min")
-model.save("seeds.neural_model")
+if ARGV[0] && File.exists?(ARGV[0])
+  model.load!(ARGV[0])
+  puts("Loaded model #{ARGV[0]}")
+else
+  model.layer(Neural::Layer.new(7, 10))
+  model.layer(Neural::Layer.new(10, 5))
+  model.layer(Neural::Layer.new(5, training_data.num_types))
+
+  puts("Training")
+  now = Time.now
+  model.train(training_data.each_example, 0.3, 200, 10)
+  model.train(training_data.each_example, 0.1, 100, 10)
+  puts("\tElapsed #{(Time.now - now) / 60.0} min")
+  model.save("seeds.neural_model")
+end
 
 puts("Predicting:")
+puts("Seed values\t\t\t\t\tPrediction\tExpecting\tOutputs")
 
 def try_seed(model, td, seed)
   output = model.forward(td.normalize_seed(seed), td.encode_type(seed.type))
