@@ -98,27 +98,74 @@ class SeedData
   end
 end
 
-Random.srand(123)
+def backup(path)
+  backup = path.to_s + "~"
+  if File.exists?(backup)
+    File.delete(backup)
+  end
+  File.rename(path, backup)
+end
+
+require 'ostruct'
+require 'optparse'
 
 DATA_FILE = Pathname.new(__FILE__).dirname.join("seeds_dataset.txt") # via http://archive.ics.uci.edu/ml/datasets/seeds
 
-training_data = SeedData.new(DATA_FILE)
+options = OpenStruct.new
+options.train = false
+options.model_path = nil
+options.epochs = 200
+options.data_path = DATA_FILE
+
+op = OptionParser.new do |o|
+  o.on('-t', "--train") do
+    options.train = true
+  end
+
+  o.on('-m', '--model PATH') do |path|
+    options.model_path = Pathname.new(path)
+  end
+
+  o.on('-e', '--epochs NUMBER') do |epochs|
+    options.epochs = epochs.to_i
+  end
+
+  o.on('-d', '--data PATH') do |path|
+    options.data_path = Pathname.new(path)
+  end
+end
+
+args = op.parse!(ARGV)
+
+Random.srand(123)
+
+training_data = SeedData.new(options.data_path)
 model = Neural::Network.new()
 
-if ARGV[0] && File.exists?(ARGV[0])
-  model.load!(ARGV[0])
-  puts("Loaded model #{ARGV[0]}")
+if options.model_path && File.exists?(options.model_path)
+  model.load!(options.model_path)
+  puts("Loaded model #{options.model_path}")
 else
   model.layer(Neural::Layer.new(7, 10))
   model.layer(Neural::Layer.new(10, 5))
   model.layer(Neural::Layer.new(5, training_data.num_types))
+end
 
-  puts("Training")
+if options.train
+  puts("Training for #{options.epochs} epochs")
   now = Time.now
-  model.train(training_data.each_example, 0.3, 200, 10)
-  model.train(training_data.each_example, 0.1, 100, 10)
+  model.train(training_data.each_example, 0.3, options.epochs * 2.0/3.0, 10)
   puts("\tElapsed #{(Time.now - now) / 60.0} min")
-  model.save("seeds.neural_model")
+  puts("Decreasing learning rate")
+  model.train(training_data.each_example, 0.1, options.epochs / 3.0, 10)
+  puts("\tElapsed #{(Time.now - now) / 60.0} min")
+  puts("Trained!")
+
+  if options.model_path
+    puts("Saving to #{options.model_path}")
+    backup(options.model_path)
+    model.save(options.model_path)
+  end
 end
 
 puts("Predicting:")

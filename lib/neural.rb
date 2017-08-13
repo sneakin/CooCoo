@@ -225,7 +225,7 @@ module Neural
     def train(training_data, learning_rate, num_epochs, output_divisor = 1)
       t = Time.now
       
-      num_epochs.times do |epoch|
+      num_epochs.to_i.times do |epoch|
         if(epoch % output_divisor == 0)
           puts("Epoch #{epoch}")
           t = Time.now
