@@ -98,12 +98,16 @@ class SeedData
   end
 end
 
+require 'fileutils'
+
 def backup(path)
-  backup = path.to_s + "~"
-  if File.exists?(backup)
-    File.delete(backup)
+  if File.exists?(path)
+    backup = path.to_s + "~"
+    if File.exists?(backup)
+      File.delete(backup)
+    end
+    FileUtils.copy(path, backup)
   end
-  File.rename(path, backup)
 end
 
 require 'ostruct'
@@ -112,26 +116,31 @@ require 'optparse'
 DATA_FILE = Pathname.new(__FILE__).dirname.join("seeds_dataset.txt") # via http://archive.ics.uci.edu/ml/datasets/seeds
 
 options = OpenStruct.new
-options.train = false
 options.model_path = nil
-options.epochs = 200
+options.epochs = nil
 options.data_path = DATA_FILE
+options.batch_size = 1000
+options.activation_function = Neural.default_activation
 
 op = OptionParser.new do |o|
-  o.on('-t', "--train") do
-    options.train = true
-  end
-
   o.on('-m', '--model PATH') do |path|
     options.model_path = Pathname.new(path)
   end
 
-  o.on('-e', '--epochs NUMBER') do |epochs|
+  o.on('-t', '--train NUMBER') do |epochs|
     options.epochs = epochs.to_i
   end
 
   o.on('-d', '--data PATH') do |path|
     options.data_path = Pathname.new(path)
+  end
+
+  o.on('-n', '--batch-size NUMBER') do |num|
+    options.batch_size = num.to_i
+  end
+
+  o.on('-f', '--activation FUNC') do |func|
+    options.activation_function = Neural::ActivationFunctions.from_name(func)
   end
 end
 
@@ -146,18 +155,22 @@ if options.model_path && File.exists?(options.model_path)
   model.load!(options.model_path)
   puts("Loaded model #{options.model_path}")
 else
-  model.layer(Neural::Layer.new(7, 10))
-  model.layer(Neural::Layer.new(10, 5))
-  model.layer(Neural::Layer.new(5, training_data.num_types))
+  model.layer(Neural::Layer.new(7, 21, options.activation_function))
+  #model.layer(Neural::Layer.new(10, 5))
+  model.layer(Neural::Layer.new(21, training_data.num_types, options.activation_function))
 end
 
-if options.train
+if options.epochs
   puts("Training for #{options.epochs} epochs")
   now = Time.now
-  model.train(training_data.each_example, 0.3, options.epochs * 2.0/3.0, 10)
+  (options.epochs * 2.0 / 3.0).to_i.times do |epoch|
+    model.train(training_data.each_example, 0.3, options.batch_size)
+  end
   puts("\tElapsed #{(Time.now - now) / 60.0} min")
   puts("Decreasing learning rate")
-  model.train(training_data.each_example, 0.1, options.epochs / 3.0, 10)
+  (options.epochs * 1.0 / 3.0).to_i.times do |epoch|
+    model.train(training_data.each_example, 0.1, options.batch_size)
+  end
   puts("\tElapsed #{(Time.now - now) / 60.0} min")
   puts("Trained!")
 
@@ -169,28 +182,28 @@ if options.train
 end
 
 puts("Predicting:")
-puts("Seed values\t\t\t\t\tPrediction\tExpecting\tOutputs")
+puts("Seed values\t\t\t\t\tExpecting\tPrediction\tOutputs")
 
 def try_seed(model, td, seed)
-  output = model.forward(td.normalize_seed(seed), td.encode_type(seed.type))
+  output = model.predict(td.normalize_seed(seed))
   type = 1 + output.each_with_index.max[1]
   puts("#{seed.values}\t#{seed.type}\t#{type}\t#{output}")
+  return(seed.type == type ? 0.0 : 1.0)
 end
 
-training_data.each.first(4).each do |seed|
+n_errors = training_data.each.first(4).collect { |seed|
   try_seed(model, training_data, seed)
-end
+}.sum
 
-training_data.each.
+n_errors += training_data.each.
   select { |s| s.type == 2 }.
   first(4).
-  each do |seed|
-  try_seed(model, training_data, seed)
-end
+  collect { |seed| try_seed(model, training_data, seed) }.
+  sum
 
-training_data.each.
-  select { |s| s.type == 3 }.
-  first(4).
-  each do |seed|
-  try_seed(model, training_data, seed)
-end
+n_errors += training_data.each.
+             select { |s| s.type == 3 }.
+             first(4).
+             collect { |seed| try_seed(model, training_data, seed) }.
+             sum
+puts("Errors: #{n_errors / 12.0 * 100.0}%")
