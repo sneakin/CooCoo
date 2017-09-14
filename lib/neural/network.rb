@@ -75,6 +75,12 @@ module Neural
       end
     end
 
+    def transfer_errors(deltas)
+      @layers.zip(deltas).collect do |layer, delta|
+        layer.transfer_error(delta)
+      end
+    end
+
     def update_weights!(input, outputs, deltas, rate)
       #Neural.debug("Network#update_weights", deltas, deltas.size)
       @layers.each_with_index do |layer, i|
