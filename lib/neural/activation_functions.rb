@@ -37,6 +37,10 @@ module Neural
       def prep_input(arr)
         arr
       end
+
+      def process_output(arr)
+        arr
+      end
     end
     
     class Logistic < Identity
@@ -51,6 +55,10 @@ module Neural
       end
 
       def prep_input(arr)
+        arr
+      end
+
+      def process_output(arr)
         arr
       end
     end
@@ -68,9 +76,13 @@ module Neural
       def prep_input(arr)
         (arr - 0.5) * 2.0
       end
+
+      def process_output(arr)
+        arr / 2.0 - 0.5
+      end
     end
 
-    class Relu < Identity
+    class ReLU < Identity
       def call(x)
         if x <= 0
           0.0

@@ -27,6 +27,10 @@ module Neural
         @vertical_span * @horizontal_span * @layer.size
       end
 
+      def neurons
+        internal_layer.neurons
+      end
+
       def forward(input)
         each_area do |grid_x, grid_y|
           @layer.forward(slice_input(input, grid_x, grid_y)).to_a

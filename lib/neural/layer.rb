@@ -45,7 +45,7 @@ module Neural
     end
 
     def transfer_input_error(expecting)
-      (expecting - output).to_a
+      (output - expecting).to_a
     end
 
     def update_weights!(inputs, deltas, rate)
@@ -107,7 +107,7 @@ module Neural
 end
 
 if __FILE__ == $0
-  layer = Neural::Layer.new(4, 2)
+  layer = Neural::Layer.new(4, 2, Neural::ActivationFunctions.from_name(ENV.fetch("ACTIVATION", "Logistic")))
   inputs = [ NMatrix[[ 1.0, 0.0, 0.0, 0.0 ]], NMatrix[[ 0.0, 0.0, 1.0, 0.0 ]], NMatrix[[ 0.0, 1.0, 0.0, 0.0]], NMatrix[[ 0.0, 0.0, 0.0, 1.0 ]] ]
   targets = [ NMatrix[[ 1.0, 0.0 ]], NMatrix[[ 0.0, 1.0 ]], NMatrix[[ 0.0, 0.0 ]], NMatrix[[ 0.0, 0.0 ]] ]
 
@@ -116,7 +116,7 @@ if __FILE__ == $0
       output = layer.forward(input)
       puts("#{i}\t#{input} -> #{output}")
 
-      err = (target - output)
+      err = (output - target)
       #err = err * err * 0.5
       delta = layer.backprop(output, err)
       puts("\tdelta: #{delta}")

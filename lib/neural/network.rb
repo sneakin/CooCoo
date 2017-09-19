@@ -54,24 +54,22 @@ module Neural
     end
 
     def predict(input, flattened = false)
-      forward(input, flattened).last
+      @activation_function.process_output(forward(input, flattened).last)
     end
 
     def cost(outputs, target)
-      target - outputs
+      outputs - target
     end
 
     def backprop(outputs, expecting)
       expecting = @activation_function.prep_input((expecting.to_a.flatten).to_nm([1, expecting.size]))
-      errors = cost(outputs.last, expecting)
-      #errors = errors * errors * 0.5
+      errors = cost(outputs.last,
+                    @activation_function.prep_input(expecting))
       
-      #debug("network#Backprop #{errors.size} #{errors}")
       @layers.reverse_each.each_with_index.inject([]) do |acc, (layer, i)|
         deltas = layer.backprop(outputs[@layers.size - i - 1], errors)
         errors = layer.transfer_error(deltas)
         [ deltas ] + acc
-        #acc << errors
       end
     end
 
