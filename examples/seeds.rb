@@ -121,6 +121,7 @@ options.epochs = nil
 options.data_path = DATA_FILE
 options.batch_size = 1000
 options.activation_function = Neural.default_activation
+options.hidden_size = 21
 
 op = OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
@@ -142,6 +143,10 @@ op = OptionParser.new do |o|
   o.on('-f', '--activation FUNC') do |func|
     options.activation_function = Neural::ActivationFunctions.from_name(func)
   end
+
+  o.on('--hidden-size NUMBER') do |num|
+    options.hidden_size = num.to_i
+  end
 end
 
 args = op.parse!(ARGV)
@@ -155,9 +160,9 @@ if options.model_path && File.exists?(options.model_path)
   model.load!(options.model_path)
   puts("Loaded model #{options.model_path}")
 else
-  model.layer(Neural::Layer.new(7, 21, options.activation_function))
+  model.layer(Neural::Layer.new(7, options.hidden_size, options.activation_function))
   #model.layer(Neural::Layer.new(10, 5))
-  model.layer(Neural::Layer.new(21, training_data.num_types, options.activation_function))
+  model.layer(Neural::Layer.new(options.hidden_size, training_data.num_types, options.activation_function))
 end
 
 if options.epochs
