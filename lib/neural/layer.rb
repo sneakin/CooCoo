@@ -55,6 +55,19 @@ module Neural
       end
     end
 
+    def adjust_weights!(deltas)
+      @neurons.each_with_index do |n, i|
+        n.adjust_weights!(*deltas[i])
+      end
+    end
+
+    def weight_deltas(inputs, deltas, rate)
+      @neurons.each_with_index.inject(Array.new(size)) do |acc, (n, i)|
+        acc[i] = n.weight_deltas(inputs, deltas[i], rate)
+        acc
+      end
+    end
+
     def output
       @neurons.each_with_index.inject(NMatrix.zeros([1, size])) do |acc, (o, i)|
         acc[i] = o

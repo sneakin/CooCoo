@@ -9,9 +9,9 @@ module Neural
     def initialize(num_inputs, activation_func = Neural.default_activation)
       @num_inputs = num_inputs
       @weights = NMatrix.rand([ 1, num_inputs])
-      @weights = @weights / @weights.each.sum
+      @weights = @weights / @weights.each.sum.to_f
       @activation_func = activation_func
-      @bias = 1.0
+      @bias = activation_func.initial_bias
     end
 
     def to_hash
@@ -25,8 +25,8 @@ module Neural
     def update_from_hash!(h)
       @num_inputs = h.fetch(:num_inputs, h.fetch(:weights, []).size)
       @weights = NMatrix[h[:weights]]
-      @bias = h.fetch(:bias, 1.0)
       @activation_func = Neural::ActivationFunctions.from_name(h[:f] || Neural.default_activation.name)
+      @bias = h.fetch(:bias, @activation_func.initial_bias)
       self
     end
 
@@ -66,13 +66,21 @@ module Neural
       @weights * delta
     end
 
-    def update_weights!(inputs, delta, rate)
+    def weight_deltas(inputs, delta, rate)
       change = delta * rate * -1.0
-      @bias += change
-      @weights += inputs * change
+      [ change, inputs * change ]
     rescue
       Neural.debug("#{$!}\n\t#{inputs.class}\t#{inputs}\n\t#{@weights.class}\t#{@weights}\n\t#{delta.class}\t#{delta}\n\t#{rate}")
       raise
+    end
+    
+    def update_weights!(inputs, delta, rate)
+      adjust_weights!(*weight_deltas(inputs, delta, rate))
+    end
+
+    def adjust_weights!(bias_delta, weight_deltas)
+      @bias += bias_delta
+      @weights += weight_deltas
     end
   end
 end

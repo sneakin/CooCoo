@@ -80,15 +80,30 @@ module Neural
     end
 
     def update_weights!(input, outputs, deltas, rate)
+      adjust_weights!(weight_deltas(input, outputs, deltas, rate))
+      self
+    end
+
+    def adjust_weights!(deltas)
       #Neural.debug("Network#update_weights", deltas, deltas.size)
       @layers.each_with_index do |layer, i|
+        layer.adjust_weights!(deltas[i])
+      end
+
+      @age += 1
+      self
+    end
+
+    def weight_deltas(input, outputs, deltas, rate)
+      #Neural.debug("Network#update_weights", deltas, deltas.size)
+      @layers.each_with_index.collect do |layer, i|
         inputs = if i != 0
                    outputs[i - 1] #[i - 1]
                  else
                    @activation_function.prep_input(input)
                  end
         #Neural.debug("Network#update_weights", i, deltas[i], deltas[i].size)
-        layer.update_weights!(inputs, deltas[i], rate)
+        layer.weight_deltas(inputs, deltas[i], rate)
       end
     end
     
@@ -116,7 +131,6 @@ module Neural
       output = forward(input)
       deltas = backprop(output, expecting)
       update_weights!(input, output, deltas, rate)
-      @age += 1
       self
     rescue
       Neural.debug("Network#learn caught #{$!}", input, expecting)

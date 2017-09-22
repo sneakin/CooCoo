@@ -25,6 +25,8 @@ options.max_rotation = 90.0
 options.hidden_layers = 2
 options.learning_rate = 1.0/3.0
 options.activation_function = Neural.default_activation
+options.trainer = 'Stochastic'
+options.convolution = nil
 
 opts = OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
@@ -66,6 +68,14 @@ opts = OptionParser.new do |o|
   o.on('-f', '--activation-func FUNC') do |func|
     options.activation_function = Neural::ActivationFunctions.from_name(func)
   end
+
+  o.on('--trainer NAME') do |name|
+    options.trainer = name
+  end
+
+  o.on('--convolution') do
+    options.convolution = true
+  end
 end
 
 argv = opts.parse!(ARGV)
@@ -83,6 +93,13 @@ if options.model_path && File.exists?(options.model_path)
   net.load!(options.model_path)
 else
   area = data.width * data.height
+
+  if options.convolution
+    net.layer(Neural::Convolution::BoxLayer.new(7, 7, Neural::Layer.new(16, 4, options.activation_function), 4, 4, 2, 2))
+
+    area = 7 * 7 * 2 * 2
+  end
+  
   # net.layer(Neural::Layer.new(area, 50))
   # net.layer(Neural::Layer.new(50, 20))
   # net.layer(Neural::Layer.new(20, 10))
@@ -143,11 +160,13 @@ if options.batch_size
     ts = ts.first(options.examples * options.rotations)
   end
 
+  trainer = Neural::Trainer.from_name(options.trainer)
+  
   nex = options.examples * options.rotations
   nex = "all" if nex == 0
-  puts("Training #{nex} examples in #{options.batch_size} sized batches at a rate of #{options.learning_rate}.")
-  
-  net.train(ts, options.learning_rate, options.batch_size) do |n, batch, dt|
+  puts("Training #{nex} examples in #{options.batch_size} sized batches at a rate of #{options.learning_rate} with #{trainer.name}.")
+
+  trainer.train(net, ts, options.learning_rate, options.batch_size) do |n, batch, dt|
     if options.model_path
       puts("Batch #{batch} took #{dt} seconds")
       puts("Saving to #{options.model_path}")
@@ -161,7 +180,7 @@ if options.batch_size
   end
 end
 
-puts("Trying the training image")
+puts("Trying the training images")
 errors = Array.new(options.num_tests, 0)
 data_r = MNist::DataStream::Rotator.new(data.each.
                                           drop(options.start_tests_at).

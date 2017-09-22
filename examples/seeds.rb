@@ -122,6 +122,7 @@ options.data_path = DATA_FILE
 options.batch_size = 1000
 options.activation_function = Neural.default_activation
 options.hidden_size = 21
+options.trainer = 'Stochastic'
 
 op = OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
@@ -147,6 +148,10 @@ op = OptionParser.new do |o|
   o.on('--hidden-size NUMBER') do |num|
     options.hidden_size = num.to_i
   end
+
+  o.on('--trainer NAME') do |trainer|
+    options.trainer = trainer
+  end
 end
 
 args = op.parse!(ARGV)
@@ -168,13 +173,14 @@ end
 if options.epochs
   puts("Training for #{options.epochs} epochs")
   now = Time.now
+  trainer = Neural::Trainer.from_name(options.trainer)
   (options.epochs * 2.0 / 3.0).to_i.times do |epoch|
-    model.train(training_data.each_example, 0.3, options.batch_size)
+    trainer.train(model, training_data.each_example, 0.3, options.batch_size)
   end
   puts("\tElapsed #{(Time.now - now) / 60.0} min")
   puts("Decreasing learning rate")
   (options.epochs * 1.0 / 3.0).to_i.times do |epoch|
-    model.train(training_data.each_example, 0.1, options.batch_size)
+    trainer.train(model, training_data.each_example, 0.1, options.batch_size)
   end
   puts("\tElapsed #{(Time.now - now) / 60.0} min")
   puts("Trained!")

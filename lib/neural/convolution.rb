@@ -50,13 +50,25 @@ module Neural
       end
 
       def update_weights!(inputs, deltas, rate)
+        adjust_weights!(weight_deltas(inputs, deltas, rate))
+        self
+      end
+
+      def adjust_weights!(deltas)
         each_area do |grid_x, grid_y|
-          @layer.update_weights!(slice_input(inputs, grid_x, grid_y),
-                                 slice_output(deltas, grid_x, grid_y),
-                                 rate)
+          @layer.adjust_weights!(slice_output_inner(deltas, grid_x, grid_y))
         end
 
         self
+      end
+
+      def weight_deltas(inputs, deltas, rate)
+        rate = rate / (@horizontal_span * @vertical_span).to_f
+        each_area do |grid_x, grid_y|
+          @layer.weight_deltas(slice_input(inputs, grid_x, grid_y),
+                               slice_output(deltas, grid_x, grid_y),
+                               rate)
+        end.flatten(2)
       end
 
       def to_hash
@@ -103,7 +115,7 @@ module Neural
         end.flatten.to_nm([1, @layer.num_inputs ])
       end
       
-      def slice_output(output, grid_x, grid_y)
+      def slice_output_inner(output, grid_x, grid_y)
         origin_x = grid_x * @output_width
         origin_y = grid_y * @output_height
 
@@ -113,7 +125,11 @@ module Neural
             py = origin_y + y
             output[py * (@horizontal_span * @output_width) + px]
           end
-        end.flatten.to_nm([1, @layer.size ])
+        end.flatten(1)
+      end
+
+      def slice_output(output, grid_x, grid_y)
+        slice_output_inner(output, grid_x, grid_y).to_nm([1, @layer.size])
       end
     end
   end

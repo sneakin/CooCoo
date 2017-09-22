@@ -34,6 +34,10 @@ module Neural
         1.0
       end
 
+      def initial_bias
+        1.0
+      end
+      
       def prep_input(arr)
         arr
       end
@@ -73,6 +77,10 @@ module Neural
         #4 * Math.exp(-2.0 * x) / ((Math.exp(-2.0 * x) + 1) ** 2)
       end
 
+      def initial_bias
+        0.0
+      end
+      
       def prep_input(arr)
         (arr - 0.5) * 2.0
       end
