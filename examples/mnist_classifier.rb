@@ -22,6 +22,9 @@ options.num_tests = 10
 options.start_tests_at = 0
 options.rotations = 8
 options.max_rotation = 90.0
+options.num_translations = 1
+options.translate_dx = 0
+options.translate_dy = 0
 options.hidden_layers = 2
 options.learning_rate = 1.0/3.0
 options.activation_function = Neural.default_activation
@@ -61,6 +64,18 @@ opts = OptionParser.new do |o|
     options.max_rotation = n.to_f
   end
 
+  o.on('--num-translations NUMBER') do |n|
+    options.num_translations = n.to_i
+  end
+  
+  o.on('--delta-x NUMBER') do |dx|
+    options.translate_dx = dx.to_f
+  end
+  
+  o.on('--delta-y NUMBER') do |dy|
+    options.translate_dy = dy.to_f
+  end
+  
   o.on('-l', '--hidden-layers NUMBER') do |n|
     options.hidden_layers = n.to_i
   end
@@ -84,7 +99,8 @@ max_rad = options.max_rotation.to_f * Math::PI / 180.0
 puts("Loading MNist data")
 data = MNist::DataStream.new
 data_r = MNist::DataStream::Rotator.new(data, options.rotations, max_rad, false)
-training_set = MNist::TrainingSet.new(data_r).each
+data_t = MNist::DataStream::Translator.new(data_r, options.num_translations, options.translate_dx, options.translate_dy, false)
+training_set = MNist::TrainingSet.new(data_t).each
 
 net = Neural::Network.new(options.activation_function)
 
@@ -186,13 +202,14 @@ data_r = MNist::DataStream::Rotator.new(data.each.
                                           drop(options.start_tests_at).
                                           first(options.num_tests),
                                         1, max_rad, true)
-data_r.
+data_t = MNist::DataStream::Translator.new(data_r, 1, options.translate_dx, options.translate_dy, true)
+data_t.
   each_with_index do |example, i|
-  output = net.predict(example.pixels.to_nm([1, data.width * data.height]) / 256.0, true)
+  output = net.predict(Neural::Vector[example.pixels, data.width * data.height, 0] / 256.0, true)
   max_outputs = output.each_with_index.sort.reverse
   max_output = max_outputs.first[1]
   errors[i] = 1.0 if example.label != max_output
-  puts("#{i}\tExpecting: #{example.label}\n\tAngle: #{example.angle * 180.0 / Math::PI}\n\tGot: #{max_output}\t#{max_output == example.label}\n\tOutputs: #{output}\n\tBest guesses: #{max_outputs.first(3).inspect}")
+  puts("#{i}\tExpecting: #{example.label}\n\tAngle: #{example.angle * 180.0 / Math::PI}\n\tOffset: #{example.offset_x} #{example.offset_y}\n\tGot: #{max_output}\t#{max_output == example.label}\n\tOutputs: #{output}\n\tBest guesses: #{max_outputs.first(3).inspect}")
   if example.label != max_output
     puts("#{example.to_ascii}")
   end

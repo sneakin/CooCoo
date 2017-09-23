@@ -12,15 +12,19 @@ module MNist
     attr_accessor :label
     attr_accessor :pixels
     attr_accessor :angle
+    attr_accessor :offset_x
+    attr_accessor :offset_y
 
-    def initialize(label, pixels, angle = 0)
+    def initialize(label, pixels, angle = 0, offset_x = 0, offset_y = 0)
       @label = label
       @pixels = pixels
       @angle = angle
+      @offset_x = offset_x
+      @offset_y = offset_y
     end
 
     def pixel(x, y)
-      @pixels[y * MNist::Width + x]
+      @pixels[y * MNist::Width + x] || 0
     end
 
     def to_ascii
@@ -200,6 +204,52 @@ module MNist
         rot = Neural::Image::Rotate.new(MNist::Width / 2, MNist::Height / 2, theta)
         img = Neural::Image::Base.new(MNist::Width, MNist::Height, 1, pixels.to_a.flatten)
         (img * rot)
+      end
+    end
+
+    class Translator < Enumerator
+      def initialize(data, num_translations, dx, dy, random = false)
+        @data = data.to_enum
+        @num_translations = num_translations
+        @dx = dx
+        @dy = dy
+        @random = random
+        
+        super() do |yielder|
+          loop do
+            example = @data.next
+            @num_translations.times do |r|
+              x = if @random
+                    rand
+                  else
+                    (r / @num_translations.to_f)
+                  end
+              x = x * @dx - @dx / 2.0
+              y = if @random
+                    rand
+                  else
+                    (r / @num_translations.to_f)
+                  end
+              y = y * @dy - @dy / 2.0
+              img = translate_pixels(example.pixels, x, y)
+              yielder << Example.new(example.label, img.to_a.flatten, example.angle, x, y)
+            end
+          end
+        end
+      end
+
+      def wrap(enum)
+        self.class.new(enum, @num_translations, @dx, @dy, @random)
+      end
+      
+      def drop(n)
+        wrap(@data.drop(n))
+      end
+
+      def translate_pixels(pixels, x, y)
+        transform = Neural::Image::Translate.new(x, y)
+        img = Neural::Image::Base.new(MNist::Width, MNist::Height, 1, pixels.to_a.flatten)
+        (img * transform)
       end
     end
   end

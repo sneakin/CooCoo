@@ -3,22 +3,41 @@ require 'nmatrix'
 module Neural
   module Image
     class Base
-      attr_reader :width, :height, :bpp
+      attr_reader :width, :height, :bpp, :background
+      attr_accessor :repeat_x, :repeat_y
       
-      def initialize(width, height, bpp = 1, pixels = nil)
+      def initialize(width, height, bpp = 1, pixels = nil, background = nil, repeat_x = false, repeat_y = false)
         @width = width
         @height = height
         @bpp = bpp
         @span = @width * @bpp
+        @background = background || bpp.times.collect { 0 }
+        @repeat_x = repeat_x
+        @repeat_y = repeat_y
         @pixels = pixels || Array.new(@width * @height * @bpp, 0)
       end
 
-      def [](x, y, byte = 0)
-        i = pixel_index(x, y, byte)
-        if byte
-          @pixels[i]
+      def [](x, y, byte = nil)
+        if (@repeat_x == false && (x < 0 || x >= width)) ||
+            (@repeat_y == false && (y < 0 || y >= height))
+          p = @background
+          if byte
+            p[byte]
+          else
+            p
+          end
         else
-          @pixels[i, @bpp]
+          i = pixel_index(x, y, byte || 0)
+          if byte
+            @pixels[i] || @background[byte]
+          else
+            p = @pixels[i, @bpp]
+            if p && !p.empty?
+              p
+            else
+              @background
+            end
+          end
         end
       end
 
@@ -50,13 +69,9 @@ module Neural
         end
       end
 
-      def to_nm
-        to_a.to_nm([ @height, @width, @span ])
-      end
-      
       private
       def pixel_index(x, y, byte = 0)
-        (byte || 0) + ((x % @width) * @bpp) + ((y % @height) * @span)
+        (byte || 0) + ((x.round % @width) * @bpp) + ((y.round % @height) * @span)
       end
     end
 
@@ -88,26 +103,18 @@ module Neural
         TransformedImage.new(@image, t, @filter)
       end
 
-      def to_nm(dims = nil)
-        dims = [ height, width, bpp ] unless dims
-        to_a.flatten.to_nm(dims)
-      end
-      
       def to_a
-        a = Array.new(height)
-        height.times do |y|
-          a[y] = Array.new(width, 0)
-          width.times do |x|
-            a[y][x] = self[x, y]
-          end
-          a[y].flatten!
+        height.times.collect do |y|
+          width.times.collect do |x|
+            self[x, y]
+          end.flatten
         end
-        a
       end
       
       def [](x, y, byte = nil)
         x, y = *transform(x, y)
-        filter(@image[x, y, byte], x, y)
+        p = @image[x, y, byte]
+        filter(p, x, y)
       end
 
       def filter(pixel, x, y)
@@ -174,7 +181,7 @@ module Neural
       end
 
       def call(x, y)
-        [ x + @tx, y + @ty ]
+        [ x - @tx, y - @ty ]
       end
     end
 
