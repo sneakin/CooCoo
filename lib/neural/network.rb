@@ -1,7 +1,7 @@
 require 'yaml'
-require 'nmatrix'
 require 'neural/consts'
 require 'neural/debug'
+require 'neural/math'
 require 'neural/layer'
 require 'neural/enum'
 
@@ -37,7 +37,7 @@ module Neural
 
     def forward(input, flattened = false)
       unless flattened
-        input = (input.to_a.flatten).to_nm([1, input.size])
+        input = Neural::Vector[input.to_a.flatten, num_inputs]
       end
 
       output = @activation_function.prep_input(input)
@@ -62,7 +62,7 @@ module Neural
     end
 
     def backprop(outputs, expecting)
-      expecting = @activation_function.prep_input((expecting.to_a.flatten).to_nm([1, expecting.size]))
+      expecting = @activation_function.prep_input(Neural::Vector[expecting.to_a.flatten, num_outputs])
       errors = cost(outputs.last,
                     @activation_function.prep_input(expecting))
       
@@ -210,11 +210,18 @@ if __FILE__ == $0
   net.layer(Neural::Layer.new(SIZE / 2, SIZE / 2))
   net.layer(Neural::Layer.new(SIZE / 2, 2))
 
-  inputs = [ NMatrix.zeros([ 1, SIZE ]), NMatrix.zeros([ 1, SIZE ]), NMatrix.zeros([ 1, SIZE ]) ]
+  inputs = 3.times.collect do |i|
+    Neural::Vector.zeros(SIZE)
+  end
   inputs[0][0] = 1.0
   inputs[1][2] = 1.0
   inputs[2][3] = 1.0
-  targets = [ NMatrix[[ 1.0, 0.0 ]], NMatrix[[ 0.0, 1.0 ]], NMatrix[[ 0.0, 1.0 ]] ]
+  targets = [ [ 1.0, 0.0 ],
+              [ 0.0, 1.0 ],
+              [ 0.0, 1.0 ]
+            ].collect do |v|
+    Neural::Vector[v]
+  end
   
   # output = net.forward(input)
   # puts("#{input} ->")

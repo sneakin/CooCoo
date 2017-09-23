@@ -1,6 +1,6 @@
-require 'nmatrix'
 require 'neural/consts'
 require 'neural/debug'
+require 'neural/math'
 require 'neural/enum'
 require 'neural/activation_functions'
 
@@ -8,7 +8,7 @@ module Neural
   class Neuron
     def initialize(num_inputs, activation_func = Neural.default_activation)
       @num_inputs = num_inputs
-      @weights = NMatrix.rand([ 1, num_inputs])
+      @weights = Neural::Vector.rand(num_inputs)
       @weights = @weights / @weights.each.sum.to_f
       @activation_func = activation_func
       @bias = activation_func.initial_bias
@@ -24,7 +24,7 @@ module Neural
 
     def update_from_hash!(h)
       @num_inputs = h.fetch(:num_inputs, h.fetch(:weights, []).size)
-      @weights = NMatrix[h[:weights]]
+      @weights = Neural::Vector[h[:weights]]
       @activation_func = Neural::ActivationFunctions.from_name(h[:f] || Neural.default_activation.name)
       @bias = h.fetch(:bias, @activation_func.initial_bias)
       self
@@ -89,7 +89,7 @@ if __FILE__ == $0
   n = Neural::Neuron.from_hash({ f: ENV.fetch("ACTIVATION", "Logistic"),
                                  weights: [ 0.5, 0.5 ]
                                })
-  inputs = [ NMatrix[[ 0.25, 0.75 ]], NMatrix[[ 0.0, 1.0 ]] ]
+  inputs = [ Neural::Vector[[ 0.25, 0.75 ]], Neural::Vector[[ 0.0, 1.0 ]] ]
   targets = [ 0.0, 1.0 ]
   
   ENV.fetch('LOOPS', 100).to_i.times do |i|

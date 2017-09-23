@@ -33,14 +33,14 @@ class Seed
   end
 
   def values
-    NMatrix[[ area,
-              perimeter,
-              compactness,
-              length,
-              width,
-              asymetry_coeff,
-              groove_length
-            ]]
+    Neural::Vector[[ area,
+                     perimeter,
+                     compactness,
+                     length,
+                     width,
+                     asymetry_coeff,
+                     groove_length
+                   ]]
   end
 end
 
@@ -75,8 +75,8 @@ class SeedData
   end
 
   def encode_type(type)
-    t = NMatrix.zeroes([1, num_types])
-    t[0, type - 1] = 1.0
+    t = Neural::Vector.zeros(num_types)
+    t[type - 1] = 1.0
     t
   end
 

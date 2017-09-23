@@ -32,21 +32,21 @@ module Neural
       end
 
       def forward(input)
-        each_area do |grid_x, grid_y|
-          @layer.forward(slice_input(input, grid_x, grid_y)).to_a
-        end.flatten.to_nm([ 1, size ])
+        Neural::Vector[each_area do |grid_x, grid_y|
+                         @layer.forward(slice_input(input, grid_x, grid_y)).to_a
+                       end.flatten, size]
       end
 
       def backprop(output, errors)
-        each_area do |grid_x, grid_y|
-          @layer.backprop(slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y)).to_a
-        end.flatten.to_nm([ 1, size ])
+        Neural::Vector[each_area do |grid_x, grid_y|
+                         @layer.backprop(slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y)).to_a
+                       end.flatten, size]
       end
 
       def transfer_error(deltas)
-        each_area do |grid_x, grid_y|
-          @layer.transfer_error(slice_output(deltas, grid_x, grid_y)).to_a
-        end.flatten.to_nm([ 1, size ])
+        Neural::Vector[each_area do |grid_x, grid_y|
+                         @layer.transfer_error(slice_output(deltas, grid_x, grid_y)).to_a
+                       end.flatten, size]
       end
 
       def update_weights!(inputs, deltas, rate)
@@ -106,13 +106,15 @@ module Neural
         origin_x = grid_x * @input_width
         origin_y = grid_y * @input_height
         
-        @input_height.times.collect do |y|
+        samples = @input_height.times.collect do |y|
           @input_width.times.collect do |x|
             px = origin_x + x
             py = origin_y + y
             input[py * (@horizontal_span * @input_width) + px]
           end
-        end.flatten.to_nm([1, @layer.num_inputs ])
+        end.flatten
+
+        Neural::Vector[samples, @layer.num_inputs]
       end
       
       def slice_output_inner(output, grid_x, grid_y)
@@ -129,7 +131,7 @@ module Neural
       end
 
       def slice_output(output, grid_x, grid_y)
-        slice_output_inner(output, grid_x, grid_y).to_nm([1, @layer.size])
+        Neural::Vector[slice_output_inner(output, grid_x, grid_y), @layer.size]
       end
     end
   end
@@ -149,8 +151,8 @@ if __FILE__ == $0
   INPUT_SIZE = IN_WIDTH * IN_HEIGHT
   OUTPUT_SIZE = OUT_WIDTH * OUT_HEIGHT
   input = [ 1.0 ] + (INPUT_SIZE - 2).times.collect { 0.0 } + [ 1.0 ]
-  input = input.to_nm([1, INPUT_SIZE])
-  target = NMatrix.zeros([1, OUTPUT_SIZE])
+  input = Neural::Vector[input, INPUT_SIZE]
+  target = Neural::Vector.zeros(OUTPUT_SIZE)
   target[0] = 1.0
   target[-1] = 1.0
 

@@ -218,8 +218,8 @@ module MNist
 
         a = Array.new(10, 0.0)
         a[example.label] = 1.0
-        m = [ NMatrix[a],
-              NMatrix[example.pixels] / 256.0
+        m = [ Neural::Vector[a],
+              Neural::Vector[example.pixels] / 256.0
         ]
         #$stderr.puts("#{m[0]}\t#{m[1]}")
         block.call(m)

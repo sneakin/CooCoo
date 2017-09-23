@@ -1,5 +1,5 @@
-require 'nmatrix'
 require 'neural/consts'
+require 'neural/math'
 require 'neural/debug'
 require 'neural/neuron'
 
@@ -25,21 +25,21 @@ module Neural
     end
 
     def forward(input)
-      o = @neurons.each_with_index.inject(NMatrix.zeros([1, size])) do |acc, (neuron, i)|
+      o = @neurons.each_with_index.inject(Neural::Vector.zeros(size)) do |acc, (neuron, i)|
         acc[i] = neuron.forward(input)
         acc
       end
     end
 
     def backprop(output, errors)
-      o = @neurons.each_with_index.inject(NMatrix.zeros([1, size])) do |acc, (n, i)|
+      o = @neurons.each_with_index.inject(Neural::Vector.zeros(size)) do |acc, (n, i)|
         acc[i] = n.backprop(output[i], errors[i])
         acc
       end
     end
 
     def transfer_error(deltas)
-      @neurons.each_with_index.inject(NMatrix.zeros([1, num_inputs])) do |acc, (n, i)|
+      @neurons.each_with_index.inject(Neural::Vector.zeros(num_inputs)) do |acc, (n, i)|
         acc + n.transfer_error(deltas[i])
       end
     end
@@ -53,12 +53,16 @@ module Neural
       @neurons.each_with_index do |n, i|
         n.update_weights!(inputs, deltas[i], rate)
       end
+
+      self
     end
 
     def adjust_weights!(deltas)
       @neurons.each_with_index do |n, i|
         n.adjust_weights!(*deltas[i])
       end
+
+      self
     end
 
     def weight_deltas(inputs, deltas, rate)
@@ -69,7 +73,7 @@ module Neural
     end
 
     def output
-      @neurons.each_with_index.inject(NMatrix.zeros([1, size])) do |acc, (o, i)|
+      @neurons.each_with_index.inject(Neural::Vector.zeros(size)) do |acc, (o, i)|
         acc[i] = o
         acc
       end
@@ -121,13 +125,26 @@ end
 
 if __FILE__ == $0
   layer = Neural::Layer.new(4, 2, Neural::ActivationFunctions.from_name(ENV.fetch("ACTIVATION", "Logistic")))
-  inputs = [ NMatrix[[ 1.0, 0.0, 0.0, 0.0 ]], NMatrix[[ 0.0, 0.0, 1.0, 0.0 ]], NMatrix[[ 0.0, 1.0, 0.0, 0.0]], NMatrix[[ 0.0, 0.0, 0.0, 1.0 ]] ]
-  targets = [ NMatrix[[ 1.0, 0.0 ]], NMatrix[[ 0.0, 1.0 ]], NMatrix[[ 0.0, 0.0 ]], NMatrix[[ 0.0, 0.0 ]] ]
+  inputs = [ [ 1.0, 0.0, 0.0, 0.0 ],
+             [ 0.0, 0.0, 1.0, 0.0 ],
+             [ 0.0, 1.0, 0.0, 0.0],
+             [ 0.0, 0.0, 0.0, 1.0 ]
+           ].collect do |v|
+    Neural::Vector[v]
+  end
+  targets = [ [ 1.0, 0.0 ],
+              [ 0.0, 1.0 ],
+              [ 0.0, 0.0 ],
+              [ 0.0, 0.0 ]
+            ].collect do |v|
+    Neural::Vector[v]
+  end
 
   inputs.zip(targets).each do |(input, target)|
     ENV.fetch('LOOPS', 100).to_i.times do |i|
       output = layer.forward(input)
-      puts("#{i}\t#{input} -> #{output}")
+      puts("#{i}\t#{input} -> #{target}")
+      puts("\toutput: #{output}")
 
       err = (output - target)
       #err = err * err * 0.5

@@ -1,3 +1,10 @@
+GIT
+  remote: https://github.com/SciRuby/nmatrix.git
+  revision: 68adec0473112871b091efe696078d4b04f02df8
+  specs:
+    nmatrix (0.2.4)
+      packable (~> 1.3, >= 1.3.5)
+
 GEM
   remote: http://rubygems.org/
   specs:
@@ -8,8 +15,6 @@ GEM
     chunky_png (1.3.8)
     diff-lcs (1.3)
     native-package-installer (1.0.4)
-    nmatrix (0.2.3)
-      packable (~> 1.3, >= 1.3.5)
     packable (1.3.9)
       backports
     pkg-config (1.2.7)
@@ -33,7 +38,7 @@ PLATFORMS
 DEPENDENCIES
   cairo
   chunky_png
-  nmatrix
+  nmatrix!
   rspec
 
 BUNDLED WITH

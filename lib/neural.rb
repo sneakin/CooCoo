@@ -1,4 +1,5 @@
 require 'neural/consts'
+require 'neural/math'
 require 'neural/neuron'
 require 'neural/layer'
 require 'neural/network'
