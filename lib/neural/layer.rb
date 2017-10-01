@@ -163,6 +163,6 @@ if __FILE__ == $0
 
   inputs.zip(targets).each do |(input, target)|
     output = layer.forward(input)
-    puts("#{input} -> #{output}")
+    puts("#{input} -> #{output}\t#{target}")
   end
 end

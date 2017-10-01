@@ -28,25 +28,26 @@ module Neural
     end
     
     class Stochastic < Base
-      def train(network, training_data, learning_rate, batch_size, &block)
+      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions.method(:difference), &block)
         batch_size ||= training_data.size
         t = Time.now
         
         training_data.each_slice(batch_size).with_index do |batch, i|
           batch.each do |(expecting, input)|
-            learn(network, input, expecting, learning_rate)
+            learn(network, input, expecting, learning_rate, cost_function)
           end
           
           dt = Time.now - t
-          t = Time.now
           block.call(self, i, dt) if block
+          t = Time.now
         end
       end
 
-      def learn(network, input, expecting, rate)
+      def learn(network, input, expecting, rate, cost_function = CostFunctions.method(:difference))
         network.reset!
         output = network.forward(input)
-        deltas = network.backprop(output, expecting)
+        cost = cost_function.call(network.prep_input(expecting), output.last)
+        deltas = network.backprop(output, cost)
         network.update_weights!(input, output, deltas, rate)
       rescue
         Neural.debug("#{self.class}#learn caught #{$!}", input, expecting)
@@ -55,7 +56,7 @@ module Neural
     end
 
     class Batch < Base
-      def train(network, training_data, learning_rate, batch_size, &block)
+      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions.method(:difference), &block)
         batch_size ||= training_data.size
         t = Time.now
         
@@ -64,7 +65,8 @@ module Neural
           
           deltas = batch.collect do |(expecting, input)|
             output = network.forward(input)
-            new_deltas = network.backprop(output, expecting)
+            cost = cost_function.call(network.prep_input(expecting), output.last)
+            new_deltas = network.backprop(output, cost)
             new_deltas = network.weight_deltas(input, output, new_deltas, learning_rate)
           end
 
@@ -75,8 +77,8 @@ module Neural
           network.adjust_weights!(deltas)
 
           dt = Time.now - t
-          t = Time.now
           block.call(self, i, dt) if block
+          t = Time.now
         end
       end
 

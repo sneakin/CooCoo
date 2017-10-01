@@ -10,6 +10,16 @@ module Neural
       @network.layer(*args)
       self
     end
+
+    def prep_input(input)
+      if input.respond_to?(:collect)
+        input.collect do |i|
+          @network.prep_input(i)
+        end
+      else
+        @network.prep_input(input)
+      end
+    end
     
     def forward(input, flattened = false)
       if input.respond_to?(:collect)
@@ -31,9 +41,11 @@ module Neural
       end
     end
     
-    def backprop(outputs, expecting)
-      outputs.zip(expecting).reverse.collect do |output, target|
-        @network.backprop(output, target)
+    def backprop(outputs, errors)
+      errors = Array.new(outputs.size, errors / outputs.size.to_f) unless errors.kind_of?(Array)
+      
+      outputs.zip(errors).reverse.collect do |output, err|
+        @network.backprop(output, err)
       end.reverse
     end
 
@@ -135,6 +147,12 @@ if __FILE__ == $0
   target_seqs.first[DELAY][0] = 1.0
   target_seqs.last[DELAY][0] = 1.0
 
+  def cost(net, expecting, outputs)
+    outputs.zip(expecting).inject(Neural::Vector.zeros(outputs.last.last.size)) do |acc, (output, target)|
+      acc + Neural::CostFunctions.difference(net.prep_input(target), output.last)
+    end
+  end
+  
   ENV.fetch("LOOPS", 100).to_i.times do |n|
     input_seqs.zip(target_seqs).each do |input_seq, target_seq|
       net.reset!
@@ -150,7 +168,7 @@ if __FILE__ == $0
         end
       end
 
-      all_deltas = net.backprop(outputs, target_seq)
+      all_deltas = net.backprop(outputs, cost(net, target_seq, outputs))
       net.update_weights!(input_seq, outputs, all_deltas, 0.1)
     end
   end
@@ -164,7 +182,6 @@ if __FILE__ == $0
       outputs = net.predict(input_seq)
       outputs.zip(input_seq, target_seq).each_with_index do |(output, input, target), ii|
         input, bingo = mark_random(input)
-        #bingo = input[0] == 1.0
         puts("#{n},#{i},#{ii}\t#{bingo ? '*' : ''}#{input} -> #{target}\t#{output}")
       end
     end

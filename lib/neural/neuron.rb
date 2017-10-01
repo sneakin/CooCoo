@@ -54,10 +54,6 @@ module Neural
       @activation_func.derivative(n)
     end
     
-    def cost(target, output)
-      d = (output - target)
-    end
-    
     def backprop(output, error)
       error * transfer_derivative(output)
     end
@@ -86,6 +82,8 @@ module Neural
 end
 
 if __FILE__ == $0
+  require 'neural/cost_functions'
+  
   n = Neural::Neuron.from_hash({ f: ENV.fetch("ACTIVATION", "Logistic"),
                                  weights: [ 0.5, 0.5 ]
                                })
@@ -96,13 +94,13 @@ if __FILE__ == $0
     inputs.zip(targets).each do |input, target|
       puts("#{i}: #{input} -> #{target}")
       o = n.forward(input)
-      err1 = n.cost(target, o)
+      err1 = Neural::CostFunctions.difference(target, o)
       puts("\tPre: #{input} * #{n.weights} = #{o}\t#{err1}\t#{0.5 * err1 * err1}")
       delta = n.backprop(o, err1)
       puts("\tDelta: #{delta}")
       n.update_weights!(input, delta, 0.3)
       o = n.forward(input)
-      err2 = n.cost(target, o)
+      err2 = Neural::CostFunctions.difference(target, o)
       puts("\tPost: #{input} * #{n.weights} = #{o}\t#{err2}")
       puts("\tChange in Cost: #{err2} - #{err1} = #{err2 - err1}")
       puts("")

@@ -4,6 +4,7 @@ require 'neural/debug'
 require 'neural/math'
 require 'neural/layer'
 require 'neural/enum'
+require 'neural/cost_functions'
 
 module Neural
   class Network
@@ -35,12 +36,16 @@ module Neural
       @layers << l
     end
 
+    def prep_input(input)
+      @activation_function.prep_input(input)
+    end
+    
     def forward(input, flattened = false)
       unless flattened
         input = Neural::Vector[input.to_a.flatten, num_inputs]
       end
 
-      output = @activation_function.prep_input(input)
+      output = prep_input(input)
       outputs = @layers.each_with_index.inject([]) do |acc, (layer, i)|
         #debug("Layer: #{i} #{layer.num_inputs} #{layer.size}")
         #debug("Input: #{input}")
@@ -57,15 +62,7 @@ module Neural
       @activation_function.process_output(forward(input, flattened).last)
     end
 
-    def cost(outputs, target)
-      outputs - target
-    end
-
-    def backprop(outputs, expecting)
-      expecting = @activation_function.prep_input(Neural::Vector[expecting.to_a.flatten, num_outputs])
-      errors = cost(outputs.last,
-                    @activation_function.prep_input(expecting))
-      
+    def backprop(outputs, errors)
       @layers.reverse_each.each_with_index.inject([]) do |acc, (layer, i)|
         deltas = layer.backprop(outputs[@layers.size - i - 1], errors)
         errors = layer.transfer_error(deltas)
@@ -100,7 +97,7 @@ module Neural
         inputs = if i != 0
                    outputs[i - 1] #[i - 1]
                  else
-                   @activation_function.prep_input(input)
+                   prep_input(input)
                  end
         #Neural.debug("Network#update_weights", i, deltas[i], deltas[i].size)
         layer.weight_deltas(inputs, deltas[i], rate)
@@ -115,29 +112,10 @@ module Neural
       self
     end
     
-    def train(training_data, learning_rate, batch_size = nil, &block)
-      batch_size ||= training_data.size
-      t = Time.now
-     
-      training_data.each_slice(batch_size).with_index do |batch, i|
-        #puts("Batch #{i}")
-
-        batch.each do |(expecting, input)|
-          learn(input, expecting, learning_rate)
-        end
-        
-        dt = Time.now - t
-        t = Time.now
-        block.call(self, i, dt) if block
-
-        #puts("\tTook #{dt} sec")
-        $stdout.flush
-      end
-    end
-
-    def learn(input, expecting, rate)
+    def learn(input, expecting, rate, cost_function = CostFunctions.method(:difference))
       output = forward(input)
-      deltas = backprop(output, expecting)
+      cost = cost_function.call(prep_input(expecting), output.last)
+      deltas = backprop(output, cost)
       update_weights!(input, output, deltas, rate)
       self
     rescue
@@ -231,21 +209,15 @@ if __FILE__ == $0
     Neural::Vector[v]
   end
   
-  # output = net.forward(input)
-  # puts("#{input} ->")
-  # output.each_with_index do |o, i|
-  #   puts("\tLayer #{i}:\t#{o}")
-  # end
-
   ENV.fetch('LOOPS', 100).to_i.times do |i|
-    net.train(targets.zip(inputs), 0.5)
+    targets.zip(inputs).each do |target, input|
+      net.learn(input, target, 0.3)
+    end
   end
 
   inputs.each.zip(targets) do |input, target|
-    #net.learn(input, target, 0.5)
-
     output = net.forward(input)
-    err = (target - output.last)
+    err = (net.prep_input(target) - output.last)
     puts("#{input} -> #{target}\t#{err}")
     output.each_with_index do |o, i|
       puts("\tLayer #{i}:\t#{o}")
