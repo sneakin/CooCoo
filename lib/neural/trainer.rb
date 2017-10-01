@@ -44,6 +44,7 @@ module Neural
       end
 
       def learn(network, input, expecting, rate)
+        network.reset!
         output = network.forward(input)
         deltas = network.backprop(output, expecting)
         network.update_weights!(input, output, deltas, rate)
@@ -59,6 +60,8 @@ module Neural
         t = Time.now
         
         training_data.each_slice(batch_size).with_index do |batch, i|
+          network.reset!
+          
           deltas = batch.collect do |(expecting, input)|
             output = network.forward(input)
             new_deltas = network.backprop(output, expecting)

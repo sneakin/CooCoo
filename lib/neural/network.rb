@@ -106,6 +106,14 @@ module Neural
         layer.weight_deltas(inputs, deltas[i], rate)
       end
     end
+
+    def reset!
+      @layers.each do |layer|
+        layer.reset!
+      end
+
+      self
+    end
     
     def train(training_data, learning_rate, batch_size = nil, &block)
       batch_size ||= training_data.size

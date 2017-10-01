@@ -79,6 +79,10 @@ module Neural
       end
     end
 
+    def reset!
+      self
+    end
+
     def to_hash
       { outputs: @neurons.size, neurons: @neurons.collect(&:to_hash) }
     end
