@@ -1,4 +1,5 @@
 require 'singleton'
+require 'parallel'
 require 'neural/consts'
 require 'neural/debug'
 
@@ -56,14 +57,14 @@ module Neural
     end
 
     class Batch < Base
-      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions.method(:difference), &block)
+      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions.method(:difference), processes = Parallel.processor_count * 2, &block)
         batch_size ||= training_data.size
         t = Time.now
         
         training_data.each_slice(batch_size).with_index do |batch, i|
           network.reset!
           
-          deltas = batch.collect do |(expecting, input)|
+          deltas = Parallel.map(batch, in_processes: processes) do |(expecting, input)|
             output = network.forward(input)
             cost = cost_function.call(network.prep_input(expecting), output.last)
             new_deltas = network.backprop(output, cost)
