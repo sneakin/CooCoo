@@ -174,15 +174,18 @@ if options.epochs
   puts("Training for #{options.epochs} epochs")
   now = Time.now
   trainer = Neural::Trainer.from_name(options.trainer)
+  bar = Neural::ProgressBar.create(:total => options.epochs.to_i)
   (options.epochs * 2.0 / 3.0).to_i.times do |epoch|
     trainer.train(model, training_data.each_example, 0.3, options.batch_size)
+    bar.increment
   end
-  puts("\tElapsed #{(Time.now - now) / 60.0} min")
+  puts("\n\tElapsed #{(Time.now - now) / 60.0} min")
   puts("Decreasing learning rate")
   (options.epochs * 1.0 / 3.0).to_i.times do |epoch|
     trainer.train(model, training_data.each_example, 0.1, options.batch_size)
+    bar.increment rescue Neural.debug("#{epoch} #{bar.inspect}")
   end
-  puts("\tElapsed #{(Time.now - now) / 60.0} min")
+  puts("\n\tElapsed #{(Time.now - now) / 60.0} min")
   puts("Trained!")
 
   if options.model_path

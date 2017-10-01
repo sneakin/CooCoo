@@ -31,6 +31,7 @@ GEM
       diff-lcs (>= 1.2.0, < 2.0)
       rspec-support (~> 3.6.0)
     rspec-support (3.6.0)
+    ruby-progressbar (1.9.0)
 
 PLATFORMS
   ruby
@@ -40,6 +41,7 @@ DEPENDENCIES
   chunky_png
   nmatrix!
   rspec
+  ruby-progressbar
 
 BUNDLED WITH
    1.14.6
