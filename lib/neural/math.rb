@@ -1,8 +1,12 @@
 module Neural
   module Ruby
     class Vector
-      def initialize(length, initial_value = 0.0)
-        @elements = Array.new(length, initial_value)
+      def initialize(length, initial_value = 0.0, &block)
+        if block_given? # eat ruby's warning
+          @elements = Array.new(length, &block)
+        else
+          @elements = Array.new(length, initial_value)
+        end
       end
 
       def self.rand(length, range = nil)
@@ -15,14 +19,9 @@ module Neural
       end
 
       def self.[](value, max_size = nil, default_value = 0.0)
-        max_size ||= value.size
-        v = new(max_size, default_value)
-
-        max_size.times do |i|
-          v[i] = value[i] || default_value
+        v = new(max_size || value.size, default_value) do |i|
+          value[i] || default_value
         end
-        
-        v
       end
 
       def self.zeros(length)

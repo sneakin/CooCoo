@@ -31,6 +31,11 @@ module Neural
         internal_layer.neurons
       end
 
+      def reset!
+        internal_layer.reset!
+        self
+      end
+
       def forward(input)
         Neural::Vector[each_area do |grid_x, grid_y|
                          @layer.forward(slice_input(input, grid_x, grid_y)).to_a

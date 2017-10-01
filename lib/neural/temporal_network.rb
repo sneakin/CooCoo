@@ -12,27 +12,27 @@ module Neural
     end
 
     def prep_input(input)
-      if input.respond_to?(:collect)
-        input.collect do |i|
+      if input.kind_of?(Enumerable)
+        Neural::Sequence[input.collect do |i|
           @network.prep_input(i)
-        end
+        end]
       else
         @network.prep_input(input)
       end
     end
     
     def forward(input, flattened = false)
-      if input.respond_to?(:collect)
-        input.collect do |i|
+      if input.kind_of?(Enumerable)
+        Neural::Sequence[input.collect do |i|
           @network.forward(i, flattened)
-        end
+        end]
       else
         @network.forward(input, flattened)
       end
     end
 
     def predict(input, flattened = false)
-      if input.respond_to?(:collect)
+      if input.kind_of?(Enumerable)
         input.collect do |i|
           @network.predict(i, flattened)
         end
