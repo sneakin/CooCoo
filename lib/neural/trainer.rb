@@ -69,7 +69,7 @@ module Neural
           end
 
           deltas = deltas.inject([]) do |acc, delta|
-            accumulate_deltas(acc, delta)
+            accumulate_deltas(acc, delta, 1.0 / deltas.size.to_f)
           end
           
           network.adjust_weights!(deltas)
@@ -80,7 +80,7 @@ module Neural
         end
       end
 
-      def accumulate_deltas(init, new)
+      def accumulate_deltas(init, new, weight)
         new.each_with_index.collect do |layer, li|
           #Neural.debug("acc deltas layer #{li} #{layer.inspect}")
           layer.each_with_index.collect do |neuron, ni|
@@ -88,9 +88,9 @@ module Neural
             if init && init[li] && init[li][ni]
               b = init[li][ni][0]
               w = init[li][ni][1]
-              [ neuron[0] + b, neuron[1] + w ]
+              [ neuron[0] * weight + b, neuron[1] * weight + w ]
             else
-              neuron
+              [ neuron[0] * weight, neuron[1] * weight ]
             end
           end
         end
