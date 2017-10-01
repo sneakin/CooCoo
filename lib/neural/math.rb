@@ -29,6 +29,10 @@ module Neural
         new(length, 0.0)
       end
 
+      def self.ones(length)
+        new(length, 1.0)
+      end
+
       def coerce(other)
         if other.respond_to?(:each)
           return self.class[other], self
@@ -52,7 +56,7 @@ module Neural
       def [](i, len = nil)
         v = @elements[i, len || 1]
         if len
-          v
+          self.class[v]
         else
           v[0]
         end
@@ -184,6 +188,10 @@ module Neural
 
       def self.zeros(length)
         self[::NMatrix.zeros([1, length])]
+      end
+
+      def self.ones(length)
+        self[::NMatrix.ones([1, length])]
       end
 
       def to_a
