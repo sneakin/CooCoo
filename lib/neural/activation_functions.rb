@@ -57,14 +57,6 @@ module Neural
         x * (1.0 - x)
         #Math.exp(x) / ((Math.exp(x) + 1) ** 2)
       end
-
-      def prep_input(arr)
-        arr
-      end
-
-      def process_output(arr)
-        arr
-      end
     end
 
     class TanH < Identity
