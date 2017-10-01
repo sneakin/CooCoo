@@ -18,6 +18,10 @@ module Neural
       def internal_layer
         @layer
       end
+
+      def activation_function
+        internal_layer.activation_function
+      end
       
       def num_inputs
         @horizontal_span * @input_width * @vertical_span * @input_height

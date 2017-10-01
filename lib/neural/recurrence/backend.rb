@@ -18,6 +18,10 @@ module Neural
         @recurrent_size
       end
 
+      def activation_function
+        nil
+      end
+
       def reset!
         @buffer = Array.new
         self

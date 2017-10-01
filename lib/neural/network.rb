@@ -10,10 +10,9 @@ module Neural
   class Network
     attr_reader :age, :activation_function
     
-    def initialize(activation_function = Neural.default_activation)
+    def initialize
       @layers = Array.new
       @age = 0
-      @activation_function = activation_function
     end
 
     def num_inputs
@@ -36,8 +35,13 @@ module Neural
       @layers << l
     end
 
+    def activation_function
+      @activation_function ||= @layers.find { |l| l.activation_function }
+      @activation_function.activation_function
+    end
+    
     def prep_input(input)
-      @activation_function.prep_input(input)
+      activation_function.prep_input(input)
     end
     
     def forward(input, flattened = false)
@@ -59,7 +63,7 @@ module Neural
     end
 
     def predict(input, flattened = false)
-      @activation_function.process_output(forward(input, flattened).last)
+      activation_function.process_output(forward(input, flattened).last)
     end
 
     def backprop(outputs, errors)
@@ -164,14 +168,12 @@ module Neural
 
       @layers = ls
       @age = h[:age]
-      @activation_function = Neural::ActivationFunctions.from_name(h.fetch(:activation_function, Neural.default_activation.name))
 
       self
     end
 
     def to_hash
       { age: @age,
-        activation_function: @activation_function.name,
         layers: @layers.collect { |l| l.to_hash }
       }
     end

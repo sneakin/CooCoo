@@ -2,8 +2,8 @@ require 'neural/network'
 
 module Neural
   class TemporalNetwork
-    def initialize(activation_function = Neural.default_activation, network = nil)
-      @network = network || Neural::Network.new(activation_function)
+    def initialize(network = nil)
+      @network = network || Neural::Network.new
     end
 
     def layer(*args)
@@ -13,9 +13,9 @@ module Neural
 
     def prep_input(input)
       if input.kind_of?(Enumerable)
-        Neural::Sequence[input.collect do |i|
+        input.collect do |i|
           @network.prep_input(i)
-        end]
+        end
       else
         @network.prep_input(input)
       end
@@ -23,9 +23,9 @@ module Neural
     
     def forward(input, flattened = false)
       if input.kind_of?(Enumerable)
-        Neural::Sequence[input.collect do |i|
+        input.collect do |i|
           @network.forward(i, flattened)
-        end]
+        end
       else
         @network.forward(input, flattened)
       end
@@ -41,8 +41,16 @@ module Neural
       end
     end
     
+    def learn(input, expecting, rate, cost_function = CostFunctions.method(:difference))
+      expecting.zip(input).each do |target, input|
+        @network.learn(input, target, rate, cost_function)
+      end
+
+      self
+    end
+
     def backprop(outputs, errors)
-      errors = Array.new(outputs.size, errors / outputs.size.to_f) unless errors.kind_of?(Array)
+      errors = Sequence.new(outputs.size) { errors / outputs.size.to_f } unless errors.kind_of?(Sequence)
       
       outputs.zip(errors).reverse.collect do |output, err|
         @network.backprop(output, err)
@@ -118,7 +126,7 @@ if __FILE__ == $0
 
   activation_function = Neural::ActivationFunctions.from_name(ENV.fetch('ACTIVATION', 'Logistic'))
   
-  net = Neural::TemporalNetwork.new(activation_function)
+  net = Neural::TemporalNetwork.new
   rec = Neural::Recurrence::Frontend.new(INPUT_LENGTH, RECURRENT_LENGTH)
   net.layer(rec)
   if SINGLE_LAYER

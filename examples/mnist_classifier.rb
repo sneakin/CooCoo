@@ -102,7 +102,7 @@ data_r = MNist::DataStream::Rotator.new(data, options.rotations, max_rad, false)
 data_t = MNist::DataStream::Translator.new(data_r, options.num_translations, options.translate_dx, options.translate_dy, false)
 training_set = MNist::TrainingSet.new(data_t).each
 
-net = Neural::Network.new(options.activation_function)
+net = Neural::Network.new
 
 if options.model_path && File.exists?(options.model_path)
   puts("Loading #{options.model_path}")

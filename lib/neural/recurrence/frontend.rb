@@ -23,6 +23,10 @@ module Neural
         @num_inputs
       end
 
+      def activation_function
+        nil
+      end
+
       def size
         @num_inputs + recurrent_size
       end

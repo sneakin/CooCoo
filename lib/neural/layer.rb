@@ -5,7 +5,10 @@ require 'neural/neuron'
 
 module Neural
   class Layer
+    attr_accessor :activation_function
+    
     def initialize(num_inputs, size, activation_function = Neural.default_activation)
+      @activation_function = activation_function
       @neurons = Array.new
       size.times do |i|
         @neurons[i] = Neuron.new(num_inputs, activation_function)
