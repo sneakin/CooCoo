@@ -7,7 +7,6 @@ module Neural
         @recurrence_layer = recurrence_layer
         @outputs = outputs
         @recurrent_size = recurrent_outputs
-        reset!
       end
 
       def size
@@ -22,25 +21,22 @@ module Neural
         nil
       end
 
-      def reset!
-        @buffer = Array.new
-        self
-      end
-      
-      def pop_buffer
-        @buffer.pop
-      end
-      
-      def forward(inputs)
-        @buffer.push(inputs[size, recurrent_size])
-        inputs[0, size]
+      def forward(inputs, hidden_state)
+        hidden_state ||= Hash.new
+        hidden_state[self] ||= Array.new
+        hidden_state[self].push(inputs[size, recurrent_size])
+
+        return inputs[0, size], hidden_state
       end
 
-      def backprop(output, errors)
-        rec_outputs, rec_errors = *@recurrence_layer.pop_buffer
+      def backprop(output, errors, hidden_state)
+        layer_state = hidden_state[@recurrence_layer]
+        rec_outputs, rec_errors = *(layer_state && layer_state.pop)
+
         rec_outputs ||= Neural::Vector.ones(recurrent_size)
         rec_errors ||= Neural::Vector.ones(recurrent_size)
-        errors.append(rec_errors)
+        
+        return errors.append(rec_errors), hidden_state
       end
 
       def transfer_error(deltas)

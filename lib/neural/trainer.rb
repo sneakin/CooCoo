@@ -32,10 +32,11 @@ module Neural
       def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions.method(:difference), &block)
         batch_size ||= training_data.size
         t = Time.now
+        hidden_state = Hash.new
         
         training_data.each_slice(batch_size).with_index do |batch, i|
           batch.each do |(expecting, input)|
-            learn(network, input, expecting, learning_rate, cost_function)
+            hidden_state = learn(network, input, expecting, learning_rate, cost_function, hidden_state)
           end
           
           dt = Time.now - t
@@ -44,12 +45,12 @@ module Neural
         end
       end
 
-      def learn(network, input, expecting, rate, cost_function = CostFunctions.method(:difference))
-        network.reset!
-        output = network.forward(input)
-        cost = cost_function.call(network.prep_input(expecting), output.last)
-        deltas = network.backprop(output, cost)
+      def learn(network, input, expecting, rate, cost_function = CostFunctions.method(:difference), hidden_state)
+        output, hidden_state = network.forward(input, hidden_state)
+        errors = cost_function.call(network.prep_input(expecting), output.last)
+        deltas, hidden_state = network.backprop(output, errors, hidden_state)
         network.update_weights!(input, output, deltas, rate)
+        hidden_state
       rescue
         Neural.debug("#{self.class}#learn caught #{$!}", input, expecting)
         raise
@@ -57,25 +58,21 @@ module Neural
     end
 
     class Batch < Base
-      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions.method(:difference), processes = Parallel.processor_count * 2, &block)
+      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions.method(:difference), processes = Parallel.processor_count, &block)
         batch_size ||= training_data.size
         t = Time.now
         
         training_data.each_slice(batch_size).with_index do |batch, i|
-          network.reset!
+          hidden_state = Hash.new
           
           deltas = Parallel.map(batch, in_processes: processes) do |(expecting, input)|
-            output = network.forward(input)
-            cost = cost_function.call(network.prep_input(expecting), output.last)
-            new_deltas = network.backprop(output, cost)
+            output, hidden_state = network.forward(input, hidden_state)
+            errors = cost_function.call(network.prep_input(expecting), network.final_output(output))
+            new_deltas, hidden_state = network.backprop(output, errors, hidden_state)
             new_deltas = network.weight_deltas(input, output, new_deltas, learning_rate)
           end
 
-          deltas = deltas.inject([]) do |acc, delta|
-            accumulate_deltas(acc, delta, 1.0 / deltas.size.to_f)
-          end
-          
-          network.adjust_weights!(deltas)
+          network.adjust_weights!(accumulate_deltas(deltas))
 
           dt = Time.now - t
           block.call(self, i, dt) if block
@@ -83,7 +80,13 @@ module Neural
         end
       end
 
-      def accumulate_deltas(init, new, weight)
+      def accumulate_deltas(deltas)
+        deltas.inject([]) do |acc, delta|
+          accumulate_deltas_inner(acc, delta, 1.0 / deltas.size.to_f)
+        end
+      end
+      
+      def accumulate_deltas_inner(init, new, weight)
         new.each_with_index.collect do |layer, li|
           #Neural.debug("acc deltas layer #{li} #{layer.inspect}")
           layer.each_with_index.collect do |neuron, ni|

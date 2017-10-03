@@ -199,7 +199,7 @@ puts("Predicting:")
 puts("Seed values\t\t\t\t\tExpecting\tPrediction\tOutputs")
 
 def try_seed(model, td, seed)
-  output = model.predict(td.normalize_seed(seed))
+  output, hidden_state = model.predict(td.normalize_seed(seed))
   type = 1 + output.each_with_index.max[1]
   puts("#{seed.values}\t#{seed.type}\t#{type}\t#{output}")
   return(seed.type == type ? 0.0 : 1.0)

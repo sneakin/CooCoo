@@ -35,21 +35,18 @@ module Neural
         internal_layer.neurons
       end
 
-      def reset!
-        internal_layer.reset!
-        self
+      def forward(input, hidden_state)
+        return Neural::Vector[each_area do |grid_x, grid_y|
+                                output, hidden_state = @layer.forward(slice_input(input, grid_x, grid_y), hidden_state)
+                                output.to_a
+                              end.flatten, size], hidden_state
       end
 
-      def forward(input)
-        Neural::Vector[each_area do |grid_x, grid_y|
-                         @layer.forward(slice_input(input, grid_x, grid_y)).to_a
-                       end.flatten, size]
-      end
-
-      def backprop(output, errors)
-        Neural::Vector[each_area do |grid_x, grid_y|
-                         @layer.backprop(slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y)).to_a
-                       end.flatten, size]
+      def backprop(output, errors, hidden_state)
+        return Neural::Vector[each_area do |grid_x, grid_y|
+                                d, hidden_state = @layer.backprop(slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y), hidden_state)
+                                d.to_a
+                       end.flatten, size], hidden_state
       end
 
       def transfer_error(deltas)

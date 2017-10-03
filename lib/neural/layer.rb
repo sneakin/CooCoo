@@ -27,18 +27,22 @@ module Neural
       @neurons.size
     end
 
-    def forward(input)
+    def forward(input, hidden_state)
       o = @neurons.each_with_index.inject(Neural::Vector.zeros(size)) do |acc, (neuron, i)|
         acc[i] = neuron.forward(input)
         acc
       end
+
+      return o, hidden_state
     end
 
-    def backprop(output, errors)
+    def backprop(output, errors, hidden_state)
       o = @neurons.each_with_index.inject(Neural::Vector.zeros(size)) do |acc, (n, i)|
         acc[i] = n.backprop(output[i], errors[i])
         acc
       end
+
+      return o, hidden_state
     end
 
     def transfer_error(deltas)
@@ -80,10 +84,6 @@ module Neural
         acc[i] = o
         acc
       end
-    end
-
-    def reset!
-      self
     end
 
     def to_hash
@@ -149,13 +149,13 @@ if __FILE__ == $0
 
   inputs.zip(targets).each do |(input, target)|
     ENV.fetch('LOOPS', 100).to_i.times do |i|
-      output = layer.forward(input)
+      output, hidden_state = layer.forward(input, Hash.new)
       puts("#{i}\t#{input} -> #{target}")
       puts("\toutput: #{output}")
 
       err = (output - target)
       #err = err * err * 0.5
-      delta = layer.backprop(output, err)
+      delta, hidden_state = layer.backprop(output, err, hidden_state)
       puts("\tdelta: #{delta}")
       puts("\terror: #{err}")
       puts("\txfer: #{layer.transfer_error(delta)}")
@@ -165,7 +165,7 @@ if __FILE__ == $0
   end
 
   inputs.zip(targets).each do |(input, target)|
-    output = layer.forward(input)
+    output, hidden_state = layer.forward(input, Hash.new)
     puts("#{input} -> #{output}\t#{target}")
   end
 end

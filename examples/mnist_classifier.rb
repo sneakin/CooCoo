@@ -205,7 +205,7 @@ data_r = MNist::DataStream::Rotator.new(data.each.
 data_t = MNist::DataStream::Translator.new(data_r, 1, options.translate_dx, options.translate_dy, true)
 data_t.
   each_with_index do |example, i|
-  output = net.predict(Neural::Vector[example.pixels, data.width * data.height, 0] / 256.0, true)
+  output, hidden_state = net.predict(Neural::Vector[example.pixels, data.width * data.height, 0] / 256.0, Hash.new, true)
   max_outputs = output.each_with_index.sort.reverse
   max_output = max_outputs.first[1]
   errors[i] = 1.0 if example.label != max_output

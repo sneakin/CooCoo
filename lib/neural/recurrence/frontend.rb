@@ -7,16 +7,6 @@ module Neural
       def initialize(num_inputs, num_recurrent_outputs)
         @num_inputs = num_inputs
         @num_recurrent_outputs = num_recurrent_outputs
-        reset!
-      end
-
-      def reset!
-        @buffer = Array.new
-        self
-      end
-      
-      def pop_buffer
-        @buffer.pop
       end
 
       def num_inputs
@@ -39,11 +29,13 @@ module Neural
         @layer ||= Backend.new(self, passthroughs, recurrent_size)
       end
       
-      def forward(inputs)
-        inputs.append(@layer.pop_buffer || empty_input)
+      def forward(inputs, hidden_state)
+        layer_state = hidden_state[@layer]
+        recurrent_input = layer_state && layer_state.pop
+        return inputs.append(recurrent_input || empty_input), hidden_state
       end
 
-      def backprop(outputs, errors)
+      def backprop(outputs, errors, hidden_state)
         # split for real output and recurrent output
         norm_outputs = outputs[0, num_inputs]
         norm_errors = errors[0, num_inputs]
@@ -51,9 +43,12 @@ module Neural
         recurrent_errors = errors[num_inputs, recurrent_size]
 
         # buffer the recurrent output
-        @buffer.push([ recurrent_outputs, recurrent_errors ])
+        hidden_state ||= Hash.new
+        hidden_state[self] ||= Array.new
+        hidden_state[self].push([ recurrent_outputs, recurrent_errors ])
+
         # return real errors
-        norm_errors
+        return norm_errors, hidden_state
       end
 
       def transfer_error(deltas)

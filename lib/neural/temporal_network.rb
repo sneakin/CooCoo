@@ -11,50 +11,67 @@ module Neural
       self
     end
 
+    def layers
+      @network.layers
+    end
+
     def prep_input(input)
       if input.kind_of?(Enumerable)
-        input.collect do |i|
+        Neural::Sequence[input.collect do |i|
           @network.prep_input(i)
-        end
+        end]
       else
         @network.prep_input(input)
       end
     end
+
+    def final_output(outputs)
+      Neural::Sequence[outputs.collect { |o| @network.final_output(o) }]
+    end
     
-    def forward(input, flattened = false)
+    def forward(input, hidden_state = nil, flattened = false)
       if input.kind_of?(Enumerable)
-        input.collect do |i|
-          @network.forward(i, flattened)
+        o = input.collect do |i|
+          output, hidden_state = @network.forward(i, hidden_state, flattened)
+          output
         end
+
+        return Neural::Sequence[o], hidden_state
       else
-        @network.forward(input, flattened)
+        @network.forward(input, hidden_state, flattened)
       end
     end
 
-    def predict(input, flattened = false)
+    def predict(input, hidden_state = nil, flattened = false)
       if input.kind_of?(Enumerable)
-        input.collect do |i|
-          @network.predict(i, flattened)
+        o = input.collect do |i|
+          outputs, hidden_state = @network.predict(i, hidden_state, flattened)
+          outputs
         end
+
+        return o, hidden_state
       else
-        @network.predict(input, flattened)
+        @network.predict(input, hidden_state, flattened)
       end
     end
     
-    def learn(input, expecting, rate, cost_function = CostFunctions.method(:difference))
+    def learn(input, expecting, rate, cost_function = CostFunctions.method(:difference), hidden_state = nil)
       expecting.zip(input).each do |target, input|
-        @network.learn(input, target, rate, cost_function)
+        n, hidden_state = @network.learn(input, target, rate, cost_function, hidden_state)
       end
 
-      self
+      return self, hidden_state
     end
 
-    def backprop(outputs, errors)
+    def backprop(outputs, errors, hidden_state = nil)
       errors = Sequence.new(outputs.size) { errors / outputs.size.to_f } unless errors.kind_of?(Sequence)
       
-      outputs.zip(errors).reverse.collect do |output, err|
-        @network.backprop(output, err)
+      o = outputs.zip(errors).reverse.collect do |output, err|
+        output, hidden_state = @network.backprop(output, err, hidden_state)
+        output
       end.reverse
+
+      return o, hidden_state
     end
 
     def weight_deltas(inputs, outputs, deltas, learning_rate)
@@ -71,11 +88,6 @@ module Neural
     
     def update_weights!(inputs, outputs, deltas, rate)
       adjust_weights!(weight_deltas(inputs, outputs, deltas, rate))
-    end
-
-    def reset!
-      @network.reset!
-      self
     end
 
     private
@@ -163,20 +175,19 @@ if __FILE__ == $0
   
   ENV.fetch("LOOPS", 100).to_i.times do |n|
     input_seqs.zip(target_seqs).each do |input_seq, target_seq|
-      net.reset!
-
       fuzz = Random.rand(input_seq.length)
       input_seq = input_seq.rotate(fuzz)
       target_seq = target_seq.rotate(fuzz)
 
-      outputs = net.forward(input_seq)
+      outputs, hidden_state = net.forward(input_seq, Hash.new)
+
       if n % 100 == 0
         input_seq.zip(outputs, target_seq).each do |input, output, target|
           puts("#{n}\t#{input} -> #{target}\n\t#{output.join("\n\t")}")
         end
       end
 
-      all_deltas = net.backprop(outputs, cost(net, target_seq, outputs))
+      all_deltas, hidden_state = net.backprop(outputs, cost(net, target_seq, outputs), hidden_state)
       net.update_weights!(input_seq, outputs, all_deltas, 0.1)
     end
   end
@@ -185,21 +196,25 @@ if __FILE__ == $0
 
   2.times do |n|
     input_seqs.zip(target_seqs).each_with_index do |(input_seq, target_seq), i|
-      net.reset!
-
-      outputs = net.predict(input_seq)
-      outputs.zip(input_seq, target_seq).each_with_index do |(output, input, target), ii|
+      input_seq = input_seq.collect do |input|
         input, bingo = mark_random(input)
+        input
+      end
+
+      outputs, hidden_state = net.predict(input_seq, Hash.new)
+
+      outputs.zip(input_seq, target_seq).each_with_index do |(output, input, target), ii|
+        bingo = input[0] == 1.0
         puts("#{n},#{i},#{ii}\t#{bingo ? '*' : ''}#{input} -> #{target}\t#{output}")
       end
     end
   end
 
-  net.reset!
+  hidden_state = nil
   input = Neural::Vector.zeros(INPUT_LENGTH)
   input[0] = 1.0
   outputs = (SEQUENCE_LENGTH * 2).times.collect do |n|
-    output = net.predict(input)
+    output, hidden_state = net.predict(input, hidden_state)
     puts("#{n}\t#{input}\t#{output}")
     input[0] = 0.0
 

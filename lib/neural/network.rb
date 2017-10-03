@@ -43,35 +43,47 @@ module Neural
     def prep_input(input)
       activation_function.prep_input(input)
     end
+
+    def final_output(outputs)
+      outputs.last
+    end
     
-    def forward(input, flattened = false)
+    def forward(input, hidden_state = nil, flattened = false)
       unless flattened
         input = Neural::Vector[input.to_a.flatten, num_inputs]
       end
 
+      hidden_state ||= Hash.new
+
       output = prep_input(input)
+      
       outputs = @layers.each_with_index.inject([]) do |acc, (layer, i)|
         #debug("Layer: #{i} #{layer.num_inputs} #{layer.size}")
         #debug("Input: #{input}")
         #debug("Weights: #{layer.neurons[0].weights}")
-        output = layer.forward(output)
+        output, hidden_state = layer.forward(output, hidden_state)
         acc << output
         #debug("Output: #{input}")
       end
 
-      outputs
+      return outputs, hidden_state
     end
 
-    def predict(input, flattened = false)
-      activation_function.process_output(forward(input, flattened).last)
+    def predict(input, hidden_state = nil, flattened = false)
+      hidden_state ||= Hash.new
+      outputs, hidden_state = forward(input, hidden_state, flattened)
+      return activation_function.process_output(outputs.last), hidden_state
     end
 
-    def backprop(outputs, errors)
-      @layers.reverse_each.each_with_index.inject([]) do |acc, (layer, i)|
-        deltas = layer.backprop(outputs[@layers.size - i - 1], errors)
+    def backprop(outputs, errors, hidden_state = nil)
+      hidden_state ||= Hash.new
+      d = @layers.reverse_each.each_with_index.inject([]) do |acc, (layer, i)|
+        deltas, hidden_state = layer.backprop(outputs[@layers.size - i - 1], errors, hidden_state)
         errors = layer.transfer_error(deltas)
-        [ deltas ] + acc
+        acc.unshift(deltas)
       end
+
+      return d, hidden_state
     end
 
     def transfer_errors(deltas)
@@ -108,20 +120,13 @@ module Neural
       end
     end
 
-    def reset!
-      @layers.each do |layer|
-        layer.reset!
-      end
-
-      self
-    end
-    
-    def learn(input, expecting, rate, cost_function = CostFunctions.method(:difference))
-      output = forward(input)
+    def learn(input, expecting, rate, cost_function = CostFunctions.method(:difference), hidden_state = nil)
+      hidden_state ||= Hash.new
+      output, hidden_state = forward(input, hidden_state)
       cost = cost_function.call(prep_input(expecting), output.last)
-      deltas = backprop(output, cost)
+      deltas, hidden_state = backprop(output, cost, hidden_state)
       update_weights!(input, output, deltas, rate)
-      self
+      return self, hidden_state
     rescue
       Neural.debug("Network#learn caught #{$!}", input, expecting)
       raise
@@ -218,7 +223,7 @@ if __FILE__ == $0
   end
 
   inputs.each.zip(targets) do |input, target|
-    output = net.forward(input)
+    output, hidden_state = net.forward(input)
     err = (net.prep_input(target) - output.last)
     puts("#{input} -> #{target}\t#{err}")
     output.each_with_index do |o, i|
