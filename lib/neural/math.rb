@@ -104,9 +104,13 @@ module Neural
         self.class[v]
       end
 
+      def -@
+        self * -1.0
+      end
+      
       def -(other)
         v = if other.respond_to?(:each)
-              raise ArgumentError.new("Size mismatch") if size != other.size
+              raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
               other.each.zip(each).collect do |oe, se|
             se - oe
           end
