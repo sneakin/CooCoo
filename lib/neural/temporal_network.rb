@@ -90,6 +90,20 @@ module Neural
       adjust_weights!(weight_deltas(inputs, outputs, deltas, rate))
     end
 
+    def to_hash
+      @network.to_hash.merge({ type: self.class.name })
+    end
+
+    def update_from_hash!(h)
+      @network.update_from_hash!(h)
+      self
+    end
+
+    def self.from_hash(h)
+      net = Neural::Network.from_hash(h)
+      self.new(net)
+    end
+
     private
     def accumulate_inner(init, new, weight)
       new.each_with_index.collect do |layer, li|
@@ -116,6 +130,7 @@ end
 
 if __FILE__ == $0
   require 'neural'
+  require 'pp'
 
   def mark_random(v)
     bingo = rand < 0.1
@@ -233,4 +248,7 @@ if __FILE__ == $0
   if max_i < outputs.length - 1
     puts("Max output index + 1 is <MAX = #{outputs[max_i+1] < max}")
   end
+
+  puts
+  pp(net.to_hash)
 end

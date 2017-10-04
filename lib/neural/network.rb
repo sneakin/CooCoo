@@ -30,9 +30,13 @@ module Neural
     def layers
       @layers
     end
+
+    def layer_index(layer)
+      @layers.find_index { |l| l == layer }
+    end
     
-    def layer(l)
-      @layers << l
+    def layer(new_layer)
+      @layers << new_layer
     end
 
     def activation_function
@@ -168,7 +172,7 @@ module Neural
 
     def update_from_hash!(h)
       ls = h[:layers].collect do |layer_hash|
-        Neural::Layer.from_hash(layer_hash)
+        Neural::Layer.from_hash(layer_hash, self)
       end
 
       @layers = ls
@@ -179,13 +183,17 @@ module Neural
 
     def to_hash
       { age: @age,
-        layers: @layers.collect { |l| l.to_hash }
+        layers: @layers.collect { |l| l.to_hash(self) }
       }
     end
 
     class << self
       def from_a(layers)
         self.new().update_from_a!(layers)
+      end
+
+      def from_hash(h)
+        self.new.update_from_hash!(h)
       end
 
       def load(path)

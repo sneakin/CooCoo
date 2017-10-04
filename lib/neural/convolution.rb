@@ -3,6 +3,8 @@ require 'neural/layer'
 module Neural
   module Convolution
     class BoxLayer
+      Layer.register_type(self)
+
       def initialize(horizontal_span, vertical_span, internal_layer, input_width, input_height, output_width, output_height)
         @layer = internal_layer
         @horizontal_span = horizontal_span
@@ -77,7 +79,7 @@ module Neural
         end.flatten(2)
       end
 
-      def to_hash
+      def to_hash(network = nil)
         { type: self.class.to_s,
           horizontal_span: @horizontal_span,
           vertical_span: @vertical_span,
@@ -89,7 +91,7 @@ module Neural
         }
       end
 
-      def self.from_hash(h)
+      def self.from_hash(h, network = nil)
         self.new(h.fetch(:horizontal_span), h.fetch(:vertical_span),
                  Layer.from_hash(h.fetch(:internal_layer)),
                  h.fetch(:input_width), h.fetch(:input_height),

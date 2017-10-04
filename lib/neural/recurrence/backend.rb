@@ -3,6 +3,8 @@ require 'neural/math'
 module Neural
   module Recurrence
     class Backend
+      Layer.register_type(self)
+      
       def initialize(recurrence_layer, outputs, recurrent_outputs)
         @recurrence_layer = recurrence_layer
         @outputs = outputs
@@ -56,10 +58,25 @@ module Neural
         [ change, inputs * change ]
       end
 
-      def to_hash
-        { outputs: @num_outputs,
-          recurrent_size: @recurrent_size
+      def to_hash(network = nil)
+        { type: self.class.name,
+          outputs: @outputs,
+          recurrent_size: @recurrent_size,
+          recurrence_layer: network && network.layer_index(@recurrence_layer)
         }
+      end
+
+      def update_from_hash!(h)
+        @outputs = h.fetch(:outputs)
+        @recurrent_size = h.fetch(:recurrent_size)
+        self
+      end
+
+      def self.from_hash(h, network = nil)
+        self.new(network.layers[h.fetch(:recurrence_layer)],
+                 h.fetch(:outputs),
+                 h.fetch(:recurrent_size)).
+          update_from_hash!(h)
       end
     end
   end

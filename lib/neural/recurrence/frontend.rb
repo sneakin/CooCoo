@@ -4,6 +4,8 @@ require 'neural/recurrence/backend'
 module Neural
   module Recurrence
     class Frontend
+      Layer.register_type(self)
+
       def initialize(num_inputs, num_recurrent_outputs)
         @num_inputs = num_inputs
         @num_recurrent_outputs = num_recurrent_outputs
@@ -28,7 +30,7 @@ module Neural
       def backend(passthroughs)
         @layer ||= Backend.new(self, passthroughs, recurrent_size)
       end
-      
+
       def forward(inputs, hidden_state)
         layer_state = hidden_state[@layer]
         recurrent_input = layer_state && layer_state.pop
@@ -64,6 +66,24 @@ module Neural
         self
       end
       
+      def to_hash(network = nil)
+        { type: self.class.name,
+          inputs: @num_inputs,
+          recurrent_outputs: @num_recurrent_outputs
+        }
+      end
+
+      def update_from_hash!(h)
+        @num_inputs = h.fetch(:inputs)
+        @num_recurrent_outputs = h.fetch(:recurrent_outputs)
+
+        self
+      end
+
+      def self.from_hash(h, network = nil)
+        self.new(h.fetch(:inputs), h.fetch(:recurrent_outputs)).update_from_hash!(h)
+      end
+
       private
       def empty_input
         Neural::Vector.zeros(recurrent_size)

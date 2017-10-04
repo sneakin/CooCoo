@@ -86,16 +86,10 @@ module Neural
       end
     end
 
-    def to_hash
-      { outputs: @neurons.size, neurons: @neurons.collect(&:to_hash) }
-    end
-
-    def update_neuron_from_hash!(neuron_index, h)
-      if neuron_index > @neurons.size
-        resize!(neuron_index)
-      end
-      
-      @neurons[neuron_index].update_from_hash!(h)
+    def to_hash(network = nil)
+      { outputs: @neurons.size,
+        neurons: @neurons.collect(&:to_hash)
+      }
     end
 
     def resize!(new_size)
@@ -109,6 +103,14 @@ module Neural
       self
     end
 
+    def update_neuron_from_hash!(neuron_index, h)
+      if neuron_index > @neurons.size
+        resize!(neuron_index)
+      end
+      
+      @neurons[neuron_index].update_from_hash!(h)
+    end
+
     def update_from_hash!(h)
       resize!(h[:outputs])
       
@@ -120,10 +122,22 @@ module Neural
     end
     
     class << self
-      def from_hash(h)
-        case h.fetch(:type, nil)
-        when 'Neural::Convolution::BoxLayer' then Neural::Convolution::BoxLayer.from_hash(h)
-        else self.new(h[:neurons].size, h[:outputs]).update_from_hash!(h)
+      def register_type(klass)
+        @types ||= Hash.new
+        @types[klass.name.to_s] = klass
+        @types
+      end
+
+      def find_type(name)
+        @types && @types[name]
+      end
+      
+      def from_hash(h, network = nil)
+        klass = find_type(h[:type])
+        if klass
+          klass.from_hash(h, network)
+        else
+          self.new(h[:neurons].size, h[:outputs]).update_from_hash!(h)
         end
       end
     end

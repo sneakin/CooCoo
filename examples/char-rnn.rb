@@ -60,12 +60,12 @@ def training_enumerator(data)
 end
 
 #NUM_INPUTS = 256
-RECURRENT_SIZE = NUM_INPUTS / 2
+RECURRENT_SIZE = 128
 LEARNING_RATE = 0.3
 ACTIVATION_FUNC = Neural::ActivationFunctions.from_name(ENV.fetch('ACTIVATION', 'Logistic'))
 EPOCHS = ENV.fetch("EPOCHS", 1).to_i
 BATCH_SIZE = 128
-
+OUTPUT_FILE = "char-rnn.neural_model"
 INPUT_DATA = ARGV[0]
 
 if __FILE__ == $0
@@ -73,20 +73,31 @@ if __FILE__ == $0
   data = data.bytes
   training_data = training_enumerator(data)
 
-  net = Neural::TemporalNetwork.new
-  rec = Neural::Recurrence::Frontend.new(NUM_INPUTS, RECURRENT_SIZE)
-  net.layer(rec)
-  net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, ACTIVATION_FUNC))
-  #net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS * 2, ACTIVATION_FUNC))
-  #net.layer(Neural::Layer.new(NUM_INPUTS * 2, NUM_INPUTS + rec.recurrent_size, ACTIVATION_FUNC))
-  net.layer(rec.backend(NUM_INPUTS))
+  if File.exists?(OUTPUT_FILE)
+    net = Neural::TemporalNetwork.from_hash(YAML.load(File.read(OUTPUT_FILE)))
+    #net = Marshal.load(File.read(OUTPUT_FILE))
+  else
+    net = Neural::TemporalNetwork.new
+    rec = Neural::Recurrence::Frontend.new(NUM_INPUTS, RECURRENT_SIZE)
+    net.layer(rec)
+    net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, ACTIVATION_FUNC))
+    #net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS * 2, ACTIVATION_FUNC))
+    #net.layer(Neural::Layer.new(NUM_INPUTS * 2, NUM_INPUTS + rec.recurrent_size, ACTIVATION_FUNC))
+    net.layer(rec.backend(NUM_INPUTS))
+  end
 
-  puts("Training on #{data.size} bytes...")
+  if ENV.fetch("NOTRAIN", nil) != 'yes'
+    puts("Training on #{data.size} bytes...")
 
-  trainer = Neural::Trainer::Batch.instance
-  bar = Neural::ProgressBar.create(:total => (EPOCHS * data.size / BATCH_SIZE.to_f).ceil)
-  trainer.train(net, training_data.cycle(EPOCHS), LEARNING_RATE, BATCH_SIZE) do
-    bar.increment
+    trainer = Neural::Trainer::Batch.instance
+    bar = Neural::ProgressBar.create(:total => (EPOCHS * data.size / BATCH_SIZE.to_f).ceil)
+    trainer.train(net, training_data.cycle(EPOCHS), LEARNING_RATE, BATCH_SIZE) do
+      bar.increment
+      File.open(OUTPUT_FILE, "w") do |f|
+        f.puts(net.to_hash.to_yaml)
+        #f.puts(Marshal.dump(net))
+      end
+    end
   end
 
   # bar = Neural::ProgressBar.create(:total => EPOCHS * data.size)
