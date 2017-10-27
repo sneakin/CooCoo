@@ -1,146 +1,28 @@
 require 'neural/consts'
 require 'neural/math'
 require 'neural/debug'
-require 'neural/neuron'
+require 'neural/cuda'
+require 'neural/layer_factory'
+require 'neural/neuron_layer'
+require 'neural/vector_layer'
 
 module Neural
-  class Layer
-    attr_accessor :activation_function
+  if ENV["NEURAL_USE_VECTOR"] != "0" # && (ENV["NEURAL_USE_CUDA"] != "0" && Neural::CUDA.available?)
+    Layer = Neural::VectorLayer
+  else
+    Layer = Neural::NeuronLayer
+  end
+
+  Neural.debug("Defined Neural::Layer as #{Layer}")
+
+  class << Layer
+    #def find_type(name)
+    #  LayerFactory.find_type(name)
+    # end
     
-    def initialize(num_inputs, size, activation_function = Neural.default_activation)
-      @activation_function = activation_function
-      @neurons = Array.new
-      size.times do |i|
-        @neurons[i] = Neuron.new(num_inputs, activation_function)
-      end
-    end
-
-    def neurons
-      @neurons
-    end
-    
-    def num_inputs
-      @neurons[0].num_inputs
-    end
-
-    def size
-      @neurons.size
-    end
-
-    def forward(input, hidden_state)
-      o = @neurons.each_with_index.inject(Neural::Vector.zeros(size)) do |acc, (neuron, i)|
-        acc[i] = neuron.forward(input)
-        acc
-      end
-
-      return o, hidden_state
-    end
-
-    def backprop(output, errors, hidden_state)
-      o = @neurons.each_with_index.inject(Neural::Vector.zeros(size)) do |acc, (n, i)|
-        acc[i] = n.backprop(output[i], errors[i])
-        acc
-      end
-
-      return o, hidden_state
-    end
-
-    def transfer_error(deltas)
-      @neurons.each_with_index.inject(Neural::Vector.zeros(num_inputs)) do |acc, (n, i)|
-        acc + n.transfer_error(deltas[i])
-      end
-    end
-
-    def transfer_input_error(expecting)
-      (output - expecting).to_a
-    end
-
-    def update_weights!(inputs, deltas, rate)
-      #Neural.debug("Layer#update_weights", inputs, inputs.size, deltas, deltas.size, rate, num_inputs, @neurons.size)
-      @neurons.each_with_index do |n, i|
-        n.update_weights!(inputs, deltas[i], rate)
-      end
-
-      self
-    end
-
-    def adjust_weights!(deltas)
-      @neurons.each_with_index do |n, i|
-        n.adjust_weights!(*deltas[i])
-      end
-
-      self
-    end
-
-    def weight_deltas(inputs, deltas, rate)
-      @neurons.each_with_index.inject(Array.new(size)) do |acc, (n, i)|
-        acc[i] = n.weight_deltas(inputs, deltas[i], rate)
-        acc
-      end
-    end
-
-    def output
-      @neurons.each_with_index.inject(Neural::Vector.zeros(size)) do |acc, (o, i)|
-        acc[i] = o
-        acc
-      end
-    end
-
-    def to_hash(network = nil)
-      { outputs: @neurons.size,
-        neurons: @neurons.collect(&:to_hash)
-      }
-    end
-
-    def resize!(new_size)
-      n = @neurons + Array.new(new_size - @neurons.size)
-      (@neurons.size...new_size).each do |i|
-        n[i] = Neuron.new(num_inputs)
-      end
-
-      @neurons = n
-
-      self
-    end
-
-    def update_neuron_from_hash!(neuron_index, h)
-      if neuron_index > @neurons.size
-        resize!(neuron_index)
-      end
-      
-      @neurons[neuron_index].update_from_hash!(h)
-    end
-
-    def update_from_hash!(h)
-      resize!(h[:outputs])
-      
-      h[:outputs].times do |i|
-        update_neuron_from_hash!(i, h[:neurons][i])
-      end
-
-      self
-    end
-    
-    class << self
-      def register_type(klass)
-        @types ||= Hash.new
-        @types[klass.name.to_s] = klass
-        @types
-      end
-
-      def find_type(name)
-        @types && @types[name]
-      end
-      
-      def from_hash(h, network = nil)
-        klass = find_type(h[:type])
-        if klass
-          klass.from_hash(h, network)
-        else
-          self.new(h[:neurons].size, h[:outputs]).update_from_hash!(h)
-        end
-      end
-    end
+    # def from_hash(*args)
+    #  LayerFactory.from_hash(*args)
+    # end
   end
 end
 

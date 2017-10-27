@@ -5,6 +5,7 @@ require 'ostruct'
 require 'neural'
 require 'neural/image'
 require 'neural/convolution'
+require 'neural/neuron_layer'
 
 def backup(path)
   if File.exists?(path)
@@ -25,7 +26,8 @@ options.max_rotation = 90.0
 options.num_translations = 1
 options.translate_dx = 0
 options.translate_dy = 0
-options.hidden_layers = 2
+options.hidden_layers = nil
+options.hidden_size = 128
 options.learning_rate = 1.0/3.0
 options.activation_function = Neural.default_activation
 options.trainer = 'Stochastic'
@@ -80,6 +82,10 @@ opts = OptionParser.new do |o|
     options.hidden_layers = n.to_i
   end
 
+  o.on('--hidden-size NUMBER') do |n|
+    options.hidden_size = n.to_i
+  end
+
   o.on('-f', '--activation-func FUNC') do |func|
     options.activation_function = Neural::ActivationFunctions.from_name(func)
   end
@@ -121,15 +127,18 @@ else
   # net.layer(Neural::Layer.new(20, 10))
 
   #net.layer(Neural::Layer.new(area, 10, options.activation_function))
-  
-  net.layer(Neural::Layer.new(area, area / 4, options.activation_function))
-  net.layer(Neural::Layer.new(area / 4, 10, options.activation_function))
 
-  # net.layer(Neural::Layer.new(area, 40))
-  # options.hidden_layers.times do
-  #   net.layer(Neural::Layer.new(40, 40))
-  # end
-  # net.layer(Neural::Layer.new(40, 10))
+  if options.hidden_layers
+    net.layer(Neural::Layer.new(area, options.hidden_size, options.activation_function))
+    options.hidden_layers.times do
+      net.layer(Neural::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
+    end
+    net.layer(Neural::Layer.new(options.hidden_size, 10, options.activation_function))
+  else
+    net.layer(Neural::Layer.new(area, area / 4, options.activation_function))
+    net.layer(Neural::Layer.new(area / 4, 10, options.activation_function))
+  end
+
 
   #net.layer(Neural::Layer.new(area, 40))
   #net.layer(Neural::Layer.new(40, 10))

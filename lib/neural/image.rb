@@ -206,8 +206,8 @@ module Neural
       end
 
       def call(x, y)
-        c = Math.cos(@radians)
-        s = Math.sin(@radians)
+        c = ::Math.cos(@radians)
+        s = ::Math.sin(@radians)
         
         x = x - @ox
         y = y - @oy
@@ -259,16 +259,16 @@ if __FILE__ == $0
   puts("Scaled 0.5")
   print_image(img * s)
 
-  r = Neural::Image::Rotate.new(img.width / 2.0, img.height / 2.0, Math::PI / 4.0)
-  puts("Rotated #{Math::PI / 4.0} #{180.0 / 4.0}")
+  r = Neural::Image::Rotate.new(img.width / 2.0, img.height / 2.0, ::Math::PI / 4.0)
+  puts("Rotated #{::Math::PI / 4.0} #{180.0 / 4.0}")
   print_image(img * r)
 
-  r = Neural::Image::Rotate.new(0.0, 0.0, Math::PI / 3.0)
-  puts("Rotated #{Math::PI / 3.0} #{180.0 / 3.0}")
+  r = Neural::Image::Rotate.new(0.0, 0.0, ::Math::PI / 3.0)
+  puts("Rotated #{::Math::PI / 3.0} #{180.0 / 3.0}")
   print_image(img * r)
 
-  t = Neural::Image::Rotate.new(img.width / 2.0, img.height / 2.0, Math::PI / 3.0) * Neural::Image::Translate.new(3, 3)
-  puts("Rotated #{Math::PI / 3.0} #{180.0 / 3.0}")
+  t = Neural::Image::Rotate.new(img.width / 2.0, img.height / 2.0, ::Math::PI / 3.0) * Neural::Image::Translate.new(3, 3)
+  puts("Rotated #{::Math::PI / 3.0} #{180.0 / 3.0}")
   print_image(img * t)
 
   c = Neural::Image::Clipper.new(8, 8)
@@ -278,8 +278,8 @@ if __FILE__ == $0
 
   RotationSteps = 7.0
   (RotationSteps.to_i + 1).times do |i|
-    r = Neural::Image::Rotate.new(img.width / 2.0, img.height / 2.0, i * 2.0 * Math::PI / RotationSteps)
-    puts("#{i} Rotated #{i * 2.0 * Math::PI / RotationSteps} #{i * 360.0 / RotationSteps}")
+    r = Neural::Image::Rotate.new(img.width / 2.0, img.height / 2.0, i * 2.0 * ::Math::PI / RotationSteps)
+    puts("#{i} Rotated #{i * 2.0 * ::Math::PI / RotationSteps} #{i * 360.0 / RotationSteps}")
     print_image(img * r * s)
     print_image(img * s * r)
   end

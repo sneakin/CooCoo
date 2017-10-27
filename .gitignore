@@ -1,3 +1,11 @@
 *~
 #*#
 *.bak
+*.neural[-_]model
+*.o
+*.so
+*.exe
+*.dll
+doc/spec
+doc/spec.html
+doc/coverage

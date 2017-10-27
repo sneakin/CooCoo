@@ -2,8 +2,17 @@ require 'neural/network'
 
 module Neural
   class TemporalNetwork
-    def initialize(network = nil)
-      @network = network || Neural::Network.new
+    attr_reader :network
+    attr_accessor :backprop_limit
+
+    delegate :age, :to => :network
+    delegate :num_inputs, :to => :network
+    delegate :num_outputs, :to => :network
+    delegate :num_layers, :to => :network
+    
+    def initialize(opts = Hash.new)
+      @network = opts.fetch(:network) { Neural::Network.new }
+      @backprop_limit = opts[:backprop_limit]
     end
 
     def layer(*args)
@@ -75,9 +84,13 @@ module Neural
     end
 
     def weight_deltas(inputs, outputs, deltas, learning_rate)
-      deltas = inputs.zip(outputs, deltas).collect do |input, output, delta|
+      e = inputs.zip(outputs, deltas)
+      e = e.last(@backprop_limit) if @backprop_limit
+      
+      deltas = e.collect do |input, output, delta|
         @network.weight_deltas(input, output, delta, learning_rate)
       end
+      
       accumulate_deltas(deltas)
     end
 
@@ -101,20 +114,18 @@ module Neural
 
     def self.from_hash(h)
       net = Neural::Network.from_hash(h)
-      self.new(net)
+      self.new(network: net)
     end
 
     private
     def accumulate_inner(init, new, weight)
       new.each_with_index.collect do |layer, li|
-        layer.each_with_index.collect do |neuron, ni|
-          if init && init[li] && init[li][ni]
-            b = init[li][ni][0]
-            w = init[li][ni][1]
-            [ neuron[0] * weight + b, neuron[1] * weight + w ]
-          else
-            [ neuron[0] * weight, neuron[1] * weight ]
-          end
+        if init && init[li]
+          [ layer[0] * weight + init[li][0],
+            layer[1] * weight + init[li][1]
+          ]
+        else
+          [ layer[0] * weight, layer[1] * weight ]
         end
       end
     end

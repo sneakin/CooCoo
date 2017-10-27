@@ -1,0 +1,25 @@
+#!/usr/bin/ruby
+
+$: << File.join(File.dirname(__FILE__), '..', 'lib')
+require 'neural/cuda'
+
+unless Neural::CUDA.available?
+  puts("Cuda not available")
+  exit(-1)
+end
+
+puts("Device\t#{Neural::CUDA::Runtime.get_device} / #{Neural::CUDA::Runtime.device_count}")
+props = Neural::CUDA::Runtime::DeviceProperties.new
+err = Neural::CUDA::Runtime.cudaGetDeviceProperties(props, 0)
+raise CUDAError(err) if err != 0
+
+props.members.each do |m|
+  value = props[m]
+  if m != :name && value.kind_of?(FFI::Struct::InlineArray)
+    value.each_with_index do |v, i|
+      puts("#{m}[#{i}]\t#{v}")
+    end
+  else
+    puts("#{m}\t#{value}")
+  end
+end

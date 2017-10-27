@@ -1,3 +1,5 @@
+require 'neural/math'
+
 module Neural
   class Sequence
     def initialize(length, &init)
@@ -69,8 +71,8 @@ module Neural
       self.class[@elements.reverse]
     end
 
-    def last
-      @elements.last
+    def last(*args)
+      @elements.last(*args)
     end
 
     def append(other)
@@ -83,14 +85,22 @@ module Neural
       end
       v
     end
+
+    def zero
+      self.class.new(size) do |i|
+        self[0].zero
+      end
+    end
     
     def sum
-      @elements.each.sum
+      @elements.drop(1).inject(@elements[0]) do |acc, e|
+        acc + e
+      end
     end
 
     def +(other)
       v = if other.respond_to?(:each)
-            raise ArgumentError.new("Size mismatch") if size != other.size
+            raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
             other.each.zip(each).collect do |oe, se|
           se + oe
         end
@@ -105,7 +115,7 @@ module Neural
 
     def -(other)
       v = if other.respond_to?(:each)
-            raise ArgumentError.new("Size mismatch") if size != other.size
+            raise ArgumentError.new("Size mismatch #{size} != #{other.size}") if size != other.size
             other.each.zip(each).collect do |oe, se|
           se - oe
         end
@@ -128,7 +138,7 @@ module Neural
     
     def *(other)
       v = if other.respond_to?(:each)
-            raise ArgumentError.new("Size mismatch") if size != other.size
+            raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
             other.each.zip(each).collect do |oe, se|
           se * oe
         end
@@ -143,7 +153,7 @@ module Neural
 
     def /(other)
       v = if other.respond_to?(:each)
-            raise ArgumentError.new("Size mismatch") if size != other.size
+            raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
             other.each.zip(each).collect do |oe, se|
           se / oe
         end

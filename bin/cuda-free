@@ -1,0 +1,28 @@
+#!/usr/bin/ruby
+
+$: << File.join(File.dirname(__FILE__), '..', 'lib')
+require 'neural/cuda'
+
+require 'ostruct'
+options = OpenStruct.new
+options.follow = ARGV[0] == '-f'
+options.timeout = (ARGV[1] || 1).to_f
+
+unless options.follow
+  puts("Device\tBytes Free\tBytes Total\tPercent")
+end
+
+follow = true
+$stdout.sync = true
+
+while follow
+  follow = options.follow
+  Neural::CUDA::Runtime.device_count.times do |device|
+    Neural::CUDA::Runtime.set_device(device)
+    free, total = Neural::CUDA.memory_info
+    $stdout.puts("%i\t%i\t%i\t%.3f" % [ device, free, total, (100.0 * free / total.to_f) ])
+  end
+
+  $stdout.flush
+  sleep(options.timeout)
+end

@@ -1,12 +1,12 @@
-require 'neural/layer'
+require 'neural/layer_factory'
 
 module Neural
   module Convolution
     class BoxLayer
-      Layer.register_type(self)
+      LayerFactory.register_type(self)
 
       def initialize(horizontal_span, vertical_span, internal_layer, input_width, input_height, output_width, output_height)
-        @layer = internal_layer
+        @internal_layer = internal_layer
         @horizontal_span = horizontal_span
         @vertical_span = vertical_span
         @input_width = input_width
@@ -17,10 +17,14 @@ module Neural
         raise ArgumentError.new("Input size mismatch: #{output_width * output_height} is not #{internal_layer.size}") if internal_layer.size != (output_width * output_height)
       end
 
-      def internal_layer
-        @layer
-      end
-
+      attr_reader :horizontal_span
+      attr_reader :vertical_span
+      attr_reader :input_width
+      attr_reader :input_height
+      attr_reader :output_width
+      attr_reader :output_height
+      attr_reader :internal_layer
+      
       def activation_function
         internal_layer.activation_function
       end
@@ -30,7 +34,7 @@ module Neural
       end
 
       def size
-        @vertical_span * @horizontal_span * @layer.size
+        @vertical_span * @horizontal_span * @internal_layer.size
       end
 
       def neurons
@@ -39,21 +43,21 @@ module Neural
 
       def forward(input, hidden_state)
         return Neural::Vector[each_area do |grid_x, grid_y|
-                                output, hidden_state = @layer.forward(slice_input(input, grid_x, grid_y), hidden_state)
+                                output, hidden_state = @internal_layer.forward(slice_input(input, grid_x, grid_y), hidden_state)
                                 output.to_a
                               end.flatten, size], hidden_state
       end
 
       def backprop(output, errors, hidden_state)
         return Neural::Vector[each_area do |grid_x, grid_y|
-                                d, hidden_state = @layer.backprop(slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y), hidden_state)
+                                d, hidden_state = @internal_layer.backprop(slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y), hidden_state)
                                 d.to_a
                        end.flatten, size], hidden_state
       end
 
       def transfer_error(deltas)
         Neural::Vector[each_area do |grid_x, grid_y|
-                         @layer.transfer_error(slice_output(deltas, grid_x, grid_y)).to_a
+                         @internal_layer.transfer_error(slice_output(deltas, grid_x, grid_y)).to_a
                        end.flatten, size]
       end
 
@@ -64,7 +68,7 @@ module Neural
 
       def adjust_weights!(deltas)
         each_area do |grid_x, grid_y|
-          @layer.adjust_weights!(slice_output_inner(deltas, grid_x, grid_y))
+          @internal_layer.adjust_weights!(slice_output_inner(deltas, grid_x, grid_y))
         end
 
         self
@@ -73,10 +77,21 @@ module Neural
       def weight_deltas(inputs, deltas, rate)
         rate = rate / (@horizontal_span * @vertical_span).to_f
         each_area do |grid_x, grid_y|
-          @layer.weight_deltas(slice_input(inputs, grid_x, grid_y),
+          @internal_layer.weight_deltas(slice_input(inputs, grid_x, grid_y),
                                slice_output(deltas, grid_x, grid_y),
                                rate)
         end.flatten(2)
+      end
+
+      def ==(other)
+        other.kind_of?(self.class) &&
+          horizontal_span == other.horizontal_span &&
+          vertical_span == other.vertical_span &&
+          input_width == other.input_width &&
+          input_height == other.input_height &&
+          output_width == other.output_width &&
+          output_height == other.output_height &&
+          internal_layer == other.internal_layer
       end
 
       def to_hash(network = nil)
@@ -87,13 +102,13 @@ module Neural
           input_height: @input_height,
           output_width: @output_width,
           output_height: @output_height,
-          internal_layer: @layer.to_hash
+          internal_layer: @internal_layer.to_hash(network)
         }
       end
 
       def self.from_hash(h, network = nil)
         self.new(h.fetch(:horizontal_span), h.fetch(:vertical_span),
-                 Layer.from_hash(h.fetch(:internal_layer)),
+                 LayerFactory.from_hash(h.fetch(:internal_layer)),
                  h.fetch(:input_width), h.fetch(:input_height),
                  h.fetch(:output_width), h.fetch(:output_height))
       end
@@ -122,7 +137,7 @@ module Neural
           end
         end.flatten
 
-        Neural::Vector[samples, @layer.num_inputs]
+        Neural::Vector[samples, @internal_layer.num_inputs]
       end
       
       def slice_output_inner(output, grid_x, grid_y)
@@ -139,13 +154,15 @@ module Neural
       end
 
       def slice_output(output, grid_x, grid_y)
-        Neural::Vector[slice_output_inner(output, grid_x, grid_y), @layer.size]
+        Neural::Vector[slice_output_inner(output, grid_x, grid_y), @internal_layer.size]
       end
     end
   end
 end
 
 if __FILE__ == $0
+  require 'neural/layer'
+  
   IN_WIDTH = 16
   IN_HEIGHT = 16
   CONV_WIDTH = 4
@@ -190,7 +207,7 @@ if __FILE__ == $0
   ENV.fetch("LOOPS", 100).to_i.times do |i|
     puts("#{i}\n========\n")
     puts("Inputs =\n#{matrix_image(input, IN_WIDTH)}")
-    output = layer.forward(input)
+    output = layer.forward(input, nil)
     puts("Output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")
     err = target - output
     puts("Target = #{target}\n#{matrix_image(target, OUT_WIDTH)}")

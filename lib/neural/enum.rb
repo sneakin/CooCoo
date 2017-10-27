@@ -1,16 +1,10 @@
-class Object
-  def self.instance_defines?(method)
-    instance_methods.include?(method)
-  end
-
-  def self.define_once(method, &definition)
-    unless instance_defines?(method)
-      define_method(method, &definition)
-    end
-  end
-end
+require 'neural/core_ext'
 
 class Enumerator
+  define_once(:zero) do
+    Array.new(size, self.first.zero)
+  end
+  
   define_once(:sum) do
     inject(0) do |acc, e|
       acc += e

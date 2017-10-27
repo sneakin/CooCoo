@@ -1,10 +1,11 @@
 require 'neural/math'
+require 'neural/layer_factory'
 require 'neural/recurrence/backend'
 
 module Neural
   module Recurrence
     class Frontend
-      Layer.register_type(self)
+      LayerFactory.register_type(self)
 
       def initialize(num_inputs, num_recurrent_outputs)
         @num_inputs = num_inputs
@@ -64,6 +65,12 @@ module Neural
 
       def adjust_weights!(deltas)
         self
+      end
+
+      def ==(other)
+        other.kind_of?(self.class) &&
+          num_inputs == other.num_inputs &&
+          recurrent_size == other.recurrent_size
       end
       
       def to_hash(network = nil)

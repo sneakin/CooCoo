@@ -1,0 +1,14 @@
+NVCC=ENV.fetch("NVCC", "nvcc")
+NVCCFLAGS="--compiler-options='-fPIC -Wall'"
+DLEXT=RbConfig::CONFIG['DLEXT']
+
+task :default => "buffer.#{DLEXT}"
+
+task :clean do
+  sh("rm -f buffer.so")
+end
+
+file "buffer.#{DLEXT}" => 'buffer.cu' do |t|
+	sh("#{NVCC} #{NVCCFLAGS} -shared -o #{t.name} #{t.sources.join(' ')}")
+end
+

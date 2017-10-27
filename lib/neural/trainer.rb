@@ -32,28 +32,26 @@ module Neural
       def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions.method(:difference), &block)
         batch_size ||= training_data.size
         t = Time.now
-        hidden_state = Hash.new
         
         training_data.each_slice(batch_size).with_index do |batch, i|
-          batch.each do |(expecting, input)|
-            hidden_state = learn(network, input, expecting, learning_rate, cost_function, hidden_state)
+          total_errs = batch.collect do |(expecting, input)|
+            errs, hidden_state = learn(network, input, expecting, learning_rate, cost_function, Hash.new)
+            errs
           end
           
-          dt = Time.now - t
-          block.call(self, i, dt) if block
+          block.call(self, i, Time.now - t, Neural::Sequence[total_errs].sum) if block
           t = Time.now
         end
       end
 
       def learn(network, input, expecting, rate, cost_function = CostFunctions.method(:difference), hidden_state)
         output, hidden_state = network.forward(input, hidden_state)
-        errors = cost_function.call(network.prep_input(expecting), output.last)
+        errors = cost_function.call(network.prep_input(expecting), network.final_output(output))
         deltas, hidden_state = network.backprop(output, errors, hidden_state)
+        #Neural.debug(input.size, output.size, deltas.size, deltas.class, rate)
+        #Neural.debug("Bias", deltas[0].collect(&:size), deltas[0].collect(&:to_a), "Weights", deltas[1].collect(&:size), deltas[1].collect(&:to_a))
         network.update_weights!(input, output, deltas, rate)
-        hidden_state
-      rescue
-        Neural.debug("#{self.class}#learn caught #{$!}", input, expecting)
-        raise
+        return errors, hidden_state
       end
     end
 
@@ -63,41 +61,50 @@ module Neural
         t = Time.now
         
         training_data.each_slice(batch_size).with_index do |batch, i|
-          hidden_state = Hash.new
-          
-          deltas = Parallel.map(batch, in_processes: processes) do |(expecting, input)|
-            output, hidden_state = network.forward(input, hidden_state)
+          deltas_errors = in_parallel(processes, batch) do |(expecting, input)|
+            output, hidden_state = network.forward(input, Hash.new)
             errors = cost_function.call(network.prep_input(expecting), network.final_output(output))
             new_deltas, hidden_state = network.backprop(output, errors, hidden_state)
             new_deltas = network.weight_deltas(input, output, new_deltas, learning_rate)
+
+            [ new_deltas, errors ]
           end
 
+          deltas, total_errors = deltas_errors.transpose
           network.adjust_weights!(accumulate_deltas(deltas))
 
-          dt = Time.now - t
-          block.call(self, i, dt) if block
+          block.call(self, i, Time.now - t, Neural::Sequence[total_errors].sum) if block
           t = Time.now
         end
       end
 
+      protected
+      
+      def in_parallel(processes, *args, &block)
+        opts = if CUDA.available?
+                 # CUDA can't fork so keep it in a single Ruby
+                 { in_threads: processes }
+               else
+                 { in_processes: processes }
+               end
+        Parallel.map(*args, opts, &block)
+      end
+      
       def accumulate_deltas(deltas)
+        weight = 1.0 / deltas.size.to_f
         deltas.inject([]) do |acc, delta|
-          accumulate_deltas_inner(acc, delta, 1.0 / deltas.size.to_f)
+          accumulate_deltas_inner(acc, delta, weight)
         end
       end
       
       def accumulate_deltas_inner(init, new, weight)
         new.each_with_index.collect do |layer, li|
-          #Neural.debug("acc deltas layer #{li} #{layer.inspect}")
-          layer.each_with_index.collect do |neuron, ni|
-            #Neural.debug("acc deltas #{li} #{ni}\n\t#{neuron.inspect}")
-            if init && init[li] && init[li][ni]
-              b = init[li][ni][0]
-              w = init[li][ni][1]
-              [ neuron[0] * weight + b, neuron[1] * weight + w ]
-            else
-              [ neuron[0] * weight, neuron[1] * weight ]
-            end
+          if init && init[li]
+            [ layer[0] * weight + init[li][0],
+              layer[1] * weight + init[li][1]
+            ]
+          else
+            [ layer[0] * weight, layer[1] * weight ]
           end
         end
       end

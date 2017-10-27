@@ -49,7 +49,7 @@ module Neural
     
     class Logistic < Identity
       def call(x)
-        1.0 / ( 1.0 + Math.exp(-x))
+        1.0 / ( 1.0 + (-x).exp)
       end
 
       def derivative(x)
@@ -61,7 +61,7 @@ module Neural
 
     class TanH < Identity
       def call(x)
-        2.0 / (1.0 + Math.exp(-2.0 * x)) - 1.0
+        2.0 / (1.0 + (x * -2.0).exp) - 1.0
       end
 
       def derivative(x)
@@ -84,18 +84,24 @@ module Neural
 
     class ReLU < Identity
       def call(x)
-        if x <= 0
+        t = x > 0
+        if t.class == FalseClass
           0.0
-        else
+        elsif t.class == TrueClass
           x
+        else
+          x * t
         end
       end
 
       def derivative(x)
-        if x <= 0
+        t = x > 0
+        if t.class == FalseClass
           0.0
-        else
+        elsif t.class == TrueClass
           1.0
+        else
+          t
         end
       end
     end

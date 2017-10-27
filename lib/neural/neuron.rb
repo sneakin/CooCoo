@@ -8,8 +8,8 @@ module Neural
   class Neuron
     def initialize(num_inputs, activation_func = Neural.default_activation)
       @num_inputs = num_inputs
-      @weights = Neural::Vector.rand(num_inputs)
-      @weights = @weights / @weights.each.sum.to_f
+      @weights = Neural::Vector.rand(num_inputs).normalize
+      @weights = @weights / @weights.sum.to_f
       @activation_func = activation_func
       @bias = activation_func.initial_bias
     end
@@ -43,7 +43,7 @@ module Neural
     end
 
     def activate(input)
-      (@weights * input).each.sum + @bias
+      (@weights * input).sum + @bias
     end
 
     def transfer(activation)
@@ -78,12 +78,20 @@ module Neural
       @bias += bias_delta
       @weights += weight_deltas
     end
+
+    def ==(other)
+      if other.kind_of?(self.class)
+        num_inputs == other.num_inputs && @weights == other.weights
+      else
+        false
+      end
+    end
   end
 end
 
 if __FILE__ == $0
   require 'neural/cost_functions'
-  
+
   n = Neural::Neuron.from_hash({ f: ENV.fetch("ACTIVATION", "Logistic"),
                                  weights: [ 0.5, 0.5 ]
                                })

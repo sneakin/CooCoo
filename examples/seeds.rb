@@ -75,6 +75,8 @@ class SeedData
   end
 
   def encode_type(type)
+    raise ArgumentError.new("bad seed type #{type}") if type > num_types
+    
     t = Neural::Vector.zeros(num_types)
     t[type - 1] = 1.0
     t
@@ -110,6 +112,7 @@ def backup(path)
   end
 end
 
+require 'neural/neuron_layer'
 require 'ostruct'
 require 'optparse'
 
@@ -123,6 +126,7 @@ options.batch_size = 1000
 options.activation_function = Neural.default_activation
 options.hidden_size = 21
 options.trainer = 'Stochastic'
+options.num_layers = 2
 
 op = OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
@@ -149,6 +153,10 @@ op = OptionParser.new do |o|
     options.hidden_size = num.to_i
   end
 
+  o.on('--num-layers NUMBER') do |num|
+    options.num_layers = num.to_i
+  end
+
   o.on('--trainer NAME') do |trainer|
     options.trainer = trainer
   end
@@ -161,13 +169,26 @@ Random.srand(123)
 training_data = SeedData.new(options.data_path)
 model = Neural::Network.new()
 
+puts("Using CUDA") if Neural::CUDA.available?
+
 if options.model_path && File.exists?(options.model_path)
   model.load!(options.model_path)
   puts("Loaded model #{options.model_path}")
 else
-  model.layer(Neural::Layer.new(7, options.hidden_size, options.activation_function))
+  options.num_layers.times do |i|
+    inputs = case i
+             when 0 then 7
+             else options.hidden_size
+             end
+    outputs = case i
+             when (options.num_layers - 1) then training_data.num_types
+             else options.hidden_size
+             end
+    model.layer(Neural::Layer.new(inputs, outputs, options.activation_function))
+  end
+  #model.layer(Neural::Layer.new(7, options.hidden_size, options.activation_function))
   #model.layer(Neural::Layer.new(10, 5))
-  model.layer(Neural::Layer.new(options.hidden_size, training_data.num_types, options.activation_function))
+  #model.layer(Neural::Layer.new(options.hidden_size, training_data.num_types, options.activation_function))
 end
 
 if options.epochs
@@ -175,16 +196,26 @@ if options.epochs
   now = Time.now
   trainer = Neural::Trainer.from_name(options.trainer)
   bar = Neural::ProgressBar.create(:total => options.epochs.to_i)
+  last_error = nil
   (options.epochs * 2.0 / 3.0).to_i.times do |epoch|
-    trainer.train(model, training_data.each_example, 0.3, options.batch_size)
+    trainer.train(model, training_data.each_example, 0.3, options.batch_size) do |t, ex, dt, err|
+      last_error = err
+    end
     bar.increment
   end
-  puts("\n\tElapsed #{(Time.now - now) / 60.0} min")
+  puts("\n\tElapsed #{(Time.now - now) / 60.0} min.")
+  avg_error = last_error / options.batch_size.to_f
+  puts("\tErrors\t#{last_error.magnitude}\t#{last_error}\t#{last_error * last_error}")
+  puts("\tAverage Error\t#{avg_error.magnitude}\t#{avg_error}\t#{avg_error * avg_error}") if last_error
   puts("Decreasing learning rate")
   (options.epochs * 1.0 / 3.0).to_i.times do |epoch|
-    trainer.train(model, training_data.each_example, 0.1, options.batch_size)
+    trainer.train(model, training_data.each_example, 0.1, options.batch_size) do |t, ex, dt, err|
+      last_error = err
+    end
     bar.increment rescue Neural.debug("#{epoch} #{bar.inspect}")
   end
+  puts("\n\tErrors\t#{last_error.magnitude}\t#{last_error}\t#{last_error * last_error}")
+  puts("\tAverage Error\t#{avg_error.magnitude}\t#{avg_error}\t#{avg_error * avg_error}") if last_error
   puts("\n\tElapsed #{(Time.now - now) / 60.0} min")
   puts("Trained!")
 

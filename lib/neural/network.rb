@@ -53,7 +53,7 @@ module Neural
     end
     
     def forward(input, hidden_state = nil, flattened = false)
-      unless flattened
+      unless flattened || input.kind_of?(Neural::Vector)
         input = Neural::Vector[input.to_a.flatten, num_inputs]
       end
 
@@ -102,7 +102,6 @@ module Neural
     end
 
     def adjust_weights!(deltas)
-      #Neural.debug("Network#update_weights", deltas, deltas.size)
       @layers.each_with_index do |layer, i|
         layer.adjust_weights!(deltas[i])
       end
@@ -112,14 +111,12 @@ module Neural
     end
 
     def weight_deltas(input, outputs, deltas, rate)
-      #Neural.debug("Network#update_weights", deltas, deltas.size)
       @layers.each_with_index.collect do |layer, i|
         inputs = if i != 0
                    outputs[i - 1] #[i - 1]
                  else
                    prep_input(input)
                  end
-        #Neural.debug("Network#update_weights", i, deltas[i], deltas[i].size)
         layer.weight_deltas(inputs, deltas[i], rate)
       end
     end
@@ -171,11 +168,12 @@ module Neural
     end
 
     def update_from_hash!(h)
-      ls = h[:layers].collect do |layer_hash|
-        Neural::Layer.from_hash(layer_hash, self)
+      @layers = Array.new
+      
+      h[:layers].each do |layer_hash|
+        @layers << Neural::LayerFactory.from_hash(layer_hash, self)
       end
 
-      @layers = ls
       @age = h[:age]
 
       self

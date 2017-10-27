@@ -1,9 +1,12 @@
 require 'neural/math'
+require 'neural/layer_factory'
 
 module Neural
   module Recurrence
     class Backend
-      Layer.register_type(self)
+      LayerFactory.register_type(self)
+      
+      attr_reader :recurrence_layer
       
       def initialize(recurrence_layer, outputs, recurrent_outputs)
         @recurrence_layer = recurrence_layer
@@ -11,6 +14,10 @@ module Neural
         @recurrent_size = recurrent_outputs
       end
 
+      def num_inputs
+        size + recurrent_size
+      end
+      
       def size
         @outputs
       end
@@ -66,13 +73,20 @@ module Neural
         }
       end
 
+      def ==(other)
+        other.kind_of?(self.class) &&
+          size = other.size &&
+          recurrence_layer == other.recurrence_layer &&
+          recurrent_size == other.recurrent_size
+      end
+      
       def update_from_hash!(h)
         @outputs = h.fetch(:outputs)
         @recurrent_size = h.fetch(:recurrent_size)
         self
       end
 
-      def self.from_hash(h, network = nil)
+      def self.from_hash(h, network)
         self.new(network.layers[h.fetch(:recurrence_layer)],
                  h.fetch(:outputs),
                  h.fetch(:recurrent_size)).
