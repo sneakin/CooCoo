@@ -74,9 +74,11 @@ def decode_to_string(output)
   decode_sequence(output.collect { |v| decode_output(v) })
 end
 
-def training_enumerator(data)
+def training_enumerator(data, sequence_size)
   Enumerator.new do |yielder|
-    data.each.zip(data.each.drop(1), data.each.drop(2), data.each.drop(3), data.each.drop(4), data.each.drop(5)).
+    #data.each.zip(data.each.drop(1), data.each.drop(2), data.each.drop(3), data.each.drop(4), data.each.drop(5)).
+    iters = sequence_size.times.collect { |i| data.each.drop(i) }
+    iters[0].zip(*iters.drop(1)).
       each_with_index do |values, i|
       input = values[0, values.size - 1].collect { |e| encode_input(e || 0) }
       output = values[1, values.size - 1].collect { |e| encode_input(e || 0) }
@@ -98,7 +100,9 @@ if __FILE__ == $0
   options.input_path = nil
   options.backprop_limit = nil
   options.train = true
-
+  options.sequence_size = 4
+  options.num_layers = 1
+  
   opts = OptionParser.new do |o|
     o.on('-m', '--model PATH') do |path|
       options.model_path = path
@@ -131,6 +135,18 @@ if __FILE__ == $0
     o.on('-p', '--predict') do
       options.train = false
     end
+
+    o.on('-n', '--sequence-size NUMBER') do |n|
+      n = n.to_i
+      raise ArgumentError.new("sequence-size must be > 0") if n <= 0
+      options.sequence_size = n
+    end
+
+    o.on('--layers NUMBER') do |n|
+      n = n.to_i
+      raise ArgumentError.new("number of layers must be > 0") if n <= 0
+      options.num_layers = n
+    end
   end
   
   argv = opts.parse!(ARGV)
@@ -142,7 +158,8 @@ if __FILE__ == $0
            $stdin.read
          end
   data = data.bytes
-  training_data = training_enumerator(data)
+  puts("Read #{data.size} bytes")
+  training_data = training_enumerator(data, options.sequence_size)
 
   if File.exists?(options.model_path)
     net = Neural::TemporalNetwork.from_hash(YAML.load(File.read(options.model_path)))
@@ -156,7 +173,9 @@ if __FILE__ == $0
     net = Neural::TemporalNetwork.new()
     rec = Neural::Recurrence::Frontend.new(NUM_INPUTS, options.recurrent_size)
     net.layer(rec)
-    net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+    options.num_layers.times do
+      net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+    end
 
     #net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS * 2, options.activation_function))
     #net.layer(Neural::Layer.new(NUM_INPUTS * 2, NUM_INPUTS + rec.recurrent_size, options.activation_function))
@@ -175,7 +194,7 @@ if __FILE__ == $0
   puts("\tLayers: #{net.num_layers}")
 
   if options.train
-    puts("Training on #{data.size} bytes from #{options.input_path}...")
+    puts("Training on #{data.size} bytes from #{options.input_path} #{options.epochs} times in batches of #{options.batch_size}...")
 
     trainer = Neural::Trainer::Stochastic.instance
     #trainer = Neural::Trainer::Batch.instance
@@ -203,13 +222,13 @@ if __FILE__ == $0
   puts("Predicting:")
   hidden_state = nil
   s = data.size.times.collect do |i|
-    input = data[i, 3].collect { |e| encode_input(e || 0) }
+    input = data[i, options.sequence_size].collect { |e| encode_input(e || 0) }
     output, hidden_state = net.predict(input, hidden_state)
     output.collect { |b| decode_output(b) }
   end
 
   s.each_with_index do |c, i|
-    input = data[i, 3]
+    input = data[i, options.sequence_size]
     puts("#{i} #{input.inspect} -> #{c.inspect}\t#{decode_sequence(input)} -> #{decode_sequence(c)}")
   end
 
