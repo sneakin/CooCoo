@@ -1,3 +1,5 @@
+require 'bundler/gem_tasks'
+
 task :default => 'spec:coverage'
 
 desc "Clean any output files."
