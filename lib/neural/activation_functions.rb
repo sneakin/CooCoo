@@ -53,9 +53,7 @@ module Neural
       end
 
       def derivative(x)
-        # logistic
         x * (1.0 - x)
-        #Math.exp(x) / ((Math.exp(x) + 1) ** 2)
       end
     end
 
@@ -66,7 +64,6 @@ module Neural
 
       def derivative(x)
         1.0 - x * x
-        #4 * Math.exp(-2.0 * x) / ((Math.exp(-2.0 * x) + 1) ** 2)
       end
 
       def initial_bias

@@ -1,6 +1,7 @@
 require 'neural/cuda/runtime'
 require 'neural/cuda/host_buffer'
 require 'neural/cuda/device_buffer'
+require 'neural/cuda/vector'
 
 module Neural
   module CUDA
@@ -12,16 +13,14 @@ module Neural
       Runtime.memory_info
     end
     
-    def self.collect_garbage(size)
+    def self.collect_garbage(size = nil)
       free, total = memory_info
-      if (10 * size + free) >= total
-        #Neural.debug("CUDA: starting GC #{free}/#{total}")
+      if size == nil || (3 * size + free) >= total
         GC.start
         new_free, total = memory_info
         diff = free - new_free
-        #Neural.debug("CUDA: freed #{free - new_free}/#{total}")
-        if (size + new_free) >= total
-          raise NoMemoryError.new("CUDA failed to free #{size} bytes")
+        if size && (size + new_free) >= total
+          raise NoMemoryError.new(size)
         end
       end
     end
@@ -55,18 +54,20 @@ if __FILE__ == $0
   dev = Neural::CUDA::Runtime.get_device
   puts("Device #{dev}")
   puts("Creating")
-  SIZE = 1024 * 1024 * 1
+  WIDTH = 256
+  HEIGHT = 256
+  SIZE = WIDTH * HEIGHT # 1024 * 1024 * 1
   h = Neural::CUDA::HostBuffer.new(SIZE)
   arr = SIZE.times.collect { |n| n }
   h.set(arr)
-  a = Neural::CUDA::DeviceBuffer.create(SIZE)
+  a = Neural::CUDA::Vector.new(SIZE)
   a.set(h)
   puts("Size = #{a.size}")
   puts("Getting")
-  b = ((a.dot(1024, 1024, a) * 3 - a) / 3.0).sin #* 2 + 1
-  b = b.get.to_a
-  puts(b[0, 10].inspect)
-  puts(b[-10, 10].inspect)
+  b = ((a.dot(WIDTH, HEIGHT, a) * 3 - a) / 3.0).sin #* 2 + 1
+  #b = b.get.to_a
+  puts(b[0, 10].to_s)
+  puts(b[-10, 10].to_s)
   puts("Sum = #{b.sum} #{b.each.sum}")
 
   require 'benchmark'
@@ -77,14 +78,14 @@ if __FILE__ == $0
     bm.report("cuda add") do
       b = a.clone
       10000.times do |i|
-        puts("%i %i" % [ Neural::CUDA::DeviceBuffer::FFI.buffer_total_bytes_allocated, Neural::CUDA::Runtime.total_global_mem ]) if i % 1000
+        #puts("%i %i" % [ Neural::CUDA::DeviceBuffer::FFI.buffer_total_bytes_allocated, Neural::CUDA::Runtime.total_global_mem ]) if i % 1000
         b = b + b
       end
       #puts("CUDA sum", b.get.to_a.inspect)
       #puts("Last error: ", Neural::CUDA::FFI.cudaGetLastError)
     end
-    bm.report("vector add") do
-      b = Neural::Vector[arr]
+    bm.report("ruby vector add") do
+      b = Neural::Ruby::Vector[arr]
       10000.times do
         b = b + b
       end

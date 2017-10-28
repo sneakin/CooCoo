@@ -81,7 +81,7 @@ module Neural
       attach_function :cudaGetErrorName, [ :int ], :string
       attach_function :cudaGetErrorString, [ :int ], :string
       attach_function :cudaGetLastError, [], :int
-      
+
       attach_function :cudaDeviceReset, [], :int
       attach_function :cudaSetDevice, [ :int ], :int
       attach_function :cudaGetDevice, [ :pointer ], :int

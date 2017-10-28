@@ -22,7 +22,7 @@ extern "C"
 
   cudaError_t buffer_init(int);
   size_t buffer_total_bytes_allocated();
-  
+
   Buffer buffer_new(size_t, double);
   void buffer_free(Buffer);
   cudaError_t buffer_set(Buffer, Buffer);
@@ -88,7 +88,7 @@ __device__ int grid(int ndims)
   return ret;
 }
 
-static int _initialized = 0;
+static int _initialized = -1;
 static int _block_size = 256;
 static int _max_grid_size = 1024;
 
@@ -206,15 +206,27 @@ void launchd_modkernel(modkerneld_func_t kernel, const Buffer a, double b, size_
 
 cudaError_t buffer_init(int device)
 {
-  cudaDeviceProp props;
-  cudaError_t err = cudaGetDeviceProperties(&props, device);
-  if(err == 0) {
-    _block_size = props.maxThreadsPerBlock;
-    _max_grid_size = props.maxGridSize[0];
-    _initialized = 1;
-    return cudaSuccess;
+  if(_initialized == -1) {
+    cudaDeviceProp props;
+    cudaError_t err;
+
+    err = cudaSetDevice(device);
+    if(err != 0) {
+      return err;
+    }
+
+    err = cudaGetDeviceProperties(&props, device);
+    if(err == 0) {
+      _block_size = props.maxThreadsPerBlock;
+      _max_grid_size = props.maxGridSize[0];
+      _initialized = device;
+
+      return cudaSuccess;
+    } else {
+      return err;
+    }
   } else {
-    return err;
+    return cudaSuccess;
   }
 }
 
@@ -246,17 +258,14 @@ cudaError_t buffer_setd(Buffer b, double value, size_t offset, size_t length)
 Buffer buffer_new(size_t length, double initial_value)
 {
   Buffer ptr = (Buffer)malloc(sizeof(Buffer));;
-  if(_initialized == 0) {
-    if(buffer_init(0) != 0) {
-      return NULL;
-    }
+  if(buffer_init(0) != 0) {
+    return NULL;
   }
 
   if(ptr != NULL) {
     if(cudaMalloc(&ptr->data, length * sizeof(double)) != cudaSuccess) {
       ptr->data = NULL;
       buffer_free(ptr);
-      fprintf(stderr, "cudaMalloc failed %i %i\n", length, _total_bytes_allocated);
       return NULL;
     }
     

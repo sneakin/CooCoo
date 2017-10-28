@@ -24,6 +24,16 @@ module Neural
       end
     end
 
+    class NoMemoryError < Error
+      def initialize(amount = nil)
+        if amount
+          super("CUDA failed to allocate #{amount} bytes on the device.")
+        else
+          super("CUDA failed to allocate memory on the device.")
+        end
+      end
+    end
+
     class NullResultError < Error
       def initialize(msg = "NULL CUDA result")
         @cuda_error = APIError.new
