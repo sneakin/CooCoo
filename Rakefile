@@ -37,12 +37,12 @@ namespace :spec do
 end
 
 desc "Run Ruby with everything in the search paths."
-task :run do
+task :run => :compile do
   args = $*[1, $*.size - 1]
   exec("bundle exec ruby -Ilib -Iexamples #{args.join(' ')}")
 end
 
 desc "Start an IRB session with everything loaded."
-task :shell do
+task :shell => :compile do
   exec("bundle exec irb -Ilib -Iexamples -rneural")
 end
