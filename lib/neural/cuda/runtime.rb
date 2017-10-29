@@ -1,10 +1,15 @@
 require 'ffi'
+require 'neural/platform'
 
 module Neural
   module CUDA
     module Runtime
       extend ::FFI::Library
-      ffi_lib 'libcudart.so'
+      if Neural::Platform.windows?
+	ffi_lib 'cudart64_90.dll'
+      else
+        ffi_lib 'libcudart.so'
+      end
 
       class DeviceProperties < ::FFI::Struct
         layout(:name, [ :char, 256 ],

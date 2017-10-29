@@ -1,15 +1,22 @@
-GIT
-  remote: https://github.com/SciRuby/nmatrix.git
-  revision: 68adec0473112871b091efe696078d4b04f02df8
+PATH
+  remote: .
   specs:
-    nmatrix (0.2.4)
-      packable (~> 1.3, >= 1.3.5)
+    CooCoo (0.0.1)
+      cairo
+      chunky_png
+      ffi
+      nmatrix
+      parallel
+      ruby-progressbar
 
 GEM
   remote: http://rubygems.org/
   specs:
-    backports (3.8.0)
-    cairo (1.15.9)
+    backports (3.10.3)
+    cairo (1.15.10)
+      native-package-installer (>= 1.0.3)
+      pkg-config (>= 1.2.2)
+    cairo (1.15.10-x64-mingw32)
       native-package-installer (>= 1.0.3)
       pkg-config (>= 1.2.2)
     chunky_png (1.3.8)
@@ -17,12 +24,16 @@ GEM
     diff-lcs (1.3)
     docile (1.1.5)
     ffi (1.9.18)
+    ffi (1.9.18-x64-mingw32)
     json (2.1.0)
     native-package-installer (1.0.4)
+    nmatrix (0.2.3)
+      packable (~> 1.3, >= 1.3.5)
     packable (1.3.9)
       backports
     parallel (1.12.0)
-    pkg-config (1.2.7)
+    pkg-config (1.2.8)
+    rake (10.5.0)
     rspec (3.6.0)
       rspec-core (~> 3.6.0)
       rspec-expectations (~> 3.6.0)
@@ -45,17 +56,16 @@ GEM
 
 PLATFORMS
   ruby
+  x64-mingw32
 
 DEPENDENCIES
-  cairo
-  chunky_png
+  CooCoo!
+  bundler (~> 1.14)
   coderay
-  ffi
-  nmatrix!
-  parallel
-  rspec
-  ruby-progressbar
+  nmatrix
+  rake (~> 10.0)
+  rspec (~> 3.0)
   simplecov
 
 BUNDLED WITH
-   1.14.6
+   1.15.4

@@ -410,7 +410,7 @@ shared_examples "for an AbstractVector" do
       
       it "computes the values" do
         subject.each.zip(subject.send(func).each) do |i, o|
-          expect(o).to be_within(EPSILON).of(Math.send(func, i))
+          expect(o).to be_within(epsilon).of(Math.send(func, i))
         end
       end
     end
@@ -431,7 +431,7 @@ shared_examples "for an AbstractVector" do
 
       it "computes the values" do
         subject.each.zip(subject.acosh.each) do |i, o|
-          expect(o).to be_within(EPSILON).of(Math.acosh(i))
+          expect(o).to be_within(epsilon).of(Math.acosh(i))
         end
       end
     end
@@ -568,9 +568,12 @@ shared_examples "for an AbstractVector" do
 
   def self.comparison(comp, vectors)
     describe "\##{comp}" do
-      vectors.zip(vectors.drop(1)) do |a, b|
-        if b
-          context "#{a} #{comp} #{b}" do
+      vectors.zip(vectors.drop(1)) do |x, y|
+        if y
+  	  context "#{x.inspect} #{comp} #{y.inspect}" do
+            let(:a) { described_class[x] }
+	    let(:b) { described_class[y] }
+
             let(:truth_vector) do
               a.each.zip(b.each).collect do |av, bv|
                 av.send(comp, bv) ? 1.0 : 0.0
@@ -591,25 +594,25 @@ shared_examples "for an AbstractVector" do
     end
   end
 
-  comparison :<,[ described_class[[1, 2, 3]],
-                  described_class[[0, 0, 0]],
-                  described_class[[-1, -2, -3]],
-                  described_class[[-3, -2, -1]]
+  comparison :<,[ [1, 2, 3],
+                  [0, 0, 0],
+                  [-1, -2, -3],
+                  [-3, -2, -1]
                 ]
-  comparison :<=,[ described_class[[1, 2, 3]],
-                   described_class[[0, 0, 0]],
-                   described_class[[-1, -2, -3]],
-                   described_class[[-3, -2, -1]]
+  comparison :<=,[ [1, 2, 3],
+                   [0, 0, 0],
+                   [-1, -2, -3],
+                   [-3, -2, -1]
                 ]
-  comparison :>,[ described_class[[-3, -2, -1]],
-                  described_class[[-1, -2, -3]],
-                  described_class[[0, 0, 0]],
-                  described_class[[1, 2, 3]]
+  comparison :>,[ [-3, -2, -1],
+                  [-1, -2, -3],
+                  [0, 0, 0],
+                  [1, 2, 3]
                 ]
-  comparison :>=,[ described_class[[-3, -2, -1]],
-                   described_class[[-1, -2, -3]],
-                   described_class[[0, 0, 0]],
-                   described_class[[1, 2, 3]]
+  comparison :>=,[ [-3, -2, -1],
+                   [-1, -2, -3],
+                   [0, 0, 0],
+                   [1, 2, 3]
                  ]
   # describe '#resize' do
   #   subject { described_class[[1, 2, 3]].resize(10) }

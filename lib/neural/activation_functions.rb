@@ -82,9 +82,9 @@ module Neural
     class ReLU < Identity
       def call(x)
         t = x > 0
-        if t.class == FalseClass
+        if t == false
           0.0
-        elsif t.class == TrueClass
+        elsif t == true
           x
         else
           x * t
@@ -93,9 +93,9 @@ module Neural
 
       def derivative(x)
         t = x > 0
-        if t.class == FalseClass
+        if t == false
           0.0
-        elsif t.class == TrueClass
+        elsif t == true
           1.0
         else
           t

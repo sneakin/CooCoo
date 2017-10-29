@@ -3,6 +3,12 @@
 
 extern "C"
 {
+#ifdef _WIN32
+#define API __declspec(dllexport)
+#else
+#define API
+#endif
+
   typedef struct Buffer_s
   {
     double *data;
@@ -15,65 +21,67 @@ extern "C"
   };
   Buffer NullBuffer = &NullBuffer_s;
 
-  int buffer_block_size();
-  void buffer_set_block_size(int);
-  int buffer_max_grid_size();
-  void buffer_set_max_grid_size(int);
+  API int buffer_block_size();
+  API void buffer_set_block_size(int);
+  API int buffer_max_grid_size();
+  API void buffer_set_max_grid_size(int);
 
-  cudaError_t buffer_init(int);
-  size_t buffer_total_bytes_allocated();
+  API cudaError_t buffer_init(int);
+  API size_t buffer_total_bytes_allocated();
 
-  Buffer buffer_new(size_t, double);
-  void buffer_free(Buffer);
-  cudaError_t buffer_set(Buffer, Buffer);
-  cudaError_t buffer_setd(Buffer, double, size_t, size_t);
-  cudaError_t buffer_set_element(Buffer, size_t, double);
-  cudaError_t buffer_setvn(Buffer, size_t, void *, size_t);
-  cudaError_t buffer_setv(Buffer, void *, size_t);
-  cudaError_t buffer_get(Buffer, void *, size_t);
-  Buffer buffer_slice(Buffer, size_t, size_t);
-  cudaError_t buffer_host_slice(Buffer, void *, size_t, size_t);
-  size_t buffer_length(const Buffer);
-  Buffer buffer_add(const Buffer, const Buffer);
-  Buffer buffer_addd(const Buffer, double);
-  double buffer_sum(const Buffer);
-  Buffer buffer_sub(const Buffer, const Buffer);
-  Buffer buffer_subd(const Buffer, double);
-  Buffer buffer_mul(const Buffer, const Buffer);
-  Buffer buffer_muld(const Buffer, double);
-  Buffer buffer_dot(const Buffer, size_t, size_t, const Buffer, size_t, size_t);
-  Buffer buffer_div(const Buffer, const Buffer);
-  Buffer buffer_divd(const Buffer, double);
-  Buffer buffer_any_eq(const Buffer, const Buffer);
-  Buffer buffer_any_eqd(const Buffer, double);
-  Buffer buffer_any_neq(const Buffer, const Buffer);
-  Buffer buffer_any_neqd(const Buffer, double);
-  Buffer buffer_any_lt(const Buffer, const Buffer);
-  Buffer buffer_any_ltd(const Buffer, double);
-  Buffer buffer_any_lte(const Buffer, const Buffer);
-  Buffer buffer_any_lted(const Buffer, double);
-  Buffer buffer_any_gt(const Buffer, const Buffer);
-  Buffer buffer_any_gtd(const Buffer, double);
-  Buffer buffer_any_gte(const Buffer, const Buffer);
-  Buffer buffer_any_gted(const Buffer, double);
-  int buffer_eq(const Buffer, const Buffer);
-  Buffer buffer_abs(const Buffer);
-  Buffer buffer_exp(const Buffer);
-  Buffer buffer_floor(const Buffer);
-  Buffer buffer_ceil(const Buffer);
-  Buffer buffer_round(const Buffer);
-  Buffer buffer_sin(const Buffer);
-  Buffer buffer_cos(const Buffer);
-  Buffer buffer_tan(const Buffer);
-  Buffer buffer_asin(const Buffer);
-  Buffer buffer_acos(const Buffer);
-  Buffer buffer_atan(const Buffer);
-  Buffer buffer_sinh(const Buffer);
-  Buffer buffer_cosh(const Buffer);
-  Buffer buffer_tanh(const Buffer);
-  Buffer buffer_asinh(const Buffer);
-  Buffer buffer_acosh(const Buffer);
-  Buffer buffer_atanh(const Buffer);
+  API Buffer buffer_new(size_t, double);
+  API cudaError_t buffer_free(Buffer);
+  API cudaError_t buffer_set(Buffer, Buffer);
+  API cudaError_t buffer_setd(Buffer, double, size_t, size_t);
+  API cudaError_t buffer_set_element(Buffer, size_t, double);
+  API cudaError_t buffer_setvn(Buffer, size_t, void *, size_t);
+  API cudaError_t buffer_setv(Buffer, void *, size_t);
+  API cudaError_t buffer_get(Buffer, void *, size_t);
+  API Buffer buffer_slice(Buffer, size_t, size_t);
+  API cudaError_t buffer_host_slice(Buffer, void *, size_t, size_t);
+  API size_t buffer_length(const Buffer);
+  API Buffer buffer_add(const Buffer, const Buffer);
+  API Buffer buffer_addd(const Buffer, double);
+  API double buffer_sum(const Buffer);
+  API Buffer buffer_sub(const Buffer, const Buffer);
+  API Buffer buffer_subd(const Buffer, double);
+  API Buffer buffer_mul(const Buffer, const Buffer);
+  API Buffer buffer_muld(const Buffer, double);
+  API Buffer buffer_dot(const Buffer, size_t, size_t, const Buffer, size_t, size_t);
+  API Buffer buffer_div(const Buffer, const Buffer);
+  API Buffer buffer_divd(const Buffer, double);
+  API Buffer buffer_any_eq(const Buffer, const Buffer);
+  API Buffer buffer_any_eqd(const Buffer, double);
+  API Buffer buffer_any_neq(const Buffer, const Buffer);
+  API Buffer buffer_any_neqd(const Buffer, double);
+  API Buffer buffer_any_lt(const Buffer, const Buffer);
+  API Buffer buffer_any_ltd(const Buffer, double);
+  API Buffer buffer_any_lte(const Buffer, const Buffer);
+  API Buffer buffer_any_lted(const Buffer, double);
+  API Buffer buffer_any_gt(const Buffer, const Buffer);
+  API Buffer buffer_any_gtd(const Buffer, double);
+  API Buffer buffer_any_gte(const Buffer, const Buffer);
+  API Buffer buffer_any_gted(const Buffer, double);
+  API int buffer_eq(const Buffer, const Buffer);
+  API Buffer buffer_abs(const Buffer);
+  API Buffer buffer_exp(const Buffer);
+  API Buffer buffer_floor(const Buffer);
+  API Buffer buffer_ceil(const Buffer);
+  API Buffer buffer_round(const Buffer);
+  API Buffer buffer_sin(const Buffer);
+  API Buffer buffer_cos(const Buffer);
+  API Buffer buffer_tan(const Buffer);
+  API Buffer buffer_asin(const Buffer);
+  API Buffer buffer_acos(const Buffer);
+  API Buffer buffer_atan(const Buffer);
+  API Buffer buffer_sinh(const Buffer);
+  API Buffer buffer_cosh(const Buffer);
+  API Buffer buffer_tanh(const Buffer);
+  API Buffer buffer_asinh(const Buffer);
+  API Buffer buffer_acosh(const Buffer);
+  API Buffer buffer_atanh(const Buffer);
+
+#undef API
 };
 
 __device__ int grid(int ndims)
@@ -281,15 +289,20 @@ Buffer buffer_new(size_t length, double initial_value)
   return ptr;
 }
 
-void buffer_free(Buffer buffer)
+cudaError_t buffer_free(Buffer buffer)
 {
   if(buffer != NULL) {
     if(buffer->data != NULL) {
-      cudaFree(buffer->data);
+      cudaError_t err = cudaFree(buffer->data);
+      if(err != cudaSuccess) {
+	return err;
+      }
       _total_bytes_allocated -= buffer->length * sizeof(double);
     }
     free(buffer);
   }
+
+  return cudaSuccess;
 }
 
 cudaError_t buffer_set(Buffer buffer, Buffer other)
@@ -510,7 +523,7 @@ int buffer_eq(const Buffer a, const Buffer b)
 }
 
 #define FUNCTION_OP(name, operation)                                      \
-  __global__ void buffer_ ## name ## d_inner(int len, double *out, const double *a, const double b, int grid_offset) \
+  __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double b, int grid_offset) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
     if(i < len) {                                                       \
@@ -520,7 +533,7 @@ int buffer_eq(const Buffer a, const Buffer b)
                                                                         \
   Buffer buffer_##name(const Buffer a)                   \
   {                                                                     \
-    return launchd_kernel(buffer_ ## name ## d_inner, a, 0.0, 0);         \
+    return launchd_kernel(buffer_ ## name ## _inner, a, 0.0, 0);         \
   }
 
 

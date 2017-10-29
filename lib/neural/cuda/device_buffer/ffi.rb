@@ -42,7 +42,7 @@ module Neural
         buffer_function :total_bytes_allocated, [], :size_t
 
         buffer_function :new, [ :size_t, :double ], DeviceBuffer.auto_ptr
-        buffer_function :free, [ DeviceBuffer ], :void
+        buffer_function :free, [ DeviceBuffer ], :size_t
         buffer_function :length, [ DeviceBuffer ], :size_t
         buffer_function :set, [ DeviceBuffer, DeviceBuffer ], :int
         buffer_function :setv, [ DeviceBuffer, :pointer, :size_t ], :int

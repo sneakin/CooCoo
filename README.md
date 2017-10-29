@@ -20,7 +20,16 @@ Usage
 
 ### Install
 
-First the required dependencies need to be installed. This can be done with Bundler: `bundle install`
+First the required dependencies need to be installed. The dependencies include the CUDA compiler and RubyGems.
+
+Once the CUDA toolkit is installed, make sure it and Visual Studio's C++ compiler are in your path. Under MSYS2, use something like:
+
+    $ export PATH=/c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/Community/VC/Tools/MSVC/14.10.25017/bin/HostX64/x64:$PATH
+    $ export PATH=/c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/v9.0/bin:$PATH
+
+RubyGems are installed with Bundler: `bundle install`
+
+And the extension is built with: `rake compile`
 
 Then to run Ruby: `bundle exec ruby -Ilib -Iexamples/seeds.rb`
 
@@ -60,6 +69,10 @@ Examples
 All examples use `OptParse`, so refer to the output of running the example with `--help`. With no arguments, typically a network will be generated, trained, and tested without saving.
 
 To run an example: `bundle exec ruby -Ilib -Iexamples examples/EXAMPLE.rb --help`
+
+### [char-rnn](examples/char-rnn.rb)
+
+A recursive network that learns byte sequences.
 
 ### [UCI Wheat Seed Classifier](examples/seeds.rb)
 

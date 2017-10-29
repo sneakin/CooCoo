@@ -1,3 +1,4 @@
+require 'neural/platform'
 require 'neural/consts'
 require 'neural/math'
 require 'neural/neuron'

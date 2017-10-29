@@ -257,7 +257,7 @@ module Neural
                          a.send(comp, b) ? 1.0 : 0.0
                        end]
           else
-            self.class[each.collect { |a| a.send(comp, other) }]
+  	    self.class[each.collect { |a| a.send(comp, other) ? 1.0 : 0.0 }]
           end
         end
       end

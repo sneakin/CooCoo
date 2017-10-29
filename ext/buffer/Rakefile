@@ -1,11 +1,20 @@
+require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'neural', 'platform')
+
 NVCC=ENV.fetch("NVCC", "nvcc")
-NVCCFLAGS="--compiler-options='-fPIC -Wall'"
+# FIXME if windows/linux; windows doesn't like Wall
+if Neural::Platform.windows?
+  #NVCCFLAGS="--cl-version=2015"
+  NVCCFLAGS=""
+else
+  NVCCFLAGS="--compiler-options='-fPIC -Wall'"
+end
+
 DLEXT=RbConfig::CONFIG['DLEXT']
 
 task :default => "buffer.#{DLEXT}"
 
 task :clean do
-  sh("rm -f buffer.so")
+  sh("rm -f buffer.#{DLEXT} buffer.ext buffer.lib")
 end
 
 file "buffer.#{DLEXT}" => 'buffer.cu' do |t|

@@ -1,7 +1,6 @@
+require 'neural/debug'
+begin
 require 'neural/cuda/runtime'
-require 'neural/cuda/host_buffer'
-require 'neural/cuda/device_buffer'
-require 'neural/cuda/vector'
 
 module Neural
   module CUDA
@@ -15,6 +14,7 @@ module Neural
     
     def self.collect_garbage(size = nil)
       free, total = memory_info
+      Neural.debug("#{__method__} #{size.inspect} #{free} #{total}")
       if size == nil || (3 * size + free) >= total
         GC.start
         new_free, total = memory_info
@@ -22,6 +22,21 @@ module Neural
         if size && (size + new_free) >= total
           raise NoMemoryError.new(size)
         end
+      end
+    end
+  end
+end
+
+require 'neural/cuda/host_buffer'
+require 'neural/cuda/device_buffer'
+require 'neural/cuda/vector'
+
+rescue LoadError
+  Neural.debug("LoadError #{__FILE__}: #{$!}")
+  module Neural
+    module CUDA
+      def self.available?
+        false
       end
     end
   end

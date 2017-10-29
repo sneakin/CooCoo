@@ -27,14 +27,6 @@ shared_examples 'activation function' do
         expect(subject.derivative(input)).to eq(output)
       end
     end
-
-    let(:vector) { derivative_data.to_a.transpose }
-    let(:vector_input) { Neural::Vector[vector[0]] }
-    let(:vector_output) { Neural::Vector[vector[1]] }
-    
-    it 'can be called with a vector' do
-      expect(subject.derivative(vector_input)).to eq(vector_output)
-    end
   end
 end
 
@@ -51,7 +43,8 @@ describe Neural::ActivationFunctions::Identity do
   let(:derivative_data) {
     { -10 => 1,
       1 => 1,
-      123.45 => 1
+      123.45 => 1,
+      Neural::Vector[[3,4,5]] => 1
     }
   }
 end
@@ -73,7 +66,8 @@ describe Neural::ActivationFunctions::Logistic do
       0.0 => 0,
       0.3 => 0.21,
       1 => 0.0,
-      12.3 => -138.99
+      12.3 => -138.99,
+      Neural::Vector[[0.3, 1, 12.3]] => Neural::Vector[[0.21, 0.0, -138.99]]
     }
   }
 end
@@ -96,7 +90,8 @@ describe Neural::ActivationFunctions::TanH do
       0.0 => 1.0,
       0.3 => 0.91,
       1 => 0.0,
-      12.3 => -150.29000000000002
+      12.3 => -150.29000000000002,
+      Neural::Vector[[0.3, 1, 12.3]] => Neural::Vector[[0.91, 0.0, -150.29000000000002]]
     }
   }
 end
@@ -119,7 +114,8 @@ describe Neural::ActivationFunctions::ReLU do
       0.0 => 0,
       0.3 => 1.0,
       1 => 1.0,
-      12.3 => 1.0
+      12.3 => 1.0,
+      Neural::Vector[[-0.5, 0.3]] => Neural::Vector[[0, 1]]
     }
   }
 end

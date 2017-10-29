@@ -1,6 +1,9 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'spec_helper')
 require 'spec/neural/abstract_vector'
+require 'neural/cuda'
 require 'neural/cuda/vector'
+
+return unless Neural::CUDA.available?
 
 describe Neural::CUDA::Vector do
   EPSILON = 0.000000001

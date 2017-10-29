@@ -14,8 +14,16 @@ task :clean_ext do
 end
 
 desc "Compile the extensions."
-task :compile => "ext/buffer/Rakefile" do |t|
-  sh("cd #{File.dirname(t.source)}; rake")
+if ENV["USE_CUDA"] != "0"
+  task :compile => "ext/buffer/Rakefile" do |t|
+    pwd = Dir.pwd
+    Dir.chdir(File.dirname(t.source))
+    sh("rake")
+    Dir.chdir(pwd)
+  end
+else
+  task :compile do
+  end
 end
 
 desc "Run the rspecs."

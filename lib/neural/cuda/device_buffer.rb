@@ -15,6 +15,8 @@ module Neural
       
       def self.release(ptr)
         FFI.buffer_free(ptr)
+      rescue
+	Neural.debug(__method__, $!.inspect)
       end
 
       require 'neural/cuda/device_buffer/ffi'
