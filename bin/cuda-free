@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
 $: << File.join(File.dirname(__FILE__), '..', 'lib')
-require 'neural/cuda'
+require 'coo-coo/cuda'
 
 require 'ostruct'
 options = OpenStruct.new
@@ -17,9 +17,9 @@ $stdout.sync = true
 
 while follow
   follow = options.follow
-  Neural::CUDA::Runtime.device_count.times do |device|
-    Neural::CUDA::Runtime.set_device(device)
-    free, total = Neural::CUDA.memory_info
+  CooCoo::CUDA::Runtime.device_count.times do |device|
+    CooCoo::CUDA::Runtime.set_device(device)
+    free, total = CooCoo::CUDA.memory_info
     $stdout.puts("%i\t%i\t%i\t%.3f" % [ device, free, total, (100.0 * free / total.to_f) ])
   end
 

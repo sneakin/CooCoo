@@ -1,6 +1,6 @@
 $: << File.join(File.dirname(__FILE__), '..')
 
-require 'neural/debug'
+require 'coo-coo/debug'
 
 if ENV['COVERAGE'] == 'true'
   require 'simplecov'

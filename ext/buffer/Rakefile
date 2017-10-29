@@ -1,8 +1,8 @@
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'neural', 'platform')
+require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'coo-coo', 'platform')
 
 NVCC=ENV.fetch("NVCC", "nvcc")
 # FIXME if windows/linux; windows doesn't like Wall
-if Neural::Platform.windows?
+if CooCoo::Platform.windows?
   #NVCCFLAGS="--cl-version=2015"
   NVCCFLAGS=""
 else

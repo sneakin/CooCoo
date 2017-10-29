@@ -1,16 +1,16 @@
 #!/usr/bin/ruby
 
 $: << File.join(File.dirname(__FILE__), '..', 'lib')
-require 'neural/cuda'
+require 'coo-coo/cuda'
 
-unless Neural::CUDA.available?
+unless CooCoo::CUDA.available?
   puts("Cuda not available")
   exit(-1)
 end
 
-puts("Device\t#{Neural::CUDA::Runtime.get_device} / #{Neural::CUDA::Runtime.device_count}")
-props = Neural::CUDA::Runtime::DeviceProperties.new
-err = Neural::CUDA::Runtime.cudaGetDeviceProperties(props, 0)
+puts("Device\t#{CooCoo::CUDA::Runtime.get_device} / #{CooCoo::CUDA::Runtime.device_count}")
+props = CooCoo::CUDA::Runtime::DeviceProperties.new
+err = CooCoo::CUDA::Runtime.cudaGetDeviceProperties(props, 0)
 raise CUDAError(err) if err != 0
 
 props.members.each do |m|

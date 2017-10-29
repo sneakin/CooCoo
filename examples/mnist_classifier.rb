@@ -2,10 +2,10 @@ require 'fileutils'
 require 'mnist'
 require 'optparse'
 require 'ostruct'
-require 'neural'
-require 'neural/image'
-require 'neural/convolution'
-require 'neural/neuron_layer'
+require 'coo-coo'
+require 'coo-coo/image'
+require 'coo-coo/convolution'
+require 'coo-coo/neuron_layer'
 
 def backup(path)
   if File.exists?(path)
@@ -29,7 +29,7 @@ options.translate_dy = 0
 options.hidden_layers = nil
 options.hidden_size = 128
 options.learning_rate = 1.0/3.0
-options.activation_function = Neural.default_activation
+options.activation_function = CooCoo.default_activation
 options.trainer = 'Stochastic'
 options.convolution = nil
 
@@ -87,7 +87,7 @@ opts = OptionParser.new do |o|
   end
 
   o.on('-f', '--activation-func FUNC') do |func|
-    options.activation_function = Neural::ActivationFunctions.from_name(func)
+    options.activation_function = CooCoo::ActivationFunctions.from_name(func)
   end
 
   o.on('--trainer NAME') do |name|
@@ -108,7 +108,7 @@ data_r = MNist::DataStream::Rotator.new(data, options.rotations, max_rad, false)
 data_t = MNist::DataStream::Translator.new(data_r, options.num_translations, options.translate_dx, options.translate_dy, false)
 training_set = MNist::TrainingSet.new(data_t).each
 
-net = Neural::Network.new
+net = CooCoo::Network.new
 
 if options.model_path && File.exists?(options.model_path)
   puts("Loading #{options.model_path}")
@@ -117,50 +117,50 @@ else
   area = data.width * data.height
 
   if options.convolution
-    net.layer(Neural::Convolution::BoxLayer.new(7, 7, Neural::Layer.new(16, 4, options.activation_function), 4, 4, 2, 2))
+    net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 4, options.activation_function), 4, 4, 2, 2))
 
     area = 7 * 7 * 2 * 2
   end
   
-  # net.layer(Neural::Layer.new(area, 50))
-  # net.layer(Neural::Layer.new(50, 20))
-  # net.layer(Neural::Layer.new(20, 10))
+  # net.layer(CooCoo::Layer.new(area, 50))
+  # net.layer(CooCoo::Layer.new(50, 20))
+  # net.layer(CooCoo::Layer.new(20, 10))
 
-  #net.layer(Neural::Layer.new(area, 10, options.activation_function))
+  #net.layer(CooCoo::Layer.new(area, 10, options.activation_function))
 
   if options.hidden_layers
-    net.layer(Neural::Layer.new(area, options.hidden_size, options.activation_function))
+    net.layer(CooCoo::Layer.new(area, options.hidden_size, options.activation_function))
     options.hidden_layers.times do
-      net.layer(Neural::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
+      net.layer(CooCoo::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
     end
-    net.layer(Neural::Layer.new(options.hidden_size, 10, options.activation_function))
+    net.layer(CooCoo::Layer.new(options.hidden_size, 10, options.activation_function))
   else
-    net.layer(Neural::Layer.new(area, area / 4, options.activation_function))
-    net.layer(Neural::Layer.new(area / 4, 10, options.activation_function))
+    net.layer(CooCoo::Layer.new(area, area / 4, options.activation_function))
+    net.layer(CooCoo::Layer.new(area / 4, 10, options.activation_function))
   end
 
 
-  #net.layer(Neural::Layer.new(area, 40))
-  #net.layer(Neural::Layer.new(40, 10))
+  #net.layer(CooCoo::Layer.new(area, 40))
+  #net.layer(CooCoo::Layer.new(40, 10))
   
-  #net.layer(Neural::Layer.new(area, 192))
-  #net.layer(Neural::Layer.new(192, 48))
-  #net.layer(Neural::Layer.new(48, 48))
-  #net.layer(Neural::Layer.new(48, 10))
+  #net.layer(CooCoo::Layer.new(area, 192))
+  #net.layer(CooCoo::Layer.new(192, 48))
+  #net.layer(CooCoo::Layer.new(48, 48))
+  #net.layer(CooCoo::Layer.new(48, 10))
 
-  #net.layer(Neural::Convolution::BoxLayer.new(7, 7, Neural::Layer.new(16, 4), 4, 4, 2, 2))
-  #net.layer(Neural::Layer.new(14 * 14, 10))
+  #net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 4), 4, 4, 2, 2))
+  #net.layer(CooCoo::Layer.new(14 * 14, 10))
 
-  #net.layer(Neural::Convolution::BoxLayer.new(7, 7, Neural::Layer.new(16, 6, options.activation_function), 4, 4, 6, 1))
-  #net.layer(Neural::Layer.new(7 * 7 * 6, 10, options.activation_function))
+  #net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 6, options.activation_function), 4, 4, 6, 1))
+  #net.layer(CooCoo::Layer.new(7 * 7 * 6, 10, options.activation_function))
 
   # options.hidden_layers.times do
-  #   net.layer(Neural::Layer.new(20, 20))
+  #   net.layer(CooCoo::Layer.new(20, 20))
   # end
-  # net.layer(Neural::Layer.new(20, 10))
+  # net.layer(CooCoo::Layer.new(20, 10))
 
-  #net.layer(Neural::Layer.new(area, 20))
-  #net.layer(Neural::Layer.new(20, 10))
+  #net.layer(CooCoo::Layer.new(area, 20))
+  #net.layer(CooCoo::Layer.new(20, 10))
 end
 
 puts("Net ready:")
@@ -185,7 +185,7 @@ if options.batch_size
     ts = ts.first(options.examples * options.rotations)
   end
 
-  trainer = Neural::Trainer.from_name(options.trainer)
+  trainer = CooCoo::Trainer.from_name(options.trainer)
   
   nex = options.examples * options.rotations
   nex = "all" if nex == 0
@@ -214,7 +214,7 @@ data_r = MNist::DataStream::Rotator.new(data.each.
 data_t = MNist::DataStream::Translator.new(data_r, 1, options.translate_dx, options.translate_dy, true)
 data_t.
   each_with_index do |example, i|
-  output, hidden_state = net.predict(Neural::Vector[example.pixels, data.width * data.height, 0] / 256.0, Hash.new, true)
+  output, hidden_state = net.predict(CooCoo::Vector[example.pixels, data.width * data.height, 0] / 256.0, Hash.new, true)
   max_outputs = output.each_with_index.sort.reverse
   max_output = max_outputs.first[1]
   errors[i] = 1.0 if example.label != max_output

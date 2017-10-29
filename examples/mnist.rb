@@ -1,5 +1,5 @@
 require 'pathname'
-require 'neural/image'
+require 'coo-coo/image'
 
 module MNist
   PATH = Pathname.new(__FILE__)
@@ -201,8 +201,8 @@ module MNist
       end
 
       def rotate_pixels(pixels, theta)
-        rot = Neural::Image::Rotate.new(MNist::Width / 2, MNist::Height / 2, theta)
-        img = Neural::Image::Base.new(MNist::Width, MNist::Height, 1, pixels.to_a.flatten)
+        rot = CooCoo::Image::Rotate.new(MNist::Width / 2, MNist::Height / 2, theta)
+        img = CooCoo::Image::Base.new(MNist::Width, MNist::Height, 1, pixels.to_a.flatten)
         (img * rot)
       end
     end
@@ -247,8 +247,8 @@ module MNist
       end
 
       def translate_pixels(pixels, x, y)
-        transform = Neural::Image::Translate.new(x, y)
-        img = Neural::Image::Base.new(MNist::Width, MNist::Height, 1, pixels.to_a.flatten)
+        transform = CooCoo::Image::Translate.new(x, y)
+        img = CooCoo::Image::Base.new(MNist::Width, MNist::Height, 1, pixels.to_a.flatten)
         (img * transform)
       end
     end
@@ -268,8 +268,8 @@ module MNist
 
         a = Array.new(10, 0.0)
         a[example.label] = 1.0
-        m = [ Neural::Vector[a],
-              Neural::Vector[example.pixels] / 256.0
+        m = [ CooCoo::Vector[a],
+              CooCoo::Vector[example.pixels] / 256.0
         ]
         #$stderr.puts("#{m[0]}\t#{m[1]}")
         block.call(m)

@@ -1,4 +1,4 @@
-require 'neural'
+require 'coo-coo'
 
 #NUM_INPUTS = 26 + 10 + 1 + 1 + 1
 NUM_INPUTS = 256
@@ -40,7 +40,7 @@ if NUM_INPUTS == 39
   end
 
   def encode_input(b)
-    v = Neural::Vector.zeros(NUM_INPUTS)
+    v = CooCoo::Vector.zeros(NUM_INPUTS)
     v[encode_byte(b)] = 1.0
     v
   end
@@ -55,7 +55,7 @@ if NUM_INPUTS == 39
   end
 elsif NUM_INPUTS == 256
   def encode_input(b)
-    v = Neural::Vector.zeros(NUM_INPUTS)
+    v = CooCoo::Vector.zeros(NUM_INPUTS)
     v[b] = 1.0
     v
   end
@@ -82,7 +82,7 @@ def training_enumerator(data, sequence_size)
       each_with_index do |values, i|
       input = values[0, values.size - 1].collect { |e| encode_input(e || 0) }
       output = values[1, values.size - 1].collect { |e| encode_input(e || 0) }
-      yielder << [ Neural::Sequence[output], Neural::Sequence[input] ]
+      yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
     end
   end
 end
@@ -93,10 +93,10 @@ if __FILE__ == $0
   options = OpenStruct.new
   options.recurrent_size = 1024
   options.learning_rate = 0.3
-  options.activation_function = Neural::ActivationFunctions.from_name('Logistic')
+  options.activation_function = CooCoo::ActivationFunctions.from_name('Logistic')
   options.epochs = 1000
   options.batch_size = 128
-  options.model_path = "char-rnn.neural_model"
+  options.model_path = "char-rnn.coo-coo_model"
   options.input_path = nil
   options.backprop_limit = nil
   options.train = true
@@ -117,7 +117,7 @@ if __FILE__ == $0
     end
 
     o.on('--activation NAME') do |name|
-      options.activation_function = Neural::ActivationFunctions.from_name(name)
+      options.activation_function = CooCoo::ActivationFunctions.from_name(name)
     end
 
     o.on('--epochs NUMBER') do |n|
@@ -162,7 +162,7 @@ if __FILE__ == $0
   training_data = training_enumerator(data, options.sequence_size)
 
   if File.exists?(options.model_path)
-    net = Neural::TemporalNetwork.from_hash(YAML.load(File.read(options.model_path)))
+    net = CooCoo::TemporalNetwork.from_hash(YAML.load(File.read(options.model_path)))
     puts("Loaded #{options.model_path}:")
     #net = Marshal.load(File.read(options.model_path))
   else
@@ -170,18 +170,18 @@ if __FILE__ == $0
     puts("\tRecurrent size: #{options.recurrent_size}")
     puts("\tActivation: #{options.activation_function}")
     
-    net = Neural::TemporalNetwork.new()
-    rec = Neural::Recurrence::Frontend.new(NUM_INPUTS, options.recurrent_size)
+    net = CooCoo::TemporalNetwork.new()
+    rec = CooCoo::Recurrence::Frontend.new(NUM_INPUTS, options.recurrent_size)
     net.layer(rec)
     options.num_layers.times do
-      net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+      net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
     end
 
-    #net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS * 2, options.activation_function))
-    #net.layer(Neural::Layer.new(NUM_INPUTS * 2, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+    #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS * 2, options.activation_function))
+    #net.layer(CooCoo::Layer.new(NUM_INPUTS * 2, NUM_INPUTS + rec.recurrent_size, options.activation_function))
 
-    #net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
-    #net.layer(Neural::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+    #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+    #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
 
     net.layer(rec.backend(NUM_INPUTS))
   end
@@ -196,9 +196,9 @@ if __FILE__ == $0
   if options.train
     puts("Training on #{data.size} bytes from #{options.input_path} #{options.epochs} times in batches of #{options.batch_size}...")
 
-    trainer = Neural::Trainer::Stochastic.instance
-    #trainer = Neural::Trainer::Batch.instance
-    bar = Neural::ProgressBar.create(:total => (options.epochs * data.size / options.batch_size.to_f).ceil)
+    trainer = CooCoo::Trainer::Stochastic.instance
+    #trainer = CooCoo::Trainer::Batch.instance
+    bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / options.batch_size.to_f).ceil)
     trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size) do
       bar.increment
 
@@ -213,7 +213,7 @@ if __FILE__ == $0
     end
   end
 
-  # bar = Neural::ProgressBar.create(:total => options.epochs * data.size)
+  # bar = CooCoo::ProgressBar.create(:total => options.epochs * data.size)
   # training_data.cycle(options.epochs).each_with_index do |(target, input), i|
   #   net.learn(target, input, options.learning_rate)
   #   bar.increment

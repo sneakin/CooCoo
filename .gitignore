@@ -2,6 +2,7 @@
 #*#
 *.bak
 *.neural[-_]model
+*.coocoo[-_]model
 *.o
 *.so
 *.exe

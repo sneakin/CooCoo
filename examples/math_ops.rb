@@ -1,6 +1,6 @@
 #!/usr/bin/ruby
 
-require 'neural'
+require 'coo-coo'
 
 average = Proc.new do |m|
   e = m.each
@@ -36,10 +36,10 @@ Random.srand(123)
 
 f = max
 training_data = data(1000, &f)
-model = Neural::Network.new()
-model.layer(Neural::Layer.new(3, 8))
-model.layer(Neural::Layer.new(8, 8))
-model.layer(Neural::Layer.new(8, 1))
+model = CooCoo::Network.new()
+model.layer(CooCoo::Layer.new(3, 8))
+model.layer(CooCoo::Layer.new(8, 8))
+model.layer(CooCoo::Layer.new(8, 1))
 
 puts("Training")
 now = Time.now

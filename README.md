@@ -9,7 +9,7 @@ THIS IS NOT PRODUCTION QUALITY. USE AT YOUR OWN RISK.
 Description
 ----------
 
-A basic neural network implemented in Ruby for understandability.
+A basic coo-coo network implemented in Ruby for understandability.
 
 Installation
 -------------
@@ -38,12 +38,12 @@ Or IRB: `bundle exec irb -Ilib`
 ### Code
 
 ```ruby
-require 'neural'
+require 'coo-coo'
 
-network = Neural::Network.new()
+network = CooCoo::Network.new()
 # create the layers
-network.layer(Neural::Layer.new(28 * 28, 100))
-network.layer(Neural::Layer.new(100, 10))
+network.layer(CooCoo::Layer.new(28 * 28, 100))
+network.layer(CooCoo::Layer.new(100, 10))
 
 # learn
 network.train([ [expected_output, input_data_array ], ...], learning_rate, batch_size) do |net, batch, dt|
@@ -52,10 +52,10 @@ network.train([ [expected_output, input_data_array ], ...], learning_rate, batch
 end
 
 # store to disk
-network.save("my_first_network.neural_model")
+network.save("my_first_network.coo-coo_model")
 
 # load from disk
-loaded_net = Neural::Network.load!("my_first_network.neural_model")
+loaded_net = CooCoo::Network.load!("my_first_network.coo-coo_model")
 
 # predict
 output = loaded_network.predict([ 0, 0, 0, ... ])
