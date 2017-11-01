@@ -82,9 +82,9 @@ module CooCoo
     class ReLU < Identity
       def call(x)
         t = x > 0
-        if t == false
+        if t.kind_of?(FalseClass)
           0.0
-        elsif t == true
+        elsif t.kind_of?(TrueClass)
           x
         else
           x * t
@@ -93,9 +93,9 @@ module CooCoo
 
       def derivative(x)
         t = x > 0
-        if t == false
+        if t.kind_of?(FalseClass)
           0.0
-        elsif t == true
+        elsif t.kind_of?(TrueClass)
           1.0
         else
           t
