@@ -37,6 +37,7 @@ extern "C"
   API cudaError_t buffer_setvn(Buffer, size_t, void *, size_t);
   API cudaError_t buffer_setv(Buffer, void *, size_t);
   API cudaError_t buffer_get(Buffer, void *, size_t);
+  API double buffer_get_element(Buffer, size_t);
   API Buffer buffer_slice(Buffer, size_t, size_t);
   API cudaError_t buffer_host_slice(Buffer, void *, size_t, size_t);
   API size_t buffer_length(const Buffer);
@@ -265,7 +266,7 @@ cudaError_t buffer_setd(Buffer b, double value, size_t offset, size_t length)
 
 Buffer buffer_new(size_t length, double initial_value)
 {
-  Buffer ptr = (Buffer)malloc(sizeof(Buffer));;
+  Buffer ptr = (Buffer)malloc(sizeof(Buffer_s));;
   if(buffer_init(0) != 0) {
     return NULL;
   }
@@ -295,7 +296,7 @@ cudaError_t buffer_free(Buffer buffer)
     if(buffer->data != NULL) {
       cudaError_t err = cudaFree(buffer->data);
       if(err != cudaSuccess) {
-	return err;
+        return err;
       }
       _total_bytes_allocated -= buffer->length * sizeof(double);
     }
@@ -335,6 +336,17 @@ cudaError_t buffer_set_element(Buffer buffer, size_t n, double v)
     return cudaMemcpy(buffer->data + n, &v, sizeof(double), cudaMemcpyHostToDevice);
   } else {
     return cudaErrorUnknown;
+  }
+}
+
+double buffer_get_element(Buffer buffer, size_t n)
+{
+  if(buffer != NULL && n < buffer->length) {
+    double out;
+    cudaMemcpy(&out, buffer->data + n, sizeof(double), cudaMemcpyDeviceToHost);
+    return out;
+  } else {
+    return NAN;
   }
 }
 
