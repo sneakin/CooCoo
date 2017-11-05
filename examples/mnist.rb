@@ -1,12 +1,37 @@
 require 'pathname'
+require 'net/http'
+require 'zlib'
 require 'coo-coo/image'
 
 module MNist
   PATH = Pathname.new(__FILE__)
+  MNIST_URIS = [ "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz",
+                 "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz",
+                 "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz",
+                 "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz"
+               ]
   TRAIN_LABELS_PATH = PATH.dirname.join('train-labels-idx1-ubyte')
   TRAIN_IMAGES_PATH = PATH.dirname.join('train-images-idx3-ubyte')
   Width = 28
   Height = 28
+
+  module Fetcher
+    def fetch_gzip_url(url)
+      data = Net::HTTP.get(url)
+      Zlib::GzipReader.new(StringIO.new(data)).read
+    end
+    
+    def fetch!
+      MNIST_URIS.each do |uri|
+        uri = URI.parse(uri)
+        path = PATH.dirname.join(File.basename(uri.path).sub(".gz", ""))
+        data = fetch_gzip_url(uri)
+        File.open(path, "w") do |f|
+          f.write(data)
+        end
+      end
+    end
+  end
   
   class Example
     attr_accessor :label
@@ -108,6 +133,12 @@ module MNist
 
   class DataStream
     def initialize(labels_path = TRAIN_LABELS_PATH, images_path = TRAIN_IMAGES_PATH)
+      if labels_path == TRAIN_LABELS_PATH && images_path == TRAIN_IMAGES_PATH
+        if !File.exists?(labels_path) || !File.exists?(images_path)
+          Fetcher.fetch!
+        end
+      end
+
       raise ArgumentError.new("File does not exist: #{labels_path}") unless File.exists?(labels_path)
       raise ArgumentError.new("File does not exist: #{images_path}") unless File.exists?(images_path)
       
