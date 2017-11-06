@@ -9,14 +9,27 @@ THIS IS NOT PRODUCTION QUALITY. USE AT YOUR OWN RISK.
 Description
 ----------
 
-A basic coo-coo network implemented in Ruby for understandability.
+A neural network library implemented in Ruby with a CUDA backend.
 
-Installation
+
+Dependencies
 -------------
+
+* [NVIDIA's CUDA Toolkit](https://developer.nvidia.com/cuda-downloads)
+* Any one of the following C/C++ environments:
+  * [GCC](https://gcc.gnu.org/)
+  * [MSYS2](http://www.msys2.org/)
+* [Ruby](https://www.ruby-lang.org/): install via your distribution package manager or MSYS2's `pacman -S ruby`
+* [Bundler](http://bundler.io/)
 
 
 Usage
 ----------
+
+### Coming soon
+
+    $ gem install coo-coo
+
 
 ### Install
 
@@ -31,9 +44,12 @@ RubyGems are installed with Bundler: `bundle install`
 
 And the extension is built with: `rake compile`
 
-Then to run Ruby: `bundle exec ruby -Ilib -Iexamples/seeds.rb`
+Then to run an example: `bundle exec ruby -Ilib -Iexamples examples/seeds.rb`
 
 Or IRB: `bundle exec irb -Ilib`
+
+Or IRB: `bundle exec ruby -Ilib`
+
 
 ### Code
 
