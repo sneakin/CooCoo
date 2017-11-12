@@ -11,3 +11,5 @@ doc/spec
 doc/spec.html
 doc/coverage
 ext/buffer/ffi.rb
+ext/buffer/buffer.cu
+ext/buffer/buffer.h
