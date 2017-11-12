@@ -1,5 +1,5 @@
 class Numeric
-  [ :exp,
+  [ :exp, :sqrt,
     :sin, :asin, :cos, :acos, :tan, :atan,
     :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,
     :ceil, :floor, :round

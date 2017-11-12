@@ -451,11 +451,19 @@ shared_examples "for an AbstractVector" do
     end
   end
 
+  describe '#magnitude_squared' do
+    subject { described_class[[1, 2, 3]] }
+    
+    it 'returns the sum of the squares of each element' do
+      expect(subject.magnitude_squared).to eq(1*1 + 2*2 + 3*3)
+    end
+  end
+  
   describe '#magnitude' do
     subject { described_class[[1, 2, 3]] }
     
-    it 'returns the sum of he squares of each element' do
-      expect(subject.magnitude).to eq(1*1 + 2*2 + 3*3)
+    it 'returns the squareroot of the sum of the squares of each element' do
+      expect(subject.magnitude).to eq(Math.sqrt(1*1 + 2*2 + 3*3))
     end
   end
   
@@ -463,7 +471,7 @@ shared_examples "for an AbstractVector" do
     subject { described_class[[1.0, 2.0, 3.0]] }
 
     it "returns the vector divided by its magnitude" do
-      expect(subject.normalize).to eq(described_class[[1/14.0, 2/14.0, 3/14.0]])
+      expect(subject.normalize).to eq(described_class[[1/Math.sqrt(14.0), 2/Math.sqrt(14.0), 3/Math.sqrt(14.0)]])
     end
 
     it { expect(subject.normalize).to be_kind_of(described_class) }

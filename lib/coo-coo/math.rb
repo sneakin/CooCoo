@@ -130,8 +130,12 @@ module CooCoo
         @elements.each.sum
       end
 
-      def magnitude
+      def magnitude_squared
         (self * self).sum
+      end
+
+      def magnitude
+        magnitude_squared.sqrt
       end
 
       def normalize
@@ -434,8 +438,12 @@ module CooCoo
         @elements.each.sum
       end
 
-      def magnitude
+      def magnitude_squared
         (self * self).sum
+      end
+
+      def magnitude
+        magnitude_squared.sqrt
       end
 
       def normalize
