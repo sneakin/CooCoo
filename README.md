@@ -62,7 +62,10 @@ network.layer(CooCoo::Layer.new(28 * 28, 100))
 network.layer(CooCoo::Layer.new(100, 10))
 
 # learn
-network.train([ [expected_output, input_data_array ], ...], learning_rate, batch_size) do |net, batch, dt|
+training_data = [ [expected_output, input_data_array ], ...]
+
+trainer = CooCoo::Trainer::Stochastic.new
+trainer.train(network, training_data, learning_rate, batch_size) do |net, batch, dt|
   # called every batch_size
   puts("Batch #{batch} took #{dt} seconds.")
 end
