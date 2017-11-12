@@ -10,3 +10,4 @@
 doc/spec
 doc/spec.html
 doc/coverage
+ext/buffer/ffi.rb

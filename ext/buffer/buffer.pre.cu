@@ -1,89 +1,16 @@
 #include <stdio.h>
 #include <math.h>
 
-extern "C"
+#include "public.h"
+#include "buffer.h"
+
+#ifdef IN_PUBLIC
+typedef struct Buffer_s
 {
-#ifdef _WIN32
-#define API __declspec(dllexport)
-#else
-#define API
+  double *data;
+  size_t length;
+} *Buffer;
 #endif
-
-  typedef struct Buffer_s
-  {
-    double *data;
-    size_t length;
-  } *Buffer;
-
-  struct Buffer_s NullBuffer_s = {
-    NULL,
-    0
-  };
-  Buffer NullBuffer = &NullBuffer_s;
-
-  API int buffer_block_size();
-  API void buffer_set_block_size(int);
-  API int buffer_max_grid_size();
-  API void buffer_set_max_grid_size(int);
-
-  API cudaError_t buffer_init(int);
-  API size_t buffer_total_bytes_allocated();
-
-  API Buffer buffer_new(size_t, double);
-  API cudaError_t buffer_free(Buffer);
-  API cudaError_t buffer_set(Buffer, Buffer);
-  API cudaError_t buffer_setd(Buffer, double, size_t, size_t);
-  API cudaError_t buffer_set_element(Buffer, size_t, double);
-  API cudaError_t buffer_setvn(Buffer, size_t, void *, size_t);
-  API cudaError_t buffer_setv(Buffer, void *, size_t);
-  API cudaError_t buffer_get(Buffer, void *, size_t);
-  API double buffer_get_element(Buffer, size_t);
-  API Buffer buffer_slice(Buffer, size_t, size_t);
-  API cudaError_t buffer_host_slice(Buffer, void *, size_t, size_t);
-  API size_t buffer_length(const Buffer);
-  API Buffer buffer_add(const Buffer, const Buffer);
-  API Buffer buffer_addd(const Buffer, double);
-  API double buffer_sum(const Buffer);
-  API Buffer buffer_sub(const Buffer, const Buffer);
-  API Buffer buffer_subd(const Buffer, double);
-  API Buffer buffer_mul(const Buffer, const Buffer);
-  API Buffer buffer_muld(const Buffer, double);
-  API Buffer buffer_dot(const Buffer, size_t, size_t, const Buffer, size_t, size_t);
-  API Buffer buffer_div(const Buffer, const Buffer);
-  API Buffer buffer_divd(const Buffer, double);
-  API Buffer buffer_any_eq(const Buffer, const Buffer);
-  API Buffer buffer_any_eqd(const Buffer, double);
-  API Buffer buffer_any_neq(const Buffer, const Buffer);
-  API Buffer buffer_any_neqd(const Buffer, double);
-  API Buffer buffer_any_lt(const Buffer, const Buffer);
-  API Buffer buffer_any_ltd(const Buffer, double);
-  API Buffer buffer_any_lte(const Buffer, const Buffer);
-  API Buffer buffer_any_lted(const Buffer, double);
-  API Buffer buffer_any_gt(const Buffer, const Buffer);
-  API Buffer buffer_any_gtd(const Buffer, double);
-  API Buffer buffer_any_gte(const Buffer, const Buffer);
-  API Buffer buffer_any_gted(const Buffer, double);
-  API int buffer_eq(const Buffer, const Buffer);
-  API Buffer buffer_abs(const Buffer);
-  API Buffer buffer_exp(const Buffer);
-  API Buffer buffer_floor(const Buffer);
-  API Buffer buffer_ceil(const Buffer);
-  API Buffer buffer_round(const Buffer);
-  API Buffer buffer_sin(const Buffer);
-  API Buffer buffer_cos(const Buffer);
-  API Buffer buffer_tan(const Buffer);
-  API Buffer buffer_asin(const Buffer);
-  API Buffer buffer_acos(const Buffer);
-  API Buffer buffer_atan(const Buffer);
-  API Buffer buffer_sinh(const Buffer);
-  API Buffer buffer_cosh(const Buffer);
-  API Buffer buffer_tanh(const Buffer);
-  API Buffer buffer_asinh(const Buffer);
-  API Buffer buffer_acosh(const Buffer);
-  API Buffer buffer_atanh(const Buffer);
-
-#undef API
-};
 
 __device__ int grid(int ndims)
 {
@@ -103,29 +30,29 @@ static int _max_grid_size = 1024;
 
 //static int _threads_per_block = 1;
 
-int buffer_block_size()
+PUBLIC int buffer_block_size()
 {
   return _block_size;
 }
 
-void buffer_set_block_size(int bs)
+PUBLIC void buffer_set_block_size(int bs)
 {
   _block_size = bs;
 }
 
-int buffer_max_grid_size()
+PUBLIC int buffer_max_grid_size()
 {
   return _max_grid_size;
 }
 
-void buffer_set_max_grid_size(int gs)
+PUBLIC void buffer_set_max_grid_size(int gs)
 {
   _max_grid_size = gs;
 }
 
 static size_t _total_bytes_allocated;
 
-size_t buffer_total_bytes_allocated()
+PUBLIC size_t buffer_total_bytes_allocated()
 {
   return _total_bytes_allocated;
 }
@@ -213,7 +140,7 @@ void launchd_modkernel(modkerneld_func_t kernel, const Buffer a, double b, size_
 }
 
 
-cudaError_t buffer_init(int device)
+PUBLIC cudaError_t buffer_init(int device)
 {
   if(_initialized == -1) {
     cudaDeviceProp props;
@@ -247,7 +174,7 @@ __global__ void buffer_setd_inner(int len, double *a, double b, int grid_offset)
   }
 }
 
-cudaError_t buffer_setd(Buffer b, double value, size_t offset, size_t length)
+PUBLIC cudaError_t buffer_setd(Buffer b, double value, size_t offset, size_t length)
 {
   if(value == 0.0) {
     if(offset < b->length) {
@@ -264,7 +191,7 @@ cudaError_t buffer_setd(Buffer b, double value, size_t offset, size_t length)
   }
 }
 
-Buffer buffer_new(size_t length, double initial_value)
+PUBLIC Buffer buffer_new(size_t length, double initial_value)
 {
   Buffer ptr = (Buffer)malloc(sizeof(Buffer_s));;
   if(buffer_init(0) != 0) {
@@ -290,7 +217,7 @@ Buffer buffer_new(size_t length, double initial_value)
   return ptr;
 }
 
-cudaError_t buffer_free(Buffer buffer)
+PUBLIC cudaError_t buffer_free(Buffer buffer)
 {
   if(buffer != NULL) {
     if(buffer->data != NULL) {
@@ -306,7 +233,7 @@ cudaError_t buffer_free(Buffer buffer)
   return cudaSuccess;
 }
 
-cudaError_t buffer_set(Buffer buffer, Buffer other)
+PUBLIC cudaError_t buffer_set(Buffer buffer, Buffer other)
 {
   if(buffer == NULL || other == NULL) return cudaErrorUnknown;
   
@@ -317,7 +244,7 @@ cudaError_t buffer_set(Buffer buffer, Buffer other)
   return cudaMemcpy(buffer->data, other->data, length * sizeof(double), cudaMemcpyDeviceToDevice);
 }
 
-cudaError_t buffer_setvn(Buffer buffer, size_t offset, void *data, size_t length)
+PUBLIC cudaError_t buffer_setvn(Buffer buffer, size_t offset, void *data, size_t length)
 {
   if((offset + length) > buffer->length) {
     length = buffer->length - offset;
@@ -325,12 +252,12 @@ cudaError_t buffer_setvn(Buffer buffer, size_t offset, void *data, size_t length
   return cudaMemcpy(buffer->data + offset, data, length * sizeof(double), cudaMemcpyHostToDevice);
 }
 
-cudaError_t buffer_setv(Buffer buffer, void *data, size_t length)
+PUBLIC cudaError_t buffer_setv(Buffer buffer, void *data, size_t length)
 {
   return buffer_setvn(buffer, 0, data, length);
 }
 
-cudaError_t buffer_set_element(Buffer buffer, size_t n, double v)
+PUBLIC cudaError_t buffer_set_element(Buffer buffer, size_t n, double v)
 {
   if(buffer != NULL && n < buffer->length) {
     return cudaMemcpy(buffer->data + n, &v, sizeof(double), cudaMemcpyHostToDevice);
@@ -339,7 +266,7 @@ cudaError_t buffer_set_element(Buffer buffer, size_t n, double v)
   }
 }
 
-double buffer_get_element(Buffer buffer, size_t n)
+PUBLIC double buffer_get_element(Buffer buffer, size_t n)
 {
   if(buffer != NULL && n < buffer->length) {
     double out;
@@ -350,7 +277,7 @@ double buffer_get_element(Buffer buffer, size_t n)
   }
 }
 
-cudaError_t buffer_get(Buffer buffer, void *out, size_t max_length)
+PUBLIC cudaError_t buffer_get(Buffer buffer, void *out, size_t max_length)
 {
   if(buffer == NULL) return cudaErrorUnknown;
 
@@ -363,7 +290,7 @@ cudaError_t buffer_get(Buffer buffer, void *out, size_t max_length)
   return err;
 }
 
-Buffer buffer_slice(Buffer buffer, size_t n, size_t max_length)
+PUBLIC Buffer buffer_slice(Buffer buffer, size_t n, size_t max_length)
 {
   if(buffer != NULL && n < buffer->length) {
     Buffer out = buffer_new(max_length, 0.0);
@@ -386,7 +313,7 @@ Buffer buffer_slice(Buffer buffer, size_t n, size_t max_length)
   }
 }
 
-cudaError_t buffer_host_slice(Buffer buffer, void *out, size_t n, size_t max_length)
+PUBLIC cudaError_t buffer_host_slice(Buffer buffer, void *out, size_t n, size_t max_length)
 {
   if(buffer != NULL && n < buffer->length) {
     if((n + max_length) >= buffer->length) {
@@ -400,7 +327,7 @@ cudaError_t buffer_host_slice(Buffer buffer, void *out, size_t n, size_t max_len
   }
 }
 
-size_t buffer_length(const Buffer b)
+PUBLIC size_t buffer_length(const Buffer b)
 {
   if(b != NULL) {
     return b->length;
@@ -430,7 +357,7 @@ __global__ void buffer_sum_minor(const double *a, double *partial_sums, size_t l
   }
 }
 
-double buffer_sum(const Buffer b)
+PUBLIC double buffer_sum(const Buffer b)
 {
   int i;
   int grid_size = (b->length + _block_size - 1) / _block_size;
@@ -467,8 +394,8 @@ double buffer_sum(const Buffer b)
   return out;
 }
 
-#define BINARY_OP(name, operation)                                      \
-  __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double *b, int grid_offset, void *) \
+#define BINARY_OP(name, operation) Buffer buffer_##name(const Buffer, const Buffer); \
+    __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double *b, int grid_offset, void *) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
     if(i < len) {                                                       \
@@ -481,18 +408,18 @@ double buffer_sum(const Buffer b)
     return launch_kernel(buffer_ ## name ## _inner, a, b, NULL);        \
   }
 
-BINARY_OP(add, { out[i] = a[i] + b[i]; });
-BINARY_OP(sub, { out[i] = a[i] - b[i]; });
-BINARY_OP(mul, { out[i] = a[i] * b[i]; });
-BINARY_OP(div, { out[i] = a[i] / b[i]; });
-BINARY_OP(any_eq, { out[i] = a[i] == b[i]; });
-BINARY_OP(any_neq, { out[i] = a[i] != b[i]; });
-BINARY_OP(any_lt, { out[i] = a[i] < b[i]; });
-BINARY_OP(any_lte, { out[i] = a[i] <= b[i]; });
-BINARY_OP(any_gt, { out[i] = a[i] > b[i]; });
-BINARY_OP(any_gte, { out[i] = a[i] >= b[i]; });
+PUBLIC BINARY_OP(add, { out[i] = a[i] + b[i]; });
+PUBLIC BINARY_OP(sub, { out[i] = a[i] - b[i]; });
+PUBLIC BINARY_OP(mul, { out[i] = a[i] * b[i]; });
+PUBLIC BINARY_OP(div, { out[i] = a[i] / b[i]; });
+PUBLIC BINARY_OP(any_eq, { out[i] = a[i] == b[i]; });
+PUBLIC BINARY_OP(any_neq, { out[i] = a[i] != b[i]; });
+PUBLIC BINARY_OP(any_lt, { out[i] = a[i] < b[i]; });
+PUBLIC BINARY_OP(any_lte, { out[i] = a[i] <= b[i]; });
+PUBLIC BINARY_OP(any_gt, { out[i] = a[i] > b[i]; });
+PUBLIC BINARY_OP(any_gte, { out[i] = a[i] >= b[i]; });
 
-#define SCALAR_OP(name, operation)                                      \
+#define SCALAR_OP(name, operation) Buffer buffer_##name ## d(const Buffer, double); \
   __global__ void buffer_ ## name ## d_inner(int len, double *out, const double *a, const double b, int grid_offset) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
@@ -506,18 +433,18 @@ BINARY_OP(any_gte, { out[i] = a[i] >= b[i]; });
     return launchd_kernel(buffer_ ## name ## d_inner, a, b, 0);         \
   }
 
-SCALAR_OP(add, { out[i] = a[i] + b; });
-SCALAR_OP(sub, { out[i] = a[i] - b; });
-SCALAR_OP(mul, { out[i] = a[i] * b; });
-SCALAR_OP(div, { out[i] = a[i] / b; });
-SCALAR_OP(any_eq, { out[i] = a[i] == b; });
-SCALAR_OP(any_neq, { out[i] = a[i] != b; });
-SCALAR_OP(any_lt, { out[i] = a[i] < b; });
-SCALAR_OP(any_lte, { out[i] = a[i] <= b; });
-SCALAR_OP(any_gt, { out[i] = a[i] > b; });
-SCALAR_OP(any_gte, { out[i] = a[i] >= b; });
+PUBLIC SCALAR_OP(add, { out[i] = a[i] + b; });
+PUBLIC SCALAR_OP(sub, { out[i] = a[i] - b; });
+PUBLIC SCALAR_OP(mul, { out[i] = a[i] * b; });
+PUBLIC SCALAR_OP(div, { out[i] = a[i] / b; });
+PUBLIC SCALAR_OP(any_eq, { out[i] = a[i] == b; });
+PUBLIC SCALAR_OP(any_neq, { out[i] = a[i] != b; });
+PUBLIC SCALAR_OP(any_lt, { out[i] = a[i] < b; });
+PUBLIC SCALAR_OP(any_lte, { out[i] = a[i] <= b; });
+PUBLIC SCALAR_OP(any_gt, { out[i] = a[i] > b; });
+PUBLIC SCALAR_OP(any_gte, { out[i] = a[i] >= b; });
 
-int buffer_eq(const Buffer a, const Buffer b)
+PUBLIC int buffer_eq(const Buffer a, const Buffer b)
 {
   // compare
   Buffer results = buffer_any_eq(a, b);
@@ -534,7 +461,7 @@ int buffer_eq(const Buffer a, const Buffer b)
   }
 }
 
-#define FUNCTION_OP(name, operation)                                      \
+#define FUNCTION_OP(name, operation) Buffer buffer_##name(const Buffer); \
   __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double b, int grid_offset) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
@@ -549,23 +476,23 @@ int buffer_eq(const Buffer a, const Buffer b)
   }
 
 
-FUNCTION_OP(abs, { out[i] = abs(a[i]); });
-FUNCTION_OP(exp, { out[i] = exp(a[i]); });
-FUNCTION_OP(floor, { out[i] = floor(a[i]); });
-FUNCTION_OP(ceil, { out[i] = ceil(a[i]); });
-FUNCTION_OP(round, { out[i] = round(a[i]); });
-FUNCTION_OP(sin, { out[i] = sin(a[i]); });
-FUNCTION_OP(cos, { out[i] = cos(a[i]); });
-FUNCTION_OP(tan, { out[i] = tan(a[i]); });
-FUNCTION_OP(asin, { out[i] = asin(a[i]); });
-FUNCTION_OP(acos, { out[i] = acos(a[i]); });
-FUNCTION_OP(atan, { out[i] = atan(a[i]); });
-FUNCTION_OP(sinh, { out[i] = sinh(a[i]); });
-FUNCTION_OP(cosh, { out[i] = cosh(a[i]); });
-FUNCTION_OP(tanh, { out[i] = tanh(a[i]); });
-FUNCTION_OP(asinh, { out[i] = asinh(a[i]); });
-FUNCTION_OP(acosh, { out[i] = acosh(a[i]); });
-FUNCTION_OP(atanh, { out[i] = atanh(a[i]); });
+PUBLIC FUNCTION_OP(abs, { out[i] = abs(a[i]); });
+PUBLIC FUNCTION_OP(exp, { out[i] = exp(a[i]); });
+PUBLIC FUNCTION_OP(floor, { out[i] = floor(a[i]); });
+PUBLIC FUNCTION_OP(ceil, { out[i] = ceil(a[i]); });
+PUBLIC FUNCTION_OP(round, { out[i] = round(a[i]); });
+PUBLIC FUNCTION_OP(sin, { out[i] = sin(a[i]); });
+PUBLIC FUNCTION_OP(cos, { out[i] = cos(a[i]); });
+PUBLIC FUNCTION_OP(tan, { out[i] = tan(a[i]); });
+PUBLIC FUNCTION_OP(asin, { out[i] = asin(a[i]); });
+PUBLIC FUNCTION_OP(acos, { out[i] = acos(a[i]); });
+PUBLIC FUNCTION_OP(atan, { out[i] = atan(a[i]); });
+PUBLIC FUNCTION_OP(sinh, { out[i] = sinh(a[i]); });
+PUBLIC FUNCTION_OP(cosh, { out[i] = cosh(a[i]); });
+PUBLIC FUNCTION_OP(tanh, { out[i] = tanh(a[i]); });
+PUBLIC FUNCTION_OP(asinh, { out[i] = asinh(a[i]); });
+PUBLIC FUNCTION_OP(acosh, { out[i] = acosh(a[i]); });
+PUBLIC FUNCTION_OP(atanh, { out[i] = atanh(a[i]); });
 
 __global__ void buffer_dot_inner(double *out, const double *a, const double *b, size_t aw, size_t ah, size_t bw, size_t bh)
 {
@@ -582,7 +509,7 @@ __global__ void buffer_dot_inner(double *out, const double *a, const double *b, 
   out[row * bw + col] = sum;
 }
 
-Buffer buffer_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, size_t bw, size_t bh)
+PUBLIC Buffer buffer_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, size_t bw, size_t bh)
 {
   if(aw * ah != a->length && bw * bh != b-> length && aw != bh) {
     return NULL;

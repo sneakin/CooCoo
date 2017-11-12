@@ -12,14 +12,33 @@ end
 
 DLEXT=RbConfig::CONFIG['DLEXT']
 
-task :default => "buffer.#{DLEXT}"
+task :default => [ "buffer.#{DLEXT}", "ffi.rb" ]
 
 task :clean do
-  sh("rm -f buffer.#{DLEXT} buffer.ext buffer.lib")
+  sh("rm -f buffer.#{DLEXT} buffer.ext buffer.lib buffer.cu buffer.h ffi.rb")
 end
 
 desc "Build buffer.#{DLEXT}"
-file "buffer.#{DLEXT}" => 'buffer.cu' do |t|
+file "buffer.#{DLEXT}" => [ 'buffer.cu' ] do |t|
 	sh("#{NVCC} #{NVCCFLAGS.join(' ')} -shared -o #{t.name} #{t.sources.join(' ')}")
 end
 
+def ffi_gen(*args)
+  ruby(File.join(CooCoo.root, 'bin', 'ffi-gen'), *args)
+end
+
+file 'buffer.cu' => [ 'buffer.pre.cu', 'buffer.h' ] do |t|
+  ffi_gen('--source', '-o', t.name, t.source)
+end
+
+file 'buffer.h' => 'buffer.pre.cu' do |t|
+  ffi_gen('--header', '-o', t.name, *t.sources)
+end
+
+file 'ffi.rb' => 'buffer.pre.cu' do |t|
+  ffi_gen('--ffi',
+          '--module', "CooCoo::DeviceBuffer",
+          '--library', 'buffer',
+          '-o', t.name,
+          *t.sources)
+end

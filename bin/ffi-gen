@@ -1,0 +1,199 @@
+#!/usr/bin/ruby
+
+require 'ffi'
+
+class ExportScanner
+  NEEDLE = "PUBLIC"
+  NVCCFLAGS = []
+
+  attr_reader :structs
+  attr_reader :functions
+
+  def initialize
+    @functions = Array.new
+    @structs = Array.new
+  end
+
+  def scan(path)
+    @functions += `nvcc -E -DIN_PUBLIC=1 -D#{NEEDLE}=#{NEEDLE} #{NVCCFLAGS.join(' ')} #{path} | grep -e '#{NEEDLE}'`.
+      split("\n").collect { |f| f[0, f.index(';') || f.size].strip }
+
+    m = File.read(path).match(/typedef\s+struct\s+(\w+)\s+{.*}\s+[*](\w+);/m)
+    @structs << m if m
+
+    self
+  end
+
+  def header(name)
+    head = File.basename(name).upcase
+    <<-EOT
+\#ifndef #{head}
+\#define #{head}
+
+\#include "public.h"
+
+extern "C" {
+  #{structs.collect { |s| s[0] }.join('\n')}
+
+  #{functions.join(";\n  ")};
+}
+
+\#endif /* #{head} */
+EOT
+  end
+
+  class Argument
+    attr_accessor :const
+    attr_accessor :type
+    attr_accessor :name
+
+    def initialize(str)
+      parts = @parts = str.split
+      if parts[0] == 'const'
+        self.const = true
+        parts.shift
+      else
+        self.const = false
+        self.type = parts[0]
+        self.name = parts[-1]
+      end
+
+      self.type = parts[0]
+      self.name = parts[-1] if parts[-1] != '*' || parts[-1] != parts[0]
+    end
+  end
+
+  def parse_args(arg_str)
+    args = arg_str.split(',').collect(&:strip)
+    arg_types = args.collect do |a|
+      Argument.new(a)
+    end
+  end
+
+  def ffi_def(f)
+    m = f.match(/(\w+)\s+(\w+)\s*\((.*)\)/)
+    if m
+      func = m[2]
+      args = parse_args(m[3]).collect do |a|
+        if FFI::TypeDefs[a.type.to_sym]
+          ":" + FFI::TypeDefs.key(FFI::TypeDefs[a.type.to_sym]).to_s
+        else
+          a.type + ".auto_ptr"
+        end
+      end
+
+      ret = m[1].strip
+      if FFI::TypeDefs[ret.to_sym]
+        ret = ":" + FFI::TypeDefs.key(FFI::TypeDefs[ret.to_sym]).to_s
+      end
+
+      "    attach_function :#{func}, [ #{args.join(', ')} ], #{ret}"
+    end
+  end
+
+  def ffi(name, library)
+    <<-EOT
+module #{name}
+  module FFI
+    extend ::FFI::Library
+    ffi_lib Pathname.new(__FILE__).join('..', "#{library}.#{RbConfig::CONFIG['DLEXT']}").to_s
+
+#{functions.collect { |f| ffi_def(f) }.compact.join("\n")}
+  end
+end
+EOT
+  end
+end
+
+def write_header(header, sources)
+  # empty the file for preprocessing
+  if header != nil && header != '-'
+    File.open(header, 'w') do |f|
+      f.puts
+    end
+  end
+
+  scanner = ExportScanner.new
+  sources.each(&-> (s) { scanner.scan(s) })
+
+  if header == nil || header == '-'
+    $stdout.puts(scanner.header("STDOUT"))
+  else
+    File.open(header, 'w') do |f|
+      f.puts(scanner.header(header.gsub('.', '_')))
+    end
+  end
+end
+
+def write_ffi(mod, library, output, sources)
+  raise ArgumentError.new('No --module name given.') if mod == nil
+  raise ArgumentError.new('No --library given.') if library == nil
+
+  scanner = ExportScanner.new
+  sources.each(&->(s) { scanner.scan(s) })
+
+  if output == nil || output == '-'
+    $stdout.puts(scanner.ffi(mod, library))
+  else
+    File.open(output, 'w') do |f|
+      f.puts(scanner.ffi(mod, library))
+    end
+  end
+end
+
+require 'fileutils'
+def write_source(output, source)
+  FileUtils.copy(source, output)
+end
+
+
+if __FILE__ == $0
+  require 'ostruct'
+  options = OpenStruct.new
+  options.mode = :help
+  options.sources = Array.new
+
+  require 'optparse'
+  opts = OptionParser.new() do |o|
+    o.on('-h', 'Help') do
+      options.mode = :help
+    end
+
+    o.on('--header', 'Generate a C/C++ header.') do
+      options.mode = :header
+    end
+
+    o.on('--ffi', 'Generate a Ruby FFI.') do
+      options.mode = :ffi
+    end
+
+    o.on('--source', 'Generate C/C++ source code.') do
+      options.mode = :source
+    end
+
+    o.on('-o', '--output PATH', 'Write the output to PATH.') do |path|
+      options.output = path
+    end
+
+    o.on('--module NAME', 'The name of the generated FFI module.') do |m|
+      options.module = m
+    end
+
+    o.on('-l', '--library NAME', 'The shared library name to load.') do |l|
+      options.library = l
+    end
+  end
+
+  options.sources = opts.parse!(ARGV)
+
+  unless options.mode == :help
+    raise ArgumentError.new("No sources found.") unless options.sources.size > 0
+  end
+
+  case options.mode
+    when :ffi then write_ffi(options.module, options.library, options.output, options.sources)
+    when :header then write_header(options.output, options.sources)
+    when :source then write_source(options.output, options.sources[0])
+    else puts(opts.help)
+  end
+end
