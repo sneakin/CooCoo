@@ -30,7 +30,7 @@ module CooCoo
         x
       end
 
-      def derivative(x)
+      def inv_derivative(x)
         1.0
       end
 
@@ -52,7 +52,7 @@ module CooCoo
         1.0 / ( 1.0 + (-x).exp)
       end
 
-      def derivative(x)
+      def inv_derivative(x)
         x * (1.0 - x)
       end
     end
@@ -62,7 +62,7 @@ module CooCoo
         2.0 / (1.0 + (x * -2.0).exp) - 1.0
       end
 
-      def derivative(x)
+      def inv_derivative(x)
         1.0 - x * x
       end
 
@@ -91,7 +91,7 @@ module CooCoo
         end
       end
 
-      def derivative(x)
+      def inv_derivative(x)
         t = x > 0
         if t.kind_of?(FalseClass)
           0.0

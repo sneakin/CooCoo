@@ -50,12 +50,8 @@ module CooCoo
       @activation_func.call(activation)
     end
     
-    def transfer_derivative(n)
-      @activation_func.derivative(n)
-    end
-    
     def backprop(output, error)
-      error * transfer_derivative(output)
+      error * @activation_func.inv_derivative(output)
     end
 
     def transfer_error(delta)

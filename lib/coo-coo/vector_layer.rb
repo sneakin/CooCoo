@@ -41,7 +41,7 @@ module CooCoo
     end
 
     def backprop(output, errors, hidden_state)
-      return errors * @activation_function.derivative(output), hidden_state
+      return errors * @activation_function.inv_derivative(output), hidden_state
     end
 
     def transfer_error(deltas)

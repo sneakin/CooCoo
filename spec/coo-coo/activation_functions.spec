@@ -21,10 +21,10 @@ shared_examples 'activation function' do
     end
   end
 
-  describe '#derivative' do
+  describe '#inv_derivative' do
     it do
       derivative_data.each do |input, output|
-        expect(subject.derivative(input)).to eq(output)
+        expect(subject.inv_derivative(input)).to eq(output)
       end
     end
   end
