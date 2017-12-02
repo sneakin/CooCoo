@@ -39,7 +39,7 @@ module CooCoo
             errs
           end
           
-          block.call(self, i, Time.now - t, CooCoo::Sequence[total_errs].sum) if block
+          block.call(self, i, Time.now - t, CooCoo::Sequence[total_errs]) if block
           t = Time.now
         end
       end
