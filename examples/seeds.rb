@@ -127,6 +127,7 @@ options.activation_function = CooCoo.default_activation
 options.hidden_size = 21
 options.trainer = 'Stochastic'
 options.num_layers = 2
+options.learning_rate = 0.3
 
 op = OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
@@ -159,6 +160,10 @@ op = OptionParser.new do |o|
 
   o.on('--trainer NAME') do |trainer|
     options.trainer = trainer
+  end
+
+  o.on('--learning-rate NUMBER') do |num|
+    options.learning_rate = num.to_f
   end
 end
 
@@ -198,7 +203,7 @@ if options.epochs
   bar = CooCoo::ProgressBar.create(:total => options.epochs.to_i)
   last_error = nil
   (options.epochs * 2.0 / 3.0).to_i.times do |epoch|
-    trainer.train(model, training_data.each_example, 0.3, options.batch_size) do |t, ex, dt, err|
+    trainer.train(model, training_data.each_example, options.learning_rate, options.batch_size) do |t, ex, dt, err|
       last_error = err
     end
     bar.increment
@@ -209,7 +214,7 @@ if options.epochs
   puts("\tAverage Error\t#{avg_error.magnitude}\t#{avg_error}\t#{avg_error * avg_error}") if last_error
   puts("Decreasing learning rate")
   (options.epochs * 1.0 / 3.0).to_i.times do |epoch|
-    trainer.train(model, training_data.each_example, 0.1, options.batch_size) do |t, ex, dt, err|
+    trainer.train(model, training_data.each_example, options.learning_rate * 0.1, options.batch_size) do |t, ex, dt, err|
       last_error = err
     end
     bar.increment rescue CooCoo.debug("#{epoch} #{bar.inspect}")
