@@ -19,6 +19,7 @@ end
 
 options = OpenStruct.new
 options.examples = 0
+options.epochs = 1
 options.num_tests = 10
 options.start_tests_at = 0
 options.rotations = 8
@@ -32,18 +33,24 @@ options.learning_rate = 1.0/3.0
 options.activation_function = CooCoo.default_activation
 options.trainer = 'Stochastic'
 options.convolution = nil
+options.test_images_path = MNist::TEST_IMAGES_PATH
+options.test_labels_path = MNist::TEST_LABELS_PATH
 
 opts = OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
     options.model_path = Pathname.new(path)
   end
 
-  o.on('-t', '--train EPOCHS') do |n|
+  o.on('-t', '--train NUMBER') do |n|
     options.batch_size = n.to_i
   end
 
   o.on('-e', '--examples NUMBER') do |n|
     options.examples = n.to_i
+  end
+
+  o.on('--epochs NUMBER') do |n|
+    options.epochs = n.to_i
   end
 
   o.on('--rate NUMBER') do |n|
@@ -101,12 +108,6 @@ end
 
 argv = opts.parse!(ARGV)
 max_rad = options.max_rotation.to_f * Math::PI / 180.0
-
-puts("Loading MNist data")
-data = MNist::DataStream.new
-data_r = MNist::DataStream::Rotator.new(data, options.rotations, max_rad, false)
-data_t = MNist::DataStream::Translator.new(data_r, options.num_translations, options.translate_dx, options.translate_dy, false)
-training_set = MNist::TrainingSet.new(data_t).each
 
 net = CooCoo::Network.new
 
@@ -180,9 +181,18 @@ if options.batch_size
     backup(options.model_path)
   end
 
+  puts("Loading MNist data")
+  data = MNist::DataStream.new
+  data_r = MNist::DataStream::Rotator.new(data, options.rotations, max_rad, false)
+  data_t = MNist::DataStream::Translator.new(data_r, options.num_translations, options.translate_dx, options.translate_dy, false)
+  training_set = MNist::TrainingSet.new(data_t).each
+
   ts = training_set.each
   if options.examples > 0
     ts = ts.first(options.examples * options.rotations)
+  end
+  if options.epochs > 1
+    ts = ts.cycle(options.epochs)
   end
 
   trainer = CooCoo::Trainer.from_name(options.trainer)
@@ -191,22 +201,25 @@ if options.batch_size
   nex = "all" if nex == 0
   puts("Training #{nex} examples in #{options.batch_size} sized batches at a rate of #{options.learning_rate} with #{trainer.name}.")
 
-  trainer.train(net, ts, options.learning_rate, options.batch_size) do |n, batch, dt|
+  trainer.train(net, ts, options.learning_rate, options.batch_size) do |n, batch, dt, err|
+    mag = err * err
+    avg_err = mag.average
+    cost = avg_err.sum
+    puts("Cost\t#{cost * 100.0}%\t#{avg_err}")
+
     if options.model_path
       puts("Batch #{batch} took #{dt} seconds")
       puts("Saving to #{options.model_path}")
       net.save(options.model_path)
     end
-  end
 
-  if options.model_path
-    puts("Saving to #{options.model_path}")
-    net.save(options.model_path)
+    $stdout.flush
   end
 end
 
 puts("Trying the training images")
 errors = Array.new(options.num_tests, 0)
+data = MNist::DataStream.new(options.test_labels_path, options.test_images_path)
 data_r = MNist::DataStream::Rotator.new(data.each.
                                           drop(options.start_tests_at).
                                           first(options.num_tests),

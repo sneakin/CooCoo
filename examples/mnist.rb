@@ -12,6 +12,9 @@ module MNist
                ]
   TRAIN_LABELS_PATH = PATH.dirname.join('train-labels-idx1-ubyte')
   TRAIN_IMAGES_PATH = PATH.dirname.join('train-images-idx3-ubyte')
+  TEST_LABELS_PATH = PATH.dirname.join('t10k-labels-idx1-ubyte')
+  TEST_IMAGES_PATH = PATH.dirname.join('t10k-images-idx3-ubyte')
+
   Width = 28
   Height = 28
 
@@ -133,7 +136,8 @@ module MNist
 
   class DataStream
     def initialize(labels_path = TRAIN_LABELS_PATH, images_path = TRAIN_IMAGES_PATH)
-      if labels_path == TRAIN_LABELS_PATH && images_path == TRAIN_IMAGES_PATH
+      if (labels_path == TRAIN_LABELS_PATH && images_path == TRAIN_IMAGES_PATH) ||
+         (labels_path == TEST_LABELS_PATH && images_path == TEST_IMAGES_PATH)
         if !File.exists?(labels_path) || !File.exists?(images_path)
           Fetcher.fetch!
         end
@@ -192,7 +196,7 @@ module MNist
     def read_size
       File.open(@labels_path, "rb") do |f|
         magic, number = f.read(4 * 2).unpack('NN')
-        raise RuntimeError.new("Invalid magic number #{magic} in #{path}") if magic != 0x801
+        raise RuntimeError.new("Invalid magic number #{magic} in #{@labels_path}") if magic != 0x801
 
         @size = number
       end
