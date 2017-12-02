@@ -62,25 +62,32 @@ module CooCoo
       end
 
       def update_weights!(inputs, deltas, rate)
+        #CooCoo.debug("update weights", deltas)
         adjust_weights!(weight_deltas(inputs, deltas, rate))
         self
       end
 
       def adjust_weights!(deltas)
-        each_area do |grid_x, grid_y|
-          @internal_layer.adjust_weights!(slice_output_inner(deltas, grid_x, grid_y))
-        end
+        @internal_layer.adjust_weights!(deltas)
 
         self
       end
 
       def weight_deltas(inputs, deltas, rate)
         rate = rate / (@horizontal_span * @vertical_span).to_f
+        change = []
+        wd = []
+        
         each_area do |grid_x, grid_y|
-          @internal_layer.weight_deltas(slice_input(inputs, grid_x, grid_y),
-                               slice_output(deltas, grid_x, grid_y),
-                               rate)
-        end.flatten(2)
+          slice_change, slice_wd = @internal_layer.
+            weight_deltas(slice_input(inputs, grid_x, grid_y),
+                          slice_output(deltas, grid_x, grid_y),
+                          rate)
+          change << slice_change
+          wd << slice_wd
+        end
+
+        [ Sequence[change].sum, Sequence[wd].sum ]
       end
 
       def ==(other)
@@ -128,33 +135,21 @@ module CooCoo
       def slice_input(input, grid_x, grid_y)
         origin_x = grid_x * @input_width
         origin_y = grid_y * @input_height
-        
-        samples = @input_height.times.collect do |y|
-          @input_width.times.collect do |x|
-            px = origin_x + x
-            py = origin_y + y
-            input[py * (@horizontal_span * @input_width) + px]
-          end
-        end.flatten
-
-        CooCoo::Vector[samples, @internal_layer.num_inputs]
+        input.slice_2d(@horizontal_span * @input_width,
+                       @vertical_span * @input_height,
+                       origin_x, origin_y,
+                       @input_width, @input_height,
+                       0.0)
       end
       
-      def slice_output_inner(output, grid_x, grid_y)
+      def slice_output(output, grid_x, grid_y)
         origin_x = grid_x * @output_width
         origin_y = grid_y * @output_height
-
-        @output_height.times.collect do |y|
-          @output_width.times.collect do |x|
-            px = origin_x + x
-            py = origin_y + y
-            output[py * (@horizontal_span * @output_width) + px]
-          end
-        end.flatten(1)
-      end
-
-      def slice_output(output, grid_x, grid_y)
-        CooCoo::Vector[slice_output_inner(output, grid_x, grid_y), @internal_layer.size]
+        output.slice_2d(@horizontal_span * @output_width,
+                        @vertical_span * @output_height,
+                        origin_x, origin_y,
+                        @output_width, @output_height,
+                        0.0)
       end
     end
   end
@@ -171,7 +166,8 @@ if __FILE__ == $0
   CONV_OUT_HEIGHT = 1
   OUT_WIDTH = IN_WIDTH / CONV_WIDTH * CONV_OUT_WIDTH
   OUT_HEIGHT = IN_HEIGHT / CONV_HEIGHT * CONV_OUT_HEIGHT
-  layer = CooCoo::Convolution::BoxLayer.new(IN_WIDTH / CONV_WIDTH, IN_HEIGHT / CONV_HEIGHT, CooCoo::Layer.new(CONV_WIDTH * CONV_HEIGHT, CONV_OUT_WIDTH * CONV_OUT_HEIGHT, CooCoo::ActivationFunctions::Logistic.instance), CONV_WIDTH, CONV_HEIGHT, CONV_OUT_WIDTH, CONV_OUT_HEIGHT)
+  activation = CooCoo::ActivationFunctions::TanH.instance
+  layer = CooCoo::Convolution::BoxLayer.new(IN_WIDTH / CONV_WIDTH, IN_HEIGHT / CONV_HEIGHT, CooCoo::Layer.new(CONV_WIDTH * CONV_HEIGHT, CONV_OUT_WIDTH * CONV_OUT_HEIGHT, activation), CONV_WIDTH, CONV_HEIGHT, CONV_OUT_WIDTH, CONV_OUT_HEIGHT)
 
   INPUT_SIZE = IN_WIDTH * IN_HEIGHT
   OUTPUT_SIZE = OUT_WIDTH * OUT_HEIGHT
@@ -181,10 +177,14 @@ if __FILE__ == $0
   target[0] = 1.0
   target[-1] = 1.0
 
+  input = activation.prep_input(input)
+  target = activation.process_output(target)
+
   #input = (input - 0.5) * 2.0
   #target = (target - 0.5) * 2.0
 
   def matrix_image(m, width)
+    puts("matrix image #{width}")
     s = m.to_a.each_slice(width).collect do |line|
       line.collect do |c|
         if c > 0.75
@@ -204,24 +204,31 @@ if __FILE__ == $0
     end.join("\n")
   end
 
-  ENV.fetch("LOOPS", 100).to_i.times do |i|
-    puts("#{i}\n========\n")
-    puts("Inputs =\n#{matrix_image(input, IN_WIDTH)}")
-    output = layer.forward(input, nil)
-    puts("Output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")
-    err = target - output
-    puts("Target = #{target}\n#{matrix_image(target, OUT_WIDTH)}")
-    puts("Err = #{err}\n#{matrix_image(err * 10.0, OUT_WIDTH)}")
-    deltas = layer.backprop(output, err)
-    puts("Deltas = #{deltas}\n#{matrix_image(deltas, OUT_WIDTH)}")
-    xfer = layer.transfer_error(deltas)
-    puts("Xfer error = #{xfer}\n#{matrix_image(xfer, OUT_WIDTH)}")
-    layer.update_weights!(input, deltas, 1.0)
-    puts("Weights updated")
-    output = layer.forward(input)
-    puts("New output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")
+  require 'benchmark'
+  
+  Benchmark.bm(3) do |bm|
+    bm.report("loops") do
+      ENV.fetch("LOOPS", 100).to_i.times do |i|
+        puts("#{i}\n========\n")
+        #puts("Inputs =\n#{matrix_image(input, IN_WIDTH)}")
+        output, hs = layer.forward(input, nil)
+        #puts("Output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")
+        err = output - target
+        #puts("Target = #{target}\n#{matrix_image(target, OUT_WIDTH)}")
+        #puts("Err = #{err}\n#{matrix_image(err * 10.0, OUT_WIDTH)}")
+        puts("|Err| = #{err.magnitude} #{(err * err).magnitude}")
+        deltas, hs = layer.backprop(output, err, hs)
+        #puts("Deltas = #{deltas}\n#{matrix_image(deltas, OUT_WIDTH)}")
+        xfer = layer.transfer_error(deltas)
+        #puts("Xfer error = #{xfer}\n#{matrix_image(xfer, OUT_WIDTH)}")
+        layer.update_weights!(input, deltas, 0.3)
+        #puts("Weights updated")
+        output, hs = layer.forward(input, nil)
+        puts("New output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")
+      end
+    end
   end
-
+  
   # layer.each_area do |x, y|
   #   puts("#{x}, #{y}\t#{x * CONV_WIDTH}, #{y * CONV_HEIGHT}")
   #   puts(matrix_image(layer.slice_input(input, x, y), CONV_WIDTH))

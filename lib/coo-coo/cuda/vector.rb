@@ -49,6 +49,14 @@ module CooCoo
         self.zeros(size)
       end
 
+      def self.identity(w, h)
+        self[DeviceBuffer.identity(w, h)]
+      end
+
+      def diagflat
+        self.class[@elements.diagflat]
+      end
+
       def clone
         self.class.new(self.size).set(@elements)
       end
@@ -122,6 +130,14 @@ module CooCoo
         end
       end
 
+      def min
+        @elements.min
+      end
+
+      def max
+        @elements.max
+      end
+
       def sum
         @elements.sum
       end
@@ -131,7 +147,7 @@ module CooCoo
       end
 
       def magnitude
-        magnitude_squared.sqrt
+        ::Math.sqrt(magnitude_squared)
       end
       
       def normalize
@@ -236,6 +252,14 @@ module CooCoo
         end
       end
 
+      def slice_2d(*args)
+        self.class[@elements.slice_2d(*args)]
+      end
+
+      def inspect
+        to_a.inspect
+      end
+      
       protected
       def elements
         @elements

@@ -647,4 +647,33 @@ shared_examples "for an AbstractVector" do
       it { expect(subject[n + 3]).to eq(b[n]) }
     end
   end
+
+  describe '#slice_2d' do
+    subject { described_class[16.times] }
+    # 0 1 2 3
+    # 4 5 6 7
+    # 8 9 A B
+    # C D E F
+
+    it { expect(subject.slice_2d(4, 4, 2, 2, 4, 3, 0)).
+      to eq(described_class[[ 10, 11, 0, 0,
+                              14, 15, 0, 0,
+                              0, 0, 0, 0
+                            ]])
+    }
+
+    it { expect(subject.slice_2d(4, 4, -1, -1, 3, 3, 123)).
+      to eq(described_class[[ 123, 123, 123,
+                              123, 0, 1,
+                              123, 4, 5
+                            ]])
+    }
+
+    it { expect(subject.slice_2d(4, 4, -2, -2, 3, 3, 123)).
+      to eq(described_class[[ 123, 123, 123,
+                              123, 123, 123,
+                              123, 123, 0
+                            ]])
+    }
+  end
 end

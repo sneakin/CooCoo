@@ -336,56 +336,108 @@ PUBLIC size_t buffer_length(const Buffer b)
   }
 }
 
-__global__ void buffer_sum_minor(const double *a, double *partial_sums, size_t length, size_t offset)
+PUBLIC Buffer buffer_slice_2d(const Buffer in, int width, int height, int x, int y, int out_width, int out_height, double empty)
 {
-  extern __shared__ double sdata[];
-  int i = offset + grid(1);
-  int n;
+  Buffer out = buffer_new(out_width * out_height, empty);
+  if(out == NULL) return NULL;
+
+  if(y >= height || x >= width) {
+    return out;
+  }
   
-  sdata[threadIdx.x] = (i < length)? a[i] : 0.0;
-  __syncthreads();
+  for(int i = 0; i < out_height; i++) {
+    int oi = i * out_width;
+    int w = out_width;
+    int iy = y + i;
+    int ii = (iy) * width + x;
 
-  for(n = blockDim.x / 2; n > 0; n = n / 2) {
-    if(threadIdx.x < n) {
-      sdata[threadIdx.x] += sdata[threadIdx.x + n];
+    if(x < 0) {
+      ii = ii - x;
+      w = w + x;
+      oi = oi - x;
+    } else if(x + w > width) {
+      w = width - x;
     }
-    __syncthreads();
+    
+    if(iy < 0) {
+      continue;
+    } else if(iy >= height || ii >= in->length) {
+      break;
+    }
+
+    cudaError_t err = cudaMemcpy(out->data + oi, in->data + ii, w * sizeof(double), cudaMemcpyDeviceToDevice);
+    if(err != cudaSuccess) {
+      buffer_free(out);
+      return NULL;
+    }
   }
 
-  if(threadIdx.x == 0) {
-    partial_sums[blockIdx.x] = sdata[0];
-  }
+  return out;
 }
 
-PUBLIC double buffer_sum(const Buffer b)
+typedef double (*ReduceOp)(double a, double b);
+typedef void (*ReduceKernel)(const double *, double *, size_t, size_t);
+
+#define REDUCE_KERNEL(NAME, OP, INITIAL)                                        \
+  double NAME ## _initial_value = INITIAL; \
+  double NAME ## _op(double a, double b)                                \
+  {                                                                     \
+    return OP;                                                          \
+  }                                                                     \
+                                                                        \
+  __global__ void NAME(const double *data, double *partial_sums, size_t length, size_t offset) \
+  {                                                                     \
+  extern __shared__ double sdata[];                                     \
+  int i = offset + grid(1); \
+  int n; \
+  \
+  sdata[threadIdx.x] = (i < length)? data[i] : INITIAL;\
+  __syncthreads();\
+\
+  for(n = blockDim.x / 2; n > 0; n = n / 2) {\
+    if(threadIdx.x < n) {\
+      double a = sdata[threadIdx.x]; \
+      double b = sdata[threadIdx.x + n];        \
+      sdata[threadIdx.x] = OP;\
+    }\
+    __syncthreads();\
+  }\
+\
+  if(threadIdx.x == 0) {                        \
+    partial_sums[blockIdx.x] = sdata[0];        \
+  }                                             \
+}
+
+double launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer b, double initial)
 {
   int i;
   int grid_size = (b->length + _block_size - 1) / _block_size;
   Buffer partial_buffer;
   double *partial_sums;
-  double out = 0.0;
+  double out = initial;
   int usable_grid = grid_size;
 
   if(b == NULL || b->length == 0) {
-    return 0.0;
+    return NAN;
   }
   
   if(grid_size >= _max_grid_size) {
     usable_grid = _max_grid_size;
   }
   
-  partial_buffer = buffer_new(_block_size, 0.0);
-  if(partial_buffer == NULL) return 0.0;
+  partial_buffer = buffer_new(_block_size, initial);
+  if(partial_buffer == NULL) return NAN;
 
   for(i = 0; i < grid_size / usable_grid; i++) {
-    buffer_sum_minor<<< usable_grid, _block_size, _block_size * sizeof(double) >>>(b->data, partial_buffer->data, b->length, i * _block_size);
+    reduce_kernel<<< usable_grid, _block_size, _block_size * sizeof(double) >>>(b->data, partial_buffer->data, b->length, i * _block_size);
   }
 
   partial_sums = (double *)malloc(sizeof(double) * _block_size);
   buffer_get(partial_buffer, partial_sums, _block_size);
 
-  for(i = 0; i < _block_size; i++) {
-    out += partial_sums[i];
+  out = partial_sums[0];
+  for(i = 1; i < _block_size; i++) {
+    out = op(out, partial_sums[i]);
   }
 
   buffer_free(partial_buffer);
@@ -393,6 +445,30 @@ PUBLIC double buffer_sum(const Buffer b)
   
   return out;
 }
+
+#define launch_reduce(kernel, buffer) launch_reduce_inner(kernel ## _op, kernel, buffer, kernel ## _initial_value)
+
+
+REDUCE_KERNEL(buffer_sum_kernel, a + b, 0.0);
+
+PUBLIC double buffer_sum(const Buffer b)
+{
+  return launch_reduce(buffer_sum_kernel, b);
+}
+
+REDUCE_KERNEL(buffer_min_kernel, fmin(a, b), NAN);
+
+PUBLIC double buffer_min(const Buffer b)
+{
+  return launch_reduce(buffer_min_kernel, b);
+}
+
+REDUCE_KERNEL(buffer_max_kernel, fmax(a, b), NAN);
+PUBLIC double buffer_max(const Buffer b)
+{
+  return launch_reduce(buffer_max_kernel, b);
+}
+
 
 #define BINARY_OP(name, operation) Buffer buffer_##name(const Buffer, const Buffer); \
     __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double *b, int grid_offset, void *) \
@@ -523,4 +599,46 @@ PUBLIC Buffer buffer_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, s
     
     return out;
   }
+}
+
+__global__ void buffer_identity_inner(double *data, size_t w, size_t h)
+{
+  size_t row = blockIdx.y * blockDim.y + threadIdx.y;
+  size_t col = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(row < h && col < w) {
+    data[row * w + col] = (double)(row == col);
+  }
+}
+
+PUBLIC Buffer buffer_identity(size_t w, size_t h)
+{
+  Buffer i = buffer_new(w * h, 0.0);
+  dim3 dim(w, h);
+  buffer_identity_inner<<< dim, 1 >>>(i->data, w, h);
+  return i;
+}
+
+__global__ void buffer_diagflat_inner(double *data, const double *a, size_t len)
+{
+  size_t row = blockIdx.y * blockDim.y + threadIdx.y;
+  size_t col = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(row >= len || col >= len) {
+    return;
+  }
+  
+  if(row == col) {
+    data[row * len + col] = a[row];
+  } else {
+    data[row * len + col] = 0.0;
+  }
+}
+
+PUBLIC Buffer buffer_diagflat(const Buffer a)
+{
+  Buffer i = buffer_new(a->length * a->length, 0.0);
+  dim3 dim(a->length, a->length);
+  buffer_diagflat_inner<<< dim, 1 >>>(i->data, a->data, a->length);
+  return i;
 }

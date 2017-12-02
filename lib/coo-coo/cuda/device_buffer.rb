@@ -118,6 +118,10 @@ module CooCoo
         end
       end
 
+      def slice_2d(width, height, x, y, out_width, out_height, initial = 0.0)
+        FFI.slice_2d(self, width, height, x, y, out_width, out_height, initial)
+      end
+
       def ==(other)
         if other.kind_of?(self.class)
           1 == FFI.buffer_eq(self, other)
@@ -187,6 +191,22 @@ module CooCoo
       ffi_operator(:-, :sub)
       ffi_operator(:*, :mul)
       ffi_operator(:/, :div)
+
+      def self.identity(w, h)
+        FFI.buffer_identity(w, h)
+      end
+
+      def diagflat
+        FFI.buffer_diagflat(self)
+      end
+
+      def min
+        FFI.buffer_min(self)
+      end
+
+      def max
+        FFI.buffer_max(self)
+      end
     end
   end
 end
