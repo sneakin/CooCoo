@@ -42,8 +42,8 @@ module CooCoo
         layer_state = hidden_state[@recurrence_layer]
         rec_outputs, rec_errors = *(layer_state && layer_state.pop)
 
-        rec_outputs ||= CooCoo::Vector.ones(recurrent_size)
-        rec_errors ||= CooCoo::Vector.ones(recurrent_size)
+        rec_outputs ||= CooCoo::Vector.zeros(recurrent_size)
+        rec_errors ||= CooCoo::Vector.zeros(recurrent_size)
         
         return errors.append(rec_errors), hidden_state
       end
