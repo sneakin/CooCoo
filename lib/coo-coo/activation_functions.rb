@@ -30,7 +30,7 @@ module CooCoo
         x
       end
 
-      def inv_derivative(x)
+      def inv_derivative(y)
         1.0
       end
 
@@ -52,8 +52,8 @@ module CooCoo
         1.0 / ( 1.0 + (-x).exp)
       end
 
-      def inv_derivative(x)
-        x * (1.0 - x)
+      def inv_derivative(y)
+        y * (1.0 - y)
       end
     end
 
@@ -62,8 +62,8 @@ module CooCoo
         2.0 / (1.0 + (x * -2.0).exp) - 1.0
       end
 
-      def inv_derivative(x)
-        1.0 - x * x
+      def inv_derivative(y)
+        1.0 - y * y
       end
 
       def initial_bias
@@ -81,7 +81,7 @@ module CooCoo
 
     class ReLU < Identity
       def call(x)
-        t = x > 0
+        t = x >= 0
         if t.kind_of?(FalseClass)
           0.0
         elsif t.kind_of?(TrueClass)
@@ -91,14 +91,46 @@ module CooCoo
         end
       end
 
-      def inv_derivative(x)
-        t = x > 0
+      def inv_derivative(y)
+        t = y >= 0
         if t.kind_of?(FalseClass)
           0.0
         elsif t.kind_of?(TrueClass)
           1.0
         else
           t
+        end
+      end
+    end
+
+    class LeakyReLU < Identity
+      def initialize(pos = 1.0, neg = 0.0001)
+        @pos_coeff = pos
+        @neg_coeff = neg
+      end
+      
+      def call(x)
+        pos = x >= 0
+
+        if pos.kind_of?(FalseClass)
+          x * @neg_coeff
+        elsif pos.kind_of?(TrueClass)
+          x * @pos_coeff
+        else
+          neg = x < 0
+          (x * pos * @pos_coeff) + (x * neg * @neg_coeff)
+        end
+      end
+
+      def inv_derivative(y)
+        pos = y >= 0
+        if pos.kind_of?(FalseClass)
+          @neg_coeff
+        elsif pos.kind_of?(TrueClass)
+          @pos_coeff
+        else
+          neg = y < 0
+          (pos * @pos_coeff) + (neg * @neg_coeff)
         end
       end
     end

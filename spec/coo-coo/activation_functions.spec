@@ -111,11 +111,35 @@ describe CooCoo::ActivationFunctions::ReLU do
 
   let(:derivative_data) {
     { -0.5 => 0,
-      0.0 => 0,
+      0.0 => 1.0,
       0.3 => 1.0,
       1 => 1.0,
       12.3 => 1.0,
       CooCoo::Vector[[-0.5, 0.3]] => CooCoo::Vector[[0, 1]]
+    }
+  }
+end
+
+describe CooCoo::ActivationFunctions::LeakyReLU do
+  include_examples 'activation function'
+
+  let(:call_data) {
+    { -12.3 => -0.0012300000000000002,
+      -0.5 => -0.00005,
+      0 => 0.0,
+      0.3 => 0.3,
+      1 => 1.0,
+      12.3 => 12.3
+    }
+  }
+
+  let(:derivative_data) {
+    { -0.5 => 0.0001,
+      0.0 => 1.0,
+      0.3 => 1.0,
+      1 => 1.0,
+      12.3 => 1.0,
+      CooCoo::Vector[[-0.5, 0.3]] => CooCoo::Vector[[0.0001, 1]]
     }
   }
 end
