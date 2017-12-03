@@ -389,7 +389,7 @@ shared_examples "for an AbstractVector" do
     end
   end
 
-  [ :abs, :floor, :ceil, :round ].each do |func|
+  [ :abs, :sqrt, :floor, :ceil, :round ].each do |func|
     describe "\##{func}" do
       subject { described_class[16.times.each].send(func) }
 

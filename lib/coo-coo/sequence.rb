@@ -102,6 +102,10 @@ module CooCoo
       sum / size.to_f
     end
 
+    def sqrt
+      self.class[@elements.collect(&:sqrt)]
+    end
+
     def +(other)
       v = if other.respond_to?(:each)
             raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size

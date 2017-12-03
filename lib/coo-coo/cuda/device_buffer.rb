@@ -147,7 +147,7 @@ module CooCoo
         end
       end
 
-      [ :abs, :exp,
+      [ :abs, :exp, :sqrt,
         :sin, :asin, :cos, :acos, :tan, :atan,
         :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,
         :ceil, :floor, :round

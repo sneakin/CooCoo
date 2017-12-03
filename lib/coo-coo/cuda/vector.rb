@@ -142,6 +142,10 @@ module CooCoo
         @elements.sum
       end
 
+      def average
+        @elements.sum / size
+      end
+
       def magnitude_squared
         (self * self).sum
       end
@@ -242,7 +246,7 @@ module CooCoo
         end
       end
 
-      [ :abs, :exp,
+      [ :abs, :exp, :sqrt,
         :sin, :asin, :cos, :acos, :tan, :atan,
         :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,
         :ceil, :floor, :round

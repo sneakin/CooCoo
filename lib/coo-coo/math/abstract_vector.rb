@@ -34,6 +34,10 @@ module CooCoo
         each.minmax
       end
 
+      def sqrt
+        self.class[each.collect(&:sqrt)]
+      end
+
       def slice_2d(src_width, src_height, origin_x, origin_y, width, height, initial = 0.0)
         samples = height.times.collect do |y|
           py = origin_y + y

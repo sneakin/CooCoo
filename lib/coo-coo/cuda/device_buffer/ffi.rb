@@ -74,7 +74,7 @@ module CooCoo
         buffer_function :identity, [ :size_t, :size_t ], DeviceBuffer.auto_ptr
         buffer_function :diagflat, [ DeviceBuffer ], DeviceBuffer.auto_ptr
 
-        [ :abs, :exp,
+        [ :abs, :exp, :sqrt,
           :sin, :asin, :cos, :acos, :tan, :atan,
           :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,
           :ceil, :floor, :round

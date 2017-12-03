@@ -554,6 +554,7 @@ PUBLIC int buffer_eq(const Buffer a, const Buffer b)
 
 PUBLIC FUNCTION_OP(abs, { out[i] = abs(a[i]); });
 PUBLIC FUNCTION_OP(exp, { out[i] = exp(a[i]); });
+PUBLIC FUNCTION_OP(sqrt, { out[i] = sqrt(a[i]); });
 PUBLIC FUNCTION_OP(floor, { out[i] = floor(a[i]); });
 PUBLIC FUNCTION_OP(ceil, { out[i] = ceil(a[i]); });
 PUBLIC FUNCTION_OP(round, { out[i] = round(a[i]); });
