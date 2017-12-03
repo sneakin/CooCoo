@@ -80,7 +80,7 @@ module CooCoo
         output
       end.reverse
 
-      return o, hidden_state
+      return Sequence[o], hidden_state
     end
 
     def weight_deltas(inputs, outputs, deltas, learning_rate)

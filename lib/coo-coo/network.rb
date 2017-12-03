@@ -87,7 +87,7 @@ module CooCoo
         acc.unshift(deltas)
       end
 
-      return d, hidden_state
+      return Sequence[d], hidden_state
     end
 
     def transfer_errors(deltas)
