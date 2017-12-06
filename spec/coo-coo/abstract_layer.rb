@@ -74,16 +74,18 @@ shared_examples 'for an abstract layer' do
     let(:backprop) { subject.backprop(outputs, cost, forward_hidden_state) }
     let(:deltas) { backprop[0] }
     let(:bp_hidden_state) { backprop[1] }
-    let(:weight_deltas) { subject.weight_deltas(input, deltas, 0.5) }
+    let(:weight_deltas) { subject.weight_deltas(input, deltas) }
 
-    describe 'the bias deltas' do
-      it { expect { weight_deltas[0] + weight_deltas[0] }.to_not raise_error }
-      it { expect((weight_deltas[0] + weight_deltas[0]).size).to eq(weight_deltas[0].size) }
-    end
+    describe 'summing deltas' do
+      describe 'the bias deltas' do
+        it { expect { weight_deltas[0] + weight_deltas[0] }.to_not raise_error }
+        it { expect((weight_deltas[0] + weight_deltas[0]).size).to eq(weight_deltas[0].size) }
+      end
 
-    describe 'the weight deltas' do
-      it { expect { weight_deltas[1] + weight_deltas[1] }.to_not raise_error }
-      it { expect((weight_deltas[1] + weight_deltas[1]).size).to eq(weight_deltas[1].size) }
+      describe 'the weight deltas' do
+        it { expect { weight_deltas[1] + weight_deltas[1] }.to_not raise_error }
+        it { expect((weight_deltas[1] + weight_deltas[1]).size).to eq(weight_deltas[1].size) }
+      end
     end
   end
 

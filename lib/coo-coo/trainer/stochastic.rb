@@ -24,9 +24,7 @@ module CooCoo
         output, hidden_state = network.forward(input, hidden_state)
         errors = cost_function.call(network.prep_input(expecting), network.final_output(output))
         deltas, hidden_state = network.backprop(output, errors, hidden_state)
-        #CooCoo.debug(input.size, output.size, deltas.size, deltas.class, rate)
-        #CooCoo.debug("Bias", deltas[0].collect(&:size), deltas[0].collect(&:to_a), "Weights", deltas[1].collect(&:size), deltas[1].collect(&:to_a))
-        network.update_weights!(input, output, deltas, rate)
+        network.update_weights!(input, output, deltas * -rate)
         return errors, hidden_state
       end
     end

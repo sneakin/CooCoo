@@ -59,14 +59,8 @@ module CooCoo
       (output - expecting).to_a
     end
 
-    def update_weights!(inputs, deltas, rate)
-      adjust_weights!(weight_deltas(inputs, deltas, rate))
-      # CooCoo.debug("Layer#update_weights", inputs, inputs.size, deltas, deltas.size, rate, num_inputs, @neurons.size)
-      # @neurons.each_with_index do |n, i|
-      #   n.update_weights!(inputs, deltas[i], rate)
-      # end
-
-      self
+    def update_weights!(inputs, deltas)
+      adjust_weights!(weight_deltas(inputs, deltas))
     end
 
     def adjust_weights!(deltas)
@@ -77,9 +71,9 @@ module CooCoo
       self
     end
 
-    def weight_deltas(inputs, deltas, rate)
+    def weight_deltas(inputs, deltas)
       @neurons.each_with_index.inject([ CooCoo::Vector.zeros(size), CooCoo::Sequence.new(size) ]) do |acc, (n, i)|
-        acc[0][i], acc[1][i] = n.weight_deltas(inputs, deltas[i], rate)
+        acc[0][i], acc[1][i] = n.weight_deltas(inputs, deltas[i])
         acc
       end
     end
@@ -151,21 +145,19 @@ if __FILE__ == $0
     CooCoo::Vector[v]
   end
 
-  inputs.zip(targets).each do |(input, target)|
-    ENV.fetch('LOOPS', 100).to_i.times do |i|
-      output, hidden_state = layer.forward(input, Hash.new)
-      puts("#{i}\t#{input} -> #{target}")
-      puts("\toutput: #{output}")
+  inputs.zip(targets).cycle(ENV.fetch('LOOPS', 100).to_i).each do |(input, target)|
+    output, hidden_state = layer.forward(input, Hash.new)
+    puts("#{input} -> #{target}")
+    puts("\toutput: #{output}")
 
-      err = (output - target)
-      #err = err * err * 0.5
-      delta, hidden_state = layer.backprop(output, err, hidden_state)
-      puts("\tdelta: #{delta}")
-      puts("\terror: #{err}")
-      puts("\txfer: #{layer.transfer_error(delta)}")
+    err = (output - target)
+    #err = err * err * 0.5
+    delta, hidden_state = layer.backprop(output, err, hidden_state)
+    puts("\tdelta: #{delta}")
+    puts("\terror: #{err}")
+    puts("\txfer: #{layer.transfer_error(delta)}")
 
-      layer.update_weights!(input, delta, 0.5)
-    end
+    layer.update_weights!(input, delta * -0.5)
   end
 
   inputs.zip(targets).each do |(input, target)|

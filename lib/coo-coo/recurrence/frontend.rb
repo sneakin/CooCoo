@@ -58,9 +58,8 @@ module CooCoo
         deltas
       end
 
-      def weight_deltas(inputs, deltas, rate)
-        change = deltas * rate
-        [ change, inputs * change ]
+      def weight_deltas(inputs, deltas)
+        [ deltas, inputs * deltas ]
       end
 
       def adjust_weights!(deltas)

@@ -14,7 +14,6 @@ module CooCoo
     
     def self.collect_garbage(size = nil)
       free, total = memory_info
-      CooCoo.debug("#{__method__} #{size.inspect} #{free} #{total}")
       if size == nil || (3 * size + free) >= total
         GC.start
         new_free, total = memory_info

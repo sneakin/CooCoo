@@ -83,12 +83,12 @@ module CooCoo
       return Sequence[o], hidden_state
     end
 
-    def weight_deltas(inputs, outputs, deltas, learning_rate)
+    def weight_deltas(inputs, outputs, deltas)
       e = inputs.zip(outputs, deltas)
       e = e.last(@backprop_limit) if @backprop_limit
       
       deltas = e.collect do |input, output, delta|
-        @network.weight_deltas(input, output, delta, learning_rate)
+        @network.weight_deltas(input, output, delta)
       end
       
       accumulate_deltas(deltas)
@@ -99,8 +99,8 @@ module CooCoo
       self
     end
     
-    def update_weights!(inputs, outputs, deltas, rate)
-      adjust_weights!(weight_deltas(inputs, outputs, deltas, rate))
+    def update_weights!(inputs, outputs, deltas)
+      adjust_weights!(weight_deltas(inputs, outputs, deltas))
     end
 
     def to_hash
@@ -207,14 +207,19 @@ if __FILE__ == $0
 
       outputs, hidden_state = net.forward(input_seq, Hash.new)
 
-      if n % 100 == 0
+      if n % 500 == 0
         input_seq.zip(outputs, target_seq).each do |input, output, target|
-          puts("#{n}\t#{input} -> #{target}\n\t#{output.join("\n\t")}")
+          puts("#{n}\t#{input} -> #{target}\n\t#{output.join("\n\t")}\n")
         end
       end
 
-      all_deltas, hidden_state = net.backprop(outputs, cost(net, target_seq, outputs), hidden_state)
-      net.update_weights!(input_seq, outputs, all_deltas, 0.1)
+      c = cost(net, target_seq, outputs)
+      all_deltas, hidden_state = net.backprop(outputs, c, hidden_state)
+      net.update_weights!(input_seq, outputs, all_deltas * -learning_rate)
+      if n % 500 == 0
+        puts("\tcost\t#{(c * c).sum}\n\t\t#{c.to_a.join("\n\t\t")}")
+        puts
+      end
     end
   end
 

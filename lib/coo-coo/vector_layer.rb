@@ -52,8 +52,8 @@ module CooCoo
       (output - expecting).to_a
     end
 
-    def update_weights!(inputs, deltas, rate)
-      adjust_weights!(weight_deltas(inputs, deltas, rate))
+    def update_weights!(inputs, deltas)
+      adjust_weights!(weight_deltas(inputs, deltas))
     end
 
     def adjust_weights!(bias_deltas, deltas = nil)
@@ -67,10 +67,8 @@ module CooCoo
       self
     end
 
-    def weight_deltas(inputs, deltas, rate)
-      change = deltas * rate * -1.0
-      neuron_change = change.dot(1, size, inputs, num_inputs, 1)
-      [ change, neuron_change ]
+    def weight_deltas(inputs, deltas)
+      [ deltas, deltas.dot(1, size, inputs, num_inputs, 1) ]
     end
 
     def to_hash(network = nil)
@@ -184,7 +182,7 @@ if __FILE__ == $0
     puts("\terror: #{err}")
     puts("\txfer: #{layer.transfer_error(delta)}")
 
-    layer.update_weights!(input, delta, 0.5)
+    layer.update_weights!(input, delta * -0.5)
   end
 
   inputs.zip(targets).each do |(input, target)|

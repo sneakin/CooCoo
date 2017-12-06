@@ -61,28 +61,24 @@ module CooCoo
                        end.flatten, size]
       end
 
-      def update_weights!(inputs, deltas, rate)
-        #CooCoo.debug("update weights", deltas)
-        adjust_weights!(weight_deltas(inputs, deltas, rate))
-        self
+      def update_weights!(inputs, deltas)
+        adjust_weights!(weight_deltas(inputs, deltas))
       end
 
       def adjust_weights!(deltas)
         @internal_layer.adjust_weights!(deltas)
-
         self
       end
 
-      def weight_deltas(inputs, deltas, rate)
-        rate = rate / (@horizontal_span * @vertical_span).to_f
+      def weight_deltas(inputs, deltas)
+        #rate = rate / (@horizontal_span * @vertical_span).to_f
         change = []
         wd = []
         
         each_area do |grid_x, grid_y|
           slice_change, slice_wd = @internal_layer.
             weight_deltas(slice_input(inputs, grid_x, grid_y),
-                          slice_output(deltas, grid_x, grid_y),
-                          rate)
+                          slice_output(deltas, grid_x, grid_y))
           change << slice_change
           wd << slice_wd
         end
@@ -221,7 +217,7 @@ if __FILE__ == $0
         #puts("Deltas = #{deltas}\n#{matrix_image(deltas, OUT_WIDTH)}")
         xfer = layer.transfer_error(deltas)
         #puts("Xfer error = #{xfer}\n#{matrix_image(xfer, OUT_WIDTH)}")
-        layer.update_weights!(input, deltas, 0.3)
+        layer.update_weights!(input, deltas * -0.3)
         #puts("Weights updated")
         output, hs = layer.forward(input, nil)
         puts("New output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")

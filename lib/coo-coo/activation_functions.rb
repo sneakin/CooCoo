@@ -31,7 +31,11 @@ module CooCoo
       end
 
       def inv_derivative(y)
-        1.0
+        if y.respond_to?(:size)
+          Vector.ones(y.size)
+        else
+          1.0
+        end
       end
 
       def initial_bias

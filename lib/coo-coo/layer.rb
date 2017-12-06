@@ -43,21 +43,19 @@ if __FILE__ == $0
     CooCoo::Vector[v]
   end
 
-  inputs.zip(targets).each do |(input, target)|
-    ENV.fetch('LOOPS', 100).to_i.times do |i|
-      output, hidden_state = layer.forward(input, Hash.new)
-      puts("#{i}\t#{input} -> #{target}")
-      puts("\toutput: #{output}")
+  inputs.zip(targets).cycle(ENV.fetch('LOOPS', 100).to_i).each_with_index do |(input, target), i|
+    output, hidden_state = layer.forward(input, Hash.new)
+    puts("#{i}\t#{input} -> #{target}")
+    puts("\toutput: #{output}")
 
-      err = (output - target)
-      #err = err * err * 0.5
-      delta, hidden_state = layer.backprop(output, err, hidden_state)
-      puts("\tdelta: #{delta}")
-      puts("\terror: #{err}")
-      puts("\txfer: #{layer.transfer_error(delta)}")
+    err = (output - target)
+    #err = err * err * 0.5
+    delta, hidden_state = layer.backprop(output, err, hidden_state)
+    puts("\tdelta: #{delta}")
+    puts("\terror: #{err}")
+    puts("\txfer: #{layer.transfer_error(delta)}")
 
-      layer.update_weights!(input, delta, 0.5)
-    end
+    layer.update_weights!(input, delta * -0.5)
   end
 
   inputs.zip(targets).each do |(input, target)|

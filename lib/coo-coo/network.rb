@@ -96,8 +96,8 @@ module CooCoo
       end
     end
 
-    def update_weights!(input, outputs, deltas, rate)
-      adjust_weights!(weight_deltas(input, outputs, deltas, rate))
+    def update_weights!(input, outputs, deltas)
+      adjust_weights!(weight_deltas(input, outputs, deltas))
       self
     end
 
@@ -110,14 +110,14 @@ module CooCoo
       self
     end
 
-    def weight_deltas(input, outputs, deltas, rate)
+    def weight_deltas(input, outputs, deltas)
       @layers.each_with_index.collect do |layer, i|
         inputs = if i != 0
                    outputs[i - 1] #[i - 1]
                  else
                    prep_input(input)
                  end
-        layer.weight_deltas(inputs, deltas[i], rate)
+        layer.weight_deltas(inputs, deltas[i])
       end
     end
 
@@ -126,7 +126,7 @@ module CooCoo
       output, hidden_state = forward(input, hidden_state)
       cost = cost_function.call(prep_input(expecting), output.last)
       deltas, hidden_state = backprop(output, cost, hidden_state)
-      update_weights!(input, output, deltas, rate)
+      update_weights!(input, output, deltas * -rate)
       return self, hidden_state
     rescue
       CooCoo.debug("Network#learn caught #{$!}", input, expecting)

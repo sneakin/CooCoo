@@ -58,16 +58,15 @@ module CooCoo
       @weights * delta
     end
 
-    def weight_deltas(inputs, delta, rate)
-      change = delta * rate * -1.0
-      [ change, inputs * change ]
+    def weight_deltas(inputs, delta)
+      [ delta, inputs * delta ]
     rescue
-      CooCoo.debug("#{$!}\n\t#{inputs.class}\t#{inputs}\n\t#{@weights.class}\t#{@weights}\n\t#{delta.class}\t#{delta}\n\t#{rate}")
+      CooCoo.debug("#{$!}\n\t#{inputs.class}\t#{inputs}\n\t#{@weights.class}\t#{@weights}\n\t#{delta.class}\t#{delta}")
       raise
     end
     
-    def update_weights!(inputs, delta, rate)
-      adjust_weights!(*weight_deltas(inputs, delta, rate))
+    def update_weights!(inputs, delta)
+      adjust_weights!(*weight_deltas(inputs, delta))
     end
 
     def adjust_weights!(bias_delta, weight_deltas)
@@ -102,7 +101,7 @@ if __FILE__ == $0
       puts("\tPre: #{input} * #{n.weights} = #{o}\t#{err1}\t#{0.5 * err1 * err1}")
       delta = n.backprop(o, err1)
       puts("\tDelta: #{delta}")
-      n.update_weights!(input, delta, 0.3)
+      n.update_weights!(input, delta * -0.3)
       o = n.forward(input)
       err2 = CooCoo::CostFunctions.difference(target, o)
       puts("\tPost: #{input} * #{n.weights} = #{o}\t#{err2}")

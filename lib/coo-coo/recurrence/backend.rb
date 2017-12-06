@@ -52,7 +52,7 @@ module CooCoo
         deltas
       end
 
-      def update_weights!(inputs, deltas, rate)
+      def update_weights!(inputs, deltas)
         self
       end
 
@@ -60,9 +60,8 @@ module CooCoo
         self
       end
 
-      def weight_deltas(inputs, deltas, rate)
-        change = deltas * rate
-        [ change, inputs * change ]
+      def weight_deltas(inputs, deltas)
+        [ deltas, inputs * deltas ]
       end
 
       def to_hash(network = nil)

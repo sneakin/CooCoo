@@ -14,7 +14,7 @@ module CooCoo
             output, hidden_state = network.forward(input, Hash.new)
             errors = cost_function.call(network.prep_input(expecting), network.final_output(output))
             new_deltas, hidden_state = network.backprop(output, errors, hidden_state)
-            new_deltas = network.weight_deltas(input, output, new_deltas, learning_rate)
+            new_deltas = network.weight_deltas(input, output, new_deltas * -learning_rate)
 
             [ new_deltas, errors ]
           end
