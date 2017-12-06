@@ -202,26 +202,18 @@ if options.epochs
   trainer = CooCoo::Trainer.from_name(options.trainer)
   bar = CooCoo::ProgressBar.create(:total => options.epochs.to_i)
   last_error = nil
-  (options.epochs * 2.0 / 3.0).to_i.times do |epoch|
+  options.epochs.to_i.times do |epoch|
     trainer.train(model, training_data.each_example, options.learning_rate, options.batch_size) do |t, ex, dt, err|
       last_error = err
     end
+    cost = (last_error * last_error).sum.average
+    bar.log("Cost #{cost}")
     bar.increment
   end
   puts("\n\tElapsed #{(Time.now - now) / 60.0} min.")
-  avg_error = last_error / options.batch_size.to_f
-  puts("\tErrors\t#{last_error.magnitude}\t#{last_error}\t#{last_error * last_error}")
+  avg_error = last_error.average
+  puts("\n\tErrors\t#{(last_error * last_error).sum}\t#{last_error}\t#{last_error * last_error}")
   puts("\tAverage Error\t#{avg_error.magnitude}\t#{avg_error}\t#{avg_error * avg_error}") if last_error
-  puts("Decreasing learning rate")
-  (options.epochs * 1.0 / 3.0).to_i.times do |epoch|
-    trainer.train(model, training_data.each_example, options.learning_rate * 0.1, options.batch_size) do |t, ex, dt, err|
-      last_error = err
-    end
-    bar.increment rescue CooCoo.debug("#{epoch} #{bar.inspect}")
-  end
-  puts("\n\tErrors\t#{last_error.magnitude}\t#{last_error}\t#{last_error * last_error}")
-  puts("\tAverage Error\t#{avg_error.magnitude}\t#{avg_error}\t#{avg_error * avg_error}") if last_error
-  puts("\n\tElapsed #{(Time.now - now) / 60.0} min")
   puts("Trained!")
 
   if options.model_path
