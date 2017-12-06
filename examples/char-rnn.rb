@@ -9,7 +9,6 @@ if NUM_INPUTS == 39
   LA = 'a'.bytes[0]
   LZ = 'z'.bytes[0]
   N0 = '0'.bytes[0]
-  N1 = '1'.bytes[0]
   N9 = '9'.bytes[0]
   SPACE = ' '.bytes[0]
 
@@ -55,14 +54,22 @@ if NUM_INPUTS == 39
   end
 elsif NUM_INPUTS == 256
   def encode_input(b)
-    v = CooCoo::Vector.zeros(NUM_INPUTS)
-    v[b] = 1.0
-    v
+    $encoded_input_hash ||= Hash.new do |h, k|
+      v = CooCoo::Vector.zeros(NUM_INPUTS)
+      v[k] = 1.0
+      h[k] = v
+    end
+
+    $encoded_input_hash[b]
   end
 
   def decode_output(v)
-    v, i = v.each_with_index.max
-    i
+    $encoded_output_hash ||= Hash.new do |h, k|
+      i = k.each_with_index.max[1]
+      h[k] = i
+    end
+
+    $encoded_output_hash[v]
   end
 end
 
@@ -76,7 +83,6 @@ end
 
 def training_enumerator(data, sequence_size)
   Enumerator.new do |yielder|
-    #data.each.zip(data.each.drop(1), data.each.drop(2), data.each.drop(3), data.each.drop(4), data.each.drop(5)).
     iters = sequence_size.times.collect { |i| data.each.drop(i) }
     iters[0].zip(*iters.drop(1)).
       each_with_index do |values, i|
@@ -95,14 +101,16 @@ if __FILE__ == $0
   options.learning_rate = 0.3
   options.activation_function = CooCoo::ActivationFunctions.from_name('Logistic')
   options.epochs = 1000
-  options.batch_size = 128
+  options.batch_size = 1024
   options.model_path = "char-rnn.coo-coo_model"
   options.input_path = nil
   options.backprop_limit = nil
-  options.train = true
+  options.trainer = nil
   options.sequence_size = 4
   options.num_layers = 1
-  
+  options.hidden_size = NUM_INPUTS
+  options.num_recurrent_layers = 2
+
   opts = OptionParser.new do |o|
     o.on('-m', '--model PATH') do |path|
       options.model_path = path
@@ -112,7 +120,7 @@ if __FILE__ == $0
       options.recurrent_size = size.to_i
     end
 
-    o.on('--rate FLOAT') do |rate|
+    o.on('--learning-rate FLOAT') do |rate|
       options.learning_rate = rate.to_f
     end
 
@@ -132,8 +140,20 @@ if __FILE__ == $0
       options.backprop_limit = n.to_i
     end
 
+    o.on('--hidden-size NUMBER') do |n|
+      options.hidden_size = n.to_i
+    end
+
+    o.on('--recurrent-layers NUMBER') do |n|
+      options.num_recurrent_layers = n.to_i
+    end
+
     o.on('-p', '--predict') do
-      options.train = false
+      options.trainer = nil
+    end
+
+    o.on('-t', '--trainer NAME') do |name|
+      options.trainer = CooCoo::Trainer.from_name(name)
     end
 
     o.on('-n', '--sequence-size NUMBER') do |n|
@@ -151,39 +171,44 @@ if __FILE__ == $0
   
   argv = opts.parse!(ARGV)
   options.input_path = argv[0]
-  
-  data = if options.input_path
-           File.read(options.input_path)
-         else
-           $stdin.read
-         end
-  data = data.bytes
-  puts("Read #{data.size} bytes")
-  training_data = training_enumerator(data, options.sequence_size)
 
   if File.exists?(options.model_path)
+    $stdout.print("Loading #{options.model_path}...")
     net = CooCoo::TemporalNetwork.from_hash(YAML.load(File.read(options.model_path)))
-    puts("Loaded #{options.model_path}:")
+    puts("\rLoaded #{options.model_path}:")
     #net = Marshal.load(File.read(options.model_path))
   else
     puts("Creating new network")
+    puts("\tNumber of layers: #{options.num_layers}")
+    puts("\tHidden size: #{options.hidden_size}#{' with mix' if options.hidden_size != NUM_INPUTS}")
     puts("\tRecurrent size: #{options.recurrent_size}")
     puts("\tActivation: #{options.activation_function}")
+    puts("\tRecurrent layers: #{options.num_recurrent_layers}")
     
     net = CooCoo::TemporalNetwork.new()
-    rec = CooCoo::Recurrence::Frontend.new(NUM_INPUTS, options.recurrent_size)
-    net.layer(rec)
-    options.num_layers.times do
-      net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+    if options.hidden_size != NUM_INPUTS
+      net.layer(CooCoo::Layer.new(NUM_INPUTS, options.hidden_size, options.activation_function))
     end
 
-    #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS * 2, options.activation_function))
-    #net.layer(CooCoo::Layer.new(NUM_INPUTS * 2, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+    options.num_recurrent_layers.to_i.times do |n|
+      rec = CooCoo::Recurrence::Frontend.new(options.hidden_size, options.recurrent_size)
+      net.layer(rec)
+      options.num_layers.times do
+        net.layer(CooCoo::Layer.new(options.hidden_size + rec.recurrent_size, options.hidden_size + rec.recurrent_size, options.activation_function))
+      end
 
-    #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
-    #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+      #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS * 2, options.activation_function))
+      #net.layer(CooCoo::Layer.new(NUM_INPUTS * 2, NUM_INPUTS + rec.recurrent_size, options.activation_function))
 
-    net.layer(rec.backend(NUM_INPUTS))
+      #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+      #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
+
+      net.layer(rec.backend(options.hidden_size))
+    end
+
+    if options.hidden_size != NUM_INPUTS
+      net.layer(CooCoo::Layer.new(options.hidden_size, NUM_INPUTS, options.activation_function))
+    end
   end
 
   net.backprop_limit = options.backprop_limit
@@ -193,13 +218,23 @@ if __FILE__ == $0
   puts("\tOutputs: #{net.num_outputs}")
   puts("\tLayers: #{net.num_layers}")
 
-  if options.train
-    puts("Training on #{data.size} bytes from #{options.input_path} #{options.epochs} times in batches of #{options.batch_size}...")
+  data = if options.input_path
+           File.read(options.input_path)
+         else
+           $stdin.read
+         end
+  data = data.bytes
+  puts("Read #{data.size} bytes")
+  training_data = training_enumerator(data, options.sequence_size)
 
-    trainer = CooCoo::Trainer::Stochastic.instance
-    #trainer = CooCoo::Trainer::Batch.instance
+  if options.trainer
+    puts("Training on #{data.size} bytes from #{options.input_path} #{options.epochs} times in batches of #{options.batch_size} at a learning rate of #{options.learning_rate}...")
+
+    trainer = options.trainer
     bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / options.batch_size.to_f).ceil)
-    trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size) do
+    trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size) do |n, batch, dt, err|
+      cost = (err * err).sum.sum #average
+      bar.log("Cost #{cost.sum} #{cost.average}")
       bar.increment
 
       File.open(options.model_path + ".tmp", "w") do |f|
@@ -212,12 +247,6 @@ if __FILE__ == $0
       File.rename(options.model_path + ".tmp", options.model_path)
     end
   end
-
-  # bar = CooCoo::ProgressBar.create(:total => options.epochs * data.size)
-  # training_data.cycle(options.epochs).each_with_index do |(target, input), i|
-  #   net.learn(target, input, options.learning_rate)
-  #   bar.increment
-  # end
 
   puts("Predicting:")
   hidden_state = nil
