@@ -109,6 +109,9 @@ end
 argv = opts.parse!(ARGV)
 max_rad = options.max_rotation.to_f * Math::PI / 180.0
 
+puts("Loading MNist data")
+data = MNist::DataStream.new
+
 net = CooCoo::Network.new
 
 if options.model_path && File.exists?(options.model_path)
@@ -123,9 +126,9 @@ else
     area = 7 * 7 * 2 * 2
   end
   
-  # net.layer(CooCoo::Layer.new(area, 50))
-  # net.layer(CooCoo::Layer.new(50, 20))
-  # net.layer(CooCoo::Layer.new(20, 10))
+  # net.layer(CooCoo::Layer.new(area, 50, options.activation_function))
+  # net.layer(CooCoo::Layer.new(50, 20, , options.activation_function))
+  # net.layer(CooCoo::Layer.new(20, 10, options.activation_function))
 
   #net.layer(CooCoo::Layer.new(area, 10, options.activation_function))
 
@@ -140,28 +143,11 @@ else
     net.layer(CooCoo::Layer.new(area / 4, 10, options.activation_function))
   end
 
-
-  #net.layer(CooCoo::Layer.new(area, 40))
-  #net.layer(CooCoo::Layer.new(40, 10))
-  
-  #net.layer(CooCoo::Layer.new(area, 192))
-  #net.layer(CooCoo::Layer.new(192, 48))
-  #net.layer(CooCoo::Layer.new(48, 48))
-  #net.layer(CooCoo::Layer.new(48, 10))
-
   #net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 4), 4, 4, 2, 2))
   #net.layer(CooCoo::Layer.new(14 * 14, 10))
 
   #net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 6, options.activation_function), 4, 4, 6, 1))
   #net.layer(CooCoo::Layer.new(7 * 7 * 6, 10, options.activation_function))
-
-  # options.hidden_layers.times do
-  #   net.layer(CooCoo::Layer.new(20, 20))
-  # end
-  # net.layer(CooCoo::Layer.new(20, 10))
-
-  #net.layer(CooCoo::Layer.new(area, 20))
-  #net.layer(CooCoo::Layer.new(20, 10))
 end
 
 puts("Net ready:")
@@ -181,8 +167,6 @@ if options.batch_size
     backup(options.model_path)
   end
 
-  puts("Loading MNist data")
-  data = MNist::DataStream.new
   data_r = MNist::DataStream::Rotator.new(data, options.rotations, max_rad, false)
   data_t = MNist::DataStream::Translator.new(data_r, options.num_translations, options.translate_dx, options.translate_dy, false)
   training_set = MNist::TrainingSet.new(data_t).each
