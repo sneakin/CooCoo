@@ -470,7 +470,7 @@ PUBLIC double buffer_max(const Buffer b)
 }
 
 
-#define BINARY_OP(name, operation) Buffer buffer_##name(const Buffer, const Buffer); \
+#define BINARY_OP(name, operation) \
     __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double *b, int grid_offset, void *) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
@@ -479,23 +479,23 @@ PUBLIC double buffer_max(const Buffer b)
     }                                                                   \
   }                                                                     \
                                                                         \
-  Buffer buffer_##name(const Buffer a, const Buffer b)                 \
+  PUBLIC Buffer buffer_##name(const Buffer a, const Buffer b)         \
   {                                                                     \
     return launch_kernel(buffer_ ## name ## _inner, a, b, NULL);        \
   }
 
-PUBLIC BINARY_OP(add, { out[i] = a[i] + b[i]; });
-PUBLIC BINARY_OP(sub, { out[i] = a[i] - b[i]; });
-PUBLIC BINARY_OP(mul, { out[i] = a[i] * b[i]; });
-PUBLIC BINARY_OP(div, { out[i] = a[i] / b[i]; });
-PUBLIC BINARY_OP(any_eq, { out[i] = a[i] == b[i]; });
-PUBLIC BINARY_OP(any_neq, { out[i] = a[i] != b[i]; });
-PUBLIC BINARY_OP(any_lt, { out[i] = a[i] < b[i]; });
-PUBLIC BINARY_OP(any_lte, { out[i] = a[i] <= b[i]; });
-PUBLIC BINARY_OP(any_gt, { out[i] = a[i] > b[i]; });
-PUBLIC BINARY_OP(any_gte, { out[i] = a[i] >= b[i]; });
+BINARY_OP(add, { out[i] = a[i] + b[i]; });
+BINARY_OP(sub, { out[i] = a[i] - b[i]; });
+BINARY_OP(mul, { out[i] = a[i] * b[i]; });
+BINARY_OP(div, { out[i] = a[i] / b[i]; });
+BINARY_OP(any_eq, { out[i] = a[i] == b[i]; });
+BINARY_OP(any_neq, { out[i] = a[i] != b[i]; });
+BINARY_OP(any_lt, { out[i] = a[i] < b[i]; });
+BINARY_OP(any_lte, { out[i] = a[i] <= b[i]; });
+BINARY_OP(any_gt, { out[i] = a[i] > b[i]; });
+BINARY_OP(any_gte, { out[i] = a[i] >= b[i]; });
 
-#define SCALAR_OP(name, operation) Buffer buffer_##name ## d(const Buffer, double); \
+#define SCALAR_OP(name, operation) \
   __global__ void buffer_ ## name ## d_inner(int len, double *out, const double *a, const double b, int grid_offset) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
@@ -504,21 +504,21 @@ PUBLIC BINARY_OP(any_gte, { out[i] = a[i] >= b[i]; });
     }                                                                   \
   }                                                                     \
                                                                         \
-  Buffer buffer_##name ## d(const Buffer a, double b)                   \
+  PUBLIC Buffer buffer_##name ## d(const Buffer a, double b)                   \
   {                                                                     \
     return launchd_kernel(buffer_ ## name ## d_inner, a, b, 0);         \
   }
 
-PUBLIC SCALAR_OP(add, { out[i] = a[i] + b; });
-PUBLIC SCALAR_OP(sub, { out[i] = a[i] - b; });
-PUBLIC SCALAR_OP(mul, { out[i] = a[i] * b; });
-PUBLIC SCALAR_OP(div, { out[i] = a[i] / b; });
-PUBLIC SCALAR_OP(any_eq, { out[i] = a[i] == b; });
-PUBLIC SCALAR_OP(any_neq, { out[i] = a[i] != b; });
-PUBLIC SCALAR_OP(any_lt, { out[i] = a[i] < b; });
-PUBLIC SCALAR_OP(any_lte, { out[i] = a[i] <= b; });
-PUBLIC SCALAR_OP(any_gt, { out[i] = a[i] > b; });
-PUBLIC SCALAR_OP(any_gte, { out[i] = a[i] >= b; });
+SCALAR_OP(add, { out[i] = a[i] + b; });
+SCALAR_OP(sub, { out[i] = a[i] - b; });
+SCALAR_OP(mul, { out[i] = a[i] * b; });
+SCALAR_OP(div, { out[i] = a[i] / b; });
+SCALAR_OP(any_eq, { out[i] = a[i] == b; });
+SCALAR_OP(any_neq, { out[i] = a[i] != b; });
+SCALAR_OP(any_lt, { out[i] = a[i] < b; });
+SCALAR_OP(any_lte, { out[i] = a[i] <= b; });
+SCALAR_OP(any_gt, { out[i] = a[i] > b; });
+SCALAR_OP(any_gte, { out[i] = a[i] >= b; });
 
 PUBLIC int buffer_eq(const Buffer a, const Buffer b)
 {
@@ -537,7 +537,7 @@ PUBLIC int buffer_eq(const Buffer a, const Buffer b)
   }
 }
 
-#define FUNCTION_OP(name, operation) Buffer buffer_##name(const Buffer); \
+#define FUNCTION_OP(name, operation) \
   __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double b, int grid_offset) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
@@ -546,30 +546,30 @@ PUBLIC int buffer_eq(const Buffer a, const Buffer b)
     }                                                                   \
   }                                                                     \
                                                                         \
-  Buffer buffer_##name(const Buffer a)                   \
+  PUBLIC Buffer buffer_##name(const Buffer a)                   \
   {                                                                     \
     return launchd_kernel(buffer_ ## name ## _inner, a, 0.0, 0);         \
   }
 
 
-PUBLIC FUNCTION_OP(abs, { out[i] = abs(a[i]); });
-PUBLIC FUNCTION_OP(exp, { out[i] = exp(a[i]); });
-PUBLIC FUNCTION_OP(sqrt, { out[i] = sqrt(a[i]); });
-PUBLIC FUNCTION_OP(floor, { out[i] = floor(a[i]); });
-PUBLIC FUNCTION_OP(ceil, { out[i] = ceil(a[i]); });
-PUBLIC FUNCTION_OP(round, { out[i] = round(a[i]); });
-PUBLIC FUNCTION_OP(sin, { out[i] = sin(a[i]); });
-PUBLIC FUNCTION_OP(cos, { out[i] = cos(a[i]); });
-PUBLIC FUNCTION_OP(tan, { out[i] = tan(a[i]); });
-PUBLIC FUNCTION_OP(asin, { out[i] = asin(a[i]); });
-PUBLIC FUNCTION_OP(acos, { out[i] = acos(a[i]); });
-PUBLIC FUNCTION_OP(atan, { out[i] = atan(a[i]); });
-PUBLIC FUNCTION_OP(sinh, { out[i] = sinh(a[i]); });
-PUBLIC FUNCTION_OP(cosh, { out[i] = cosh(a[i]); });
-PUBLIC FUNCTION_OP(tanh, { out[i] = tanh(a[i]); });
-PUBLIC FUNCTION_OP(asinh, { out[i] = asinh(a[i]); });
-PUBLIC FUNCTION_OP(acosh, { out[i] = acosh(a[i]); });
-PUBLIC FUNCTION_OP(atanh, { out[i] = atanh(a[i]); });
+FUNCTION_OP(abs, { out[i] = abs(a[i]); });
+FUNCTION_OP(exp, { out[i] = exp(a[i]); });
+FUNCTION_OP(sqrt, { out[i] = sqrt(a[i]); });
+FUNCTION_OP(floor, { out[i] = floor(a[i]); });
+FUNCTION_OP(ceil, { out[i] = ceil(a[i]); });
+FUNCTION_OP(round, { out[i] = round(a[i]); });
+FUNCTION_OP(sin, { out[i] = sin(a[i]); });
+FUNCTION_OP(cos, { out[i] = cos(a[i]); });
+FUNCTION_OP(tan, { out[i] = tan(a[i]); });
+FUNCTION_OP(asin, { out[i] = asin(a[i]); });
+FUNCTION_OP(acos, { out[i] = acos(a[i]); });
+FUNCTION_OP(atan, { out[i] = atan(a[i]); });
+FUNCTION_OP(sinh, { out[i] = sinh(a[i]); });
+FUNCTION_OP(cosh, { out[i] = cosh(a[i]); });
+FUNCTION_OP(tanh, { out[i] = tanh(a[i]); });
+FUNCTION_OP(asinh, { out[i] = asinh(a[i]); });
+FUNCTION_OP(acosh, { out[i] = acosh(a[i]); });
+FUNCTION_OP(atanh, { out[i] = atanh(a[i]); });
 
 __global__ void buffer_dot_inner(double *out, const double *a, const double *b, size_t aw, size_t ah, size_t bw, size_t bh)
 {

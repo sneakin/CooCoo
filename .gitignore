@@ -1,5 +1,5 @@
 *~
-#*#
+\#*#
 *.bak
 *.neural[-_]model
 *.coocoo[-_]model
@@ -10,6 +10,7 @@
 doc/spec
 doc/spec.html
 doc/coverage
-ext/buffer/ffi.rb
-ext/buffer/buffer.cu
-ext/buffer/buffer.h
+ext/buffer/*.cu
+!ext/buffer/*.pre.cu
+ext/buffer/*ffi.rb
+ext/buffer/*.h

@@ -9,17 +9,87 @@ class ExportScanner
   attr_reader :structs
   attr_reader :functions
 
-  def initialize
+  def initialize(typedefs = Hash.new)
     @functions = Array.new
     @structs = Array.new
+    @typedefs = typedefs
+  end
+
+  FunctionPrototype = Struct.new(:name, :return_type, :args, :definition)
+  
+  class Argument
+    attr_accessor :const
+    attr_accessor :type
+    attr_accessor :name
+    attr_accessor :pointer
+    
+    def initialize(str)
+      m = str.match(/\s*(((\w+) )+\s*(([*]+)?(\w+)?)\s*)/m)
+      if m
+        self.name = m[-1]
+        self.const = m[0] =~ /const/
+        self.pointer = m[-2]
+        self.type = m[3]
+      end
+    end
+  end
+
+  def parse_args(arg_str)
+    args = arg_str.split(',').collect(&:strip)
+    arg_types = args.collect do |a|
+      Argument.new(a)
+    end
+  end
+
+  def scan_function(f)
+    m = f.match(/(\w+)\s+(\w+)\s*\((.*)\)/)
+    if m
+      func = m[2]
+      args = parse_args(m[3])
+      ret = m[1].strip
+      FunctionPrototype.new(func, ret, args, f)
+    end
+  end
+
+  def scan_for_functions(path)
+    `nvcc -E -DIN_PUBLIC=1 -D#{NEEDLE}=#{NEEDLE} #{NVCCFLAGS.join(' ')} #{path} | grep -e '#{NEEDLE}'`.
+      split("\n").
+      collect { |f| m = f.match(/(#{NEEDLE}.*[)]([^;]|$))/); m && m[1] }.
+      reject(&:nil?).
+      collect { |f| scan_function(f[0, f.index(')') + 1]) }
+  end
+
+  StructDef = Struct.new(:name, :definition, :fields)
+  StructField = Struct.new(:name, :definition, :type, :pointer)
+
+  def scan_struct_field(field)
+    m = field.match(/\s*(((\w+) )+\s*(([*]+)?(\w+))\s*)/m)
+    if m
+      StructField.new(m[-1], field, m[2].strip, m[-2])
+    end
+  end
+  
+  def scan_struct_fields(fields)
+    fields.collect { |field| scan_struct_field(field) }.reject(&:nil?)
+  end
+
+  def scan_for_structs_inner(data, acc = [])
+    m = data.match(/(typedef\s+struct\s+(\w+)\s+{(.*)}\s+[*](\w+);)(.*)/m)
+    if m
+      acc << StructDef.new(m[4], m[1], scan_struct_fields(m[3].split(';').collect(&:strip)))
+      scan_for_structs_inner(m[5], acc)
+    else
+      acc
+    end
+  end
+  
+  def scan_for_structs(path)
+    scan_for_structs_inner(File.read(path))
   end
 
   def scan(path)
-    @functions += `nvcc -E -DIN_PUBLIC=1 -D#{NEEDLE}=#{NEEDLE} #{NVCCFLAGS.join(' ')} #{path} | grep -e '#{NEEDLE}'`.
-      split("\n").collect { |f| f[0, f.index(';') || f.size].strip }
-
-    m = File.read(path).match(/typedef\s+struct\s+(\w+)\s+{.*}\s+[*](\w+);/m)
-    @structs << m if m
+    @functions += scan_for_functions(path)
+    @structs += scan_for_structs(path)
 
     self
   end
@@ -33,7 +103,7 @@ class ExportScanner
 \#include "public.h"
 
 extern "C" {
-  #{structs.collect { |s| s[0] }.join('\n')}
+  #{structs.collect { |s| s.definition }.join('\n')}
 
   #{functions.join(";\n  ")};
 }
@@ -42,55 +112,46 @@ extern "C" {
 EOT
   end
 
-  class Argument
-    attr_accessor :const
-    attr_accessor :type
-    attr_accessor :name
-
-    def initialize(str)
-      parts = @parts = str.split
-      if parts[0] == 'const'
-        self.const = true
-        parts.shift
-      else
-        self.const = false
-        self.type = parts[0]
-        self.name = parts[-1]
-      end
-
-      self.type = parts[0]
-      self.name = parts[-1] if parts[-1] != '*' || parts[-1] != parts[0]
+  def ffi_type(a, pointer = nil)
+    a = @typedefs[a] if @typedefs.has_key?(a)
+    if FFI::TypeDefs[a.to_sym]
+      ":" + FFI::TypeDefs.key(FFI::TypeDefs[a.to_sym]).to_s
+    elsif pointer
+      "#{a}.auto_ptr"
+    else
+      a
     end
   end
-
-  def parse_args(arg_str)
-    args = arg_str.split(',').collect(&:strip)
-    arg_types = args.collect do |a|
-      Argument.new(a)
-    end
-  end
-
+  
   def ffi_def(f)
-    m = f.match(/(\w+)\s+(\w+)\s*\((.*)\)/)
-    if m
-      func = m[2]
-      args = parse_args(m[3]).collect do |a|
-        if FFI::TypeDefs[a.type.to_sym]
-          ":" + FFI::TypeDefs.key(FFI::TypeDefs[a.type.to_sym]).to_s
-        else
-          a.type + ".auto_ptr"
-        end
+    func = f.name
+    args = f.args.collect do |a|
+      if a.pointer
+        ":pointer"
+      else
+        ffi_type(a.type)
       end
-
-      ret = m[1].strip
-      if FFI::TypeDefs[ret.to_sym]
-        ret = ":" + FFI::TypeDefs.key(FFI::TypeDefs[ret.to_sym]).to_s
-      end
-
-      "    attach_function :#{func}, [ #{args.join(', ')} ], #{ret}"
     end
+
+    ret = f.return_type
+    ret = ffi_type(ret, true)
+
+    "    attach_function :#{func}, [ #{args.join(', ')} ], #{ret}"
   end
 
+  def ffi_struct(s)
+    layout = s.fields.collect { |f| [ ":#{f.name}", ffi_type(f.type, f.pointer) ] }
+    <<-EOT
+class #{s.name} < ::FFI::Struct
+  layout(#{layout.join(', ')})
+
+  def self.release(ptr)
+    #{s.name.downcase}_free(ptr)
+  end
+end
+EOT
+  end
+  
   def ffi(name, library)
     <<-EOT
 module #{name}
@@ -98,6 +159,7 @@ module #{name}
     extend ::FFI::Library
     ffi_lib Pathname.new(__FILE__).join('..', "#{library}.#{RbConfig::CONFIG['DLEXT']}").to_s
 
+#{structs.collect { |s| ffi_struct(s) }.compact.join("\n")}
 #{functions.collect { |f| ffi_def(f) }.compact.join("\n")}
   end
 end
@@ -125,11 +187,11 @@ def write_header(header, sources)
   end
 end
 
-def write_ffi(mod, library, output, sources)
+def write_ffi(mod, library, output, sources, typedefs)
   raise ArgumentError.new('No --module name given.') if mod == nil
   raise ArgumentError.new('No --library given.') if library == nil
 
-  scanner = ExportScanner.new
+  scanner = ExportScanner.new(typedefs)
   sources.each(&->(s) { scanner.scan(s) })
 
   if output == nil || output == '-'
@@ -152,7 +214,8 @@ if __FILE__ == $0
   options = OpenStruct.new
   options.mode = :help
   options.sources = Array.new
-
+  options.typedefs = Hash.new
+  
   require 'optparse'
   opts = OptionParser.new() do |o|
     o.on('-h', 'Help') do
@@ -182,6 +245,11 @@ if __FILE__ == $0
     o.on('-l', '--library NAME', 'The shared library name to load.') do |l|
       options.library = l
     end
+
+    o.on('-t', '--typedef TYPE=NAME') do |v|
+      type, name = v.split('=')
+      options.typedefs[name] = type if type && name
+    end
   end
 
   options.sources = opts.parse!(ARGV)
@@ -191,7 +259,7 @@ if __FILE__ == $0
   end
 
   case options.mode
-    when :ffi then write_ffi(options.module, options.library, options.output, options.sources)
+    when :ffi then write_ffi(options.module, options.library, options.output, options.sources, options.typedefs)
     when :header then write_header(options.output, options.sources)
     when :source then write_source(options.output, options.sources[0])
     else puts(opts.help)
