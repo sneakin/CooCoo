@@ -103,9 +103,9 @@ class ExportScanner
 \#include "public.h"
 
 extern "C" {
-  #{structs.collect { |s| s.definition }.join('\n')}
+  #{structs.collect(&:definition).join('\n')}
 
-  #{functions.join(";\n  ")};
+  #{functions.collect(&:definition).join(";\n  ")};
 }
 
 \#endif /* #{head} */
