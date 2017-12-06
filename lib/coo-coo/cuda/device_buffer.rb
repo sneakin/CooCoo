@@ -126,8 +126,7 @@ module CooCoo
         if other.kind_of?(self.class)
           1 == FFI.buffer_eq(self, other)
         else
-          b, a = coerce(other)
-          self == b
+          return false
         end
       end
 
