@@ -13,6 +13,7 @@ module CooCoo
     def initialize
       @layers = Array.new
       @age = 0
+      yield(self) if block_given?
     end
 
     def num_inputs
@@ -37,6 +38,7 @@ module CooCoo
     
     def layer(new_layer)
       @layers << new_layer
+      self
     end
 
     def activation_function
