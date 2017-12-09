@@ -85,11 +85,11 @@ module CooCoo
       end
 
       def _dump(depth)
-        @elements.to_a.pack('g*')
+        @elements.to_a.pack('E*')
       end
 
       def self._load(args)
-        arr = args.unpack('g*')
+        arr = args.unpack('E*')
         self[arr]
       end
 
