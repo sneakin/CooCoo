@@ -4,6 +4,9 @@ require 'coo-coo/activation_functions'
 
 shared_examples 'activation function' do
   subject { described_class.instance }
+
+  it { expect(CooCoo::ActivationFunctions.from_name(subject.name)).to be(subject) }
+  it { expect(CooCoo::ActivationFunctions.functions).to include(subject.name) }
   
   describe '#call' do
     it do
