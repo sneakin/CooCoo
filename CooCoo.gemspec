@@ -36,6 +36,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'ruby-progressbar'
   s.add_dependency 'chunky_png'
   s.add_dependency 'cairo'
+  s.add_dependency 'colorize'
   s.add_development_dependency 'simplecov'
   s.add_development_dependency 'coderay'
   s.add_dependency 'ffi'

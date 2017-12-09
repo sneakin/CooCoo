@@ -101,9 +101,14 @@ Inspired by the IBAFSIP, this uses the UCI Machine Learning Repository's [wheat 
 
 [The MNIST Database](http://yann.lecun.com/exdb/mnist/) is used to train a 10 digit classifier.
 
+### [MNIST Dream](examples/mnist_dream.rb)
+
+Uses a network trained with the MNIST Classifier to generate valid inputs via backpropagation.
+
 
 Credits
 ----------
 
 Loosely based on [Implement Backpropagation Algorithm From Scratch in Python](http://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/)
 
+And more than a few of [Siraj Raval's videos](https://www.youtube.com/channel/UCWN3xxRkmTPmbKwht9FuE5A)
