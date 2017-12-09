@@ -58,7 +58,7 @@ module CooCoo
       def transfer_error(deltas)
         CooCoo::Vector[each_area do |grid_x, grid_y|
                          @internal_layer.transfer_error(slice_output(deltas, grid_x, grid_y)).to_a
-                       end.flatten, size]
+                       end.flatten, num_inputs]
       end
 
       def update_weights!(inputs, deltas)
@@ -162,11 +162,14 @@ if __FILE__ == $0
   CONV_OUT_HEIGHT = 1
   OUT_WIDTH = IN_WIDTH / CONV_WIDTH * CONV_OUT_WIDTH
   OUT_HEIGHT = IN_HEIGHT / CONV_HEIGHT * CONV_OUT_HEIGHT
-  activation = CooCoo::ActivationFunctions::TanH.instance
-  layer = CooCoo::Convolution::BoxLayer.new(IN_WIDTH / CONV_WIDTH, IN_HEIGHT / CONV_HEIGHT, CooCoo::Layer.new(CONV_WIDTH * CONV_HEIGHT, CONV_OUT_WIDTH * CONV_OUT_HEIGHT, activation), CONV_WIDTH, CONV_HEIGHT, CONV_OUT_WIDTH, CONV_OUT_HEIGHT)
+  activation = CooCoo::ActivationFunctions.from_name(ENV.fetch('ACTIVATION', 'Logistic'))
+  inner_layer = CooCoo::Layer.new(CONV_WIDTH * CONV_HEIGHT, CONV_OUT_WIDTH * CONV_OUT_HEIGHT, activation)
+  layer = CooCoo::Convolution::BoxLayer.new(IN_WIDTH / CONV_WIDTH, IN_HEIGHT / CONV_HEIGHT, inner_layer, CONV_WIDTH, CONV_HEIGHT, CONV_OUT_WIDTH, CONV_OUT_HEIGHT)
 
   INPUT_SIZE = IN_WIDTH * IN_HEIGHT
   OUTPUT_SIZE = OUT_WIDTH * OUT_HEIGHT
+  learning_rate = ENV.fetch('RATE', 0.3).to_f
+  
   input = [ 1.0 ] + (INPUT_SIZE - 2).times.collect { 0.0 } + [ 1.0 ]
   input = CooCoo::Vector[input, INPUT_SIZE]
   target = CooCoo::Vector.zeros(OUTPUT_SIZE)
@@ -174,7 +177,7 @@ if __FILE__ == $0
   target[-1] = 1.0
 
   input = activation.prep_input(input)
-  target = activation.process_output(target)
+  target = activation.prep_input(target)
 
   #input = (input - 0.5) * 2.0
   #target = (target - 0.5) * 2.0
@@ -217,7 +220,7 @@ if __FILE__ == $0
         #puts("Deltas = #{deltas}\n#{matrix_image(deltas, OUT_WIDTH)}")
         xfer = layer.transfer_error(deltas)
         #puts("Xfer error = #{xfer}\n#{matrix_image(xfer, OUT_WIDTH)}")
-        layer.update_weights!(input, deltas * -0.3)
+        layer.update_weights!(input, deltas * -learning_rate)
         #puts("Weights updated")
         output, hs = layer.forward(input, nil)
         puts("New output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")
