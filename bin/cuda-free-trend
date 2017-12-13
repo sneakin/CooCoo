@@ -2,6 +2,6 @@
 
 ./bin/cuda-free -f 0.25 |
     stdbuf -o0 cut -f 4 |
-    trend -c 1a -geometry ${TREND_GEOMETRY:-640x64-0-24} - ${TREND_SIZE:-$((4*60*4*5))} ${TREND_SCALE:-0 100}
+    trend -t "${TREND_TITLE:-Free CUDA Memory}" -c 1a -geometry ${TREND_GEOMETRY:-640x64-0-24} - ${TREND_SIZE:-$((4*60*4*5))} 0 100
 
 [[ -z `jobs -p` ]] || kill $(jobs -p)
