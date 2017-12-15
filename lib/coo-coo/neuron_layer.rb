@@ -4,6 +4,7 @@ require 'coo-coo/debug'
 require 'coo-coo/layer_factory'
 require 'coo-coo/neuron'
 require 'coo-coo/sequence'
+require 'coo-coo/weight_deltas'
 
 module CooCoo
   class NeuronLayer
@@ -65,17 +66,17 @@ module CooCoo
 
     def adjust_weights!(deltas)
       @neurons.each_with_index do |n, i|
-        n.adjust_weights!(deltas[0][i], deltas[1][i])
+        n.adjust_weights!(deltas.bias_deltas[i], deltas.weight_deltas[i])
       end
 
       self
     end
 
     def weight_deltas(inputs, deltas)
-      @neurons.each_with_index.inject([ CooCoo::Vector.zeros(size), CooCoo::Sequence.new(size) ]) do |acc, (n, i)|
-        acc[0][i], acc[1][i] = n.weight_deltas(inputs, deltas[i])
-        acc
-      end
+      WeightDeltas.new(*@neurons.each_with_index.inject([ CooCoo::Vector.zeros(size), CooCoo::Sequence.new(size) ]) do |acc, (n, i)|
+                         acc[0][i], acc[1][i] = n.weight_deltas(inputs, deltas[i])
+                         acc
+                       end)
     end
 
     def to_hash(network = nil)

@@ -52,6 +52,8 @@ module CooCoo
         buffer_function :get, [ DeviceBuffer, :pointer, :size_t ], :int
         buffer_function :slice, [ DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
         buffer_function :slice_2d, [ DeviceBuffer, :size_t, :size_t, :size_t, :size_t, :size_t, :size_t, :double ], DeviceBuffer.auto_ptr
+        buffer_function :set2d, [ DeviceBuffer, :size_t, DeviceBuffer, :size_t, :size_t, :size_t ], :int
+        buffer_function :set2dv, [ DeviceBuffer, :size_t, :pointer, :size_t, :size_t, :size_t, :size_t ], :int
         buffer_function :host_slice, [ DeviceBuffer, :pointer, :size_t, :size_t ], :int
 
         [ :add, :sub, :mul, :div,

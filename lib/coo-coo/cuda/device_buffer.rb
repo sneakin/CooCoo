@@ -16,7 +16,7 @@ module CooCoo
       def self.release(ptr)
         FFI.buffer_free(ptr)
       rescue
-	CooCoo.debug(__method__, $!.inspect)
+        CooCoo.debug(__method__, $!.inspect)
       end
 
       require 'coo-coo/cuda/device_buffer/ffi'
@@ -31,8 +31,13 @@ module CooCoo
           set(self)
       end
 
-      def self.[](other)
-        self.create(other.size).set(other)
+      def self.[](other, length = nil)
+        if other.respond_to?(:each)
+          length ||= other.size
+        else
+          length ||= 1
+        end
+        self.create(length).set(other)
       end
       
       def set(buffer)
@@ -53,8 +58,12 @@ module CooCoo
 
         if length
           value, length = length, value
-          buffer = HostBuffer[value, length]
-          FFI.setvn(self, index, buffer.to_ptr, buffer.size)
+          if value.kind_of?(self.class)
+            FFI.setn(self, index, value, length)
+          else
+            buffer = HostBuffer[value, length]
+            FFI.setvn(self, index, buffer.to_ptr, buffer.size)
+          end
         else
           FFI.set_element(self, index, value)
         end
@@ -105,9 +114,9 @@ module CooCoo
         if other.kind_of?(self.class)
           ow ||= w
           oh ||= h
-          raise ArgumentError.new("width must match the other's height") if w != oh
+          raise ArgumentError.new("width (#{w}) must match the other's height (#{oh})") if w != oh
           raise ArgumentError.new("width * height != size") if size != w * h
-          raise ArgumentError.new("other's width * height != other's size") if other.size != ow * oh
+          raise ArgumentError.new("other's width * height != other's size (#{ow} * #{oh} != #{other.size})") if other.size != ow * oh
           raise ArgumentError.new("other is null") if other.null?
           raise ArgumentError.new("self is null") if null?
           
@@ -120,6 +129,17 @@ module CooCoo
 
       def slice_2d(width, height, x, y, out_width, out_height, initial = 0.0)
         FFI.slice_2d(self, width, height, x, y, out_width, out_height, initial)
+      end
+
+      def set2d!(width, src, src_width, x, y)
+        case src
+        when self.class then FFI.set2d(self, width, src, src_width, x, y)
+        else
+          src = HostBuffer[src] unless src.kind_of?(HostBuffer)
+          FFI.set2dv(self, width, src.to_ptr, src_width, src.size / src_width, x, y)
+        end
+
+        self
       end
 
       def ==(other)

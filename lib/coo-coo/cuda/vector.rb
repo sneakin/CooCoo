@@ -23,7 +23,12 @@ module CooCoo
           v.instance_variable_set('@elements', value)
           v
         else
-          new(max_size || value.size, default_value).set(value)
+          if value.respond_to?(:each)
+            max_size ||= value.size
+          else
+            max_size ||= 1
+          end
+          new(max_size, default_value).set(value)
         end
       end
 
@@ -258,6 +263,14 @@ module CooCoo
 
       def slice_2d(*args)
         self.class[@elements.slice_2d(*args)]
+      end
+
+      def set2d!(width, src, src_width, x, y)
+        raise ArgumentError.new("src's size #{src.size} must be divisible by src_width #{src_width}") if src.respond_to?(:each) && src.size % src_width > 0
+        
+        src = src.elements if src.kind_of?(self.class)
+        @elements.set2d!(width, src, src_width, x, y)
+        self
       end
 
       def inspect

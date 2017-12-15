@@ -34,6 +34,11 @@ module CooCoo
         each.minmax
       end
 
+      def minmax_normalize
+        min, max = minmax
+        (self - min) / (max - min)
+      end
+
       def sqrt
         self.class[each.collect(&:sqrt)]
       end
@@ -58,6 +63,21 @@ module CooCoo
         end.flatten
 
         self.class[samples]
+      end
+
+      def set2d!(width, src, src_width, x, y)
+        raise ArgumentError.new("src's size needs to be a multiple of the width") if src.kind_of?(self.class) && src.size % src_width > 0
+        
+        src.each_slice(src_width).with_index do |row, i|
+          index = (y+i) * width + x
+          next if index >= size
+          row.each_with_index do |p, px|
+            break if (x + px) >= width
+            self[index.to_i + px] = p
+          end
+        end
+
+        self
       end
     end
   end

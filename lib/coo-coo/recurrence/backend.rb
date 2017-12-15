@@ -61,7 +61,7 @@ module CooCoo
       end
 
       def weight_deltas(inputs, deltas)
-        [ deltas, inputs * deltas ]
+        inputs * deltas
       end
 
       def to_hash(network = nil)

@@ -15,13 +15,8 @@ def color_for_pixel(p)
   ColorValues[(p * (ColorValues.length - 1)).to_i] || ColorValues[0]
 end
 
-def minmax(v)
-  min, max = v.minmax
-  (v - min) / (max - min)
-end
-
 def output_to_ascii(output)
-  output = minmax(output)
+  output = output.minmax_normalize
   
   s = ""
   w = Math.sqrt(output.size).to_i
@@ -53,15 +48,20 @@ def sgd(opts)
 
   last_time = Time.now
   last_deltas = 0.0 # CooCoo::Vector.zeros(28 * 28)
-  epochs.times do
+  c = nil
+  output = nil
+  deltas = nil
+  
+  epochs.times do |e|
     output = f.call()
     c = cost.call(*output)
-    deltas = loss.call(c, *output) * rate
+    deltas = loss.call(c, *output) * -rate
     update.call(deltas, last_deltas * rate)
     last_deltas = deltas
     dt = Time.now - last_time
-    if status && (dt > status_time || verbose)
+    if status && verbose && dt > status_time
       status.call({ dt: dt,
+                    epoch: e,
                     output: output,
                     cost: c,
                     deltas: deltas
@@ -69,16 +69,26 @@ def sgd(opts)
       last_time = Time.now
     end
   end
+
+  if status && verbose
+    status.call({ dt: Time.now - last_time,
+                  epoch: epochs,
+                  output: output,
+                  cost: c,
+                  deltas: deltas
+                })
+  end
 end
 
-def backprop_digit(loops, rate, net, digit, initial_input = CooCoo::Vector.zeros(28 * 28), verbose = false)
+def backprop_digit(loops, rate, net, digit, initial_input = CooCoo::Vector.zeros(28 * 28), verbose = false, status_delay = 5.0)
   input = initial_input
   target = CooCoo::Vector.zeros(10)
   target[digit % 10] = 1.0
+  target = net.prep_input(target)
 
-  sgd(epochs: loops, rate: rate, status_time: 5, verbose: verbose,
+  sgd(epochs: loops, rate: rate, status_time: status_delay, verbose: verbose,
       f: lambda do
-        output, hs = net.forward(input)
+        output, hs = net.forward(input, {}, true, true)
       end,
       cost: lambda do |output, hs|
         output.last - target
@@ -89,11 +99,12 @@ def backprop_digit(loops, rate, net, digit, initial_input = CooCoo::Vector.zeros
         x = errs.first
       end,
       update: lambda do |deltas, last_deltas|
-        input = input - deltas + last_deltas
+        input = input + deltas + last_deltas
       end,
       status: lambda do |opts|
-        puts("#{digit} Input", output_to_ascii(input))
-        puts("#{opts[:cost].magnitude}\t#{opts[:cost]}\n")
+        puts("#{opts[:epoch]} #{digit} Input", output_to_ascii(input))
+        puts("Output: #{opts[:output][0].last[digit]}\t#{opts[:output][0].last}\n")
+        puts("Cost: #{opts[:cost].magnitude}\t#{opts[:cost]}\n")
       end)
 
   input
@@ -104,6 +115,7 @@ options.model_path = nil
 options.loops = 10
 options.rate = 0.5
 options.initial_input = CooCoo::Vector.zeros(28 * 28)
+options.status_delay = 5.0
 
 opts = OptionParser.new do |o|
   o.on('--color BOOL') do |bool|
@@ -130,6 +142,10 @@ opts = OptionParser.new do |o|
     options.verbose = true
   end
 
+  o.on('--status-delay SECONDS') do |n|
+    options.status_delay = n.to_f
+  end
+  
   o.on('-i', '--initial NAME') do |n|
     options.initial_input = case n[0].downcase
                             when 'o' then CooCoo::Vector.ones(28 * 28)
@@ -142,23 +158,26 @@ opts = OptionParser.new do |o|
 end
 
 argv = opts.parse!(ARGV)
-net = CooCoo::Network.load(options.model_path)
+net = if File.extname(options.model_path) == '.bin'
+        Marshal.load(File.read(options.model_path))
+      else
+        CooCoo::Network.load(options.model_path)
+      end
 
 argv = 10.times if argv.empty?
 
 argv.collect do |digit|
   digit = digit.to_i
-  input = backprop_digit(options.loops, options.rate, net, digit.to_i, options.initial_input, options.verbose)
-  $stdout.write("\rGenerating #{digit}")
+  $stdout.puts("Generating #{digit}")
+  input = backprop_digit(options.loops, options.rate, net, digit.to_i, options.initial_input, options.verbose, options.status_delay)
   $stdout.flush
   [ digit, input ]
 end.each do |digit, input|
-  output, hs = net.predict(input)
+  output, hs = net.predict(input, {})
   passed = output[digit] > 0.8
   color = passed ? :green : :red
   status_char = passed ? "\u2714" : "\u2718"
   
-  $stdout.write("\r")
   puts("#{digit}".colorize(color))
   puts('=' * 8)
   puts

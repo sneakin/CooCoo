@@ -1,7 +1,7 @@
 require 'coo-coo/math'
 
 module CooCoo
-  class Sequence
+  class Sequence < Math::AbstractVector
     def initialize(length, &init)
       if length.kind_of?(Array)
         @elements = length

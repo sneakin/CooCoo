@@ -142,7 +142,7 @@ end
 if __FILE__ == $0
   require 'coo-coo'
   require 'pp'
-
+  
   def mark_random(v)
     bingo = rand < 0.1
     if bingo
@@ -168,12 +168,24 @@ if __FILE__ == $0
   rec = CooCoo::Recurrence::Frontend.new(INPUT_LENGTH, RECURRENT_LENGTH)
   net.layer(rec)
   if SINGLE_LAYER
-    net.layer(CooCoo::Layer.new(INPUT_LENGTH + rec.recurrent_size, OUTPUT_LENGTH + rec.recurrent_size, activation_function))
+    net.layer(CooCoo::FullyConnectedLayer.new(INPUT_LENGTH + rec.recurrent_size, OUTPUT_LENGTH + rec.recurrent_size))
+    net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, activation_function))
   else
-    net.layer(CooCoo::Layer.new(INPUT_LENGTH + rec.recurrent_size, HIDDEN_LENGTH, activation_function))
-    net.layer(CooCoo::Layer.new(HIDDEN_LENGTH, OUTPUT_LENGTH + rec.recurrent_size, activation_function))
+    net.layer(CooCoo::FullyConnectedLayer.new(INPUT_LENGTH + rec.recurrent_size, HIDDEN_LENGTH))
+    net.layer(CooCoo::LinearLayer.new(HIDDEN_LENGTH, activation_function))
+    net.layer(CooCoo::FullyConnectedLayer.new(HIDDEN_LENGTH, OUTPUT_LENGTH + rec.recurrent_size))
+    net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, activation_function))
   end
+  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::LeakyReLU.instance))
+  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::Normalize.instance))
+  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))  
+  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::TanH.instance))  
+  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::MinMax.instance))  
   net.layer(rec.backend(OUTPUT_LENGTH))
+  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ReLU.instance))  
+  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))
+  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH, CooCoo::ActivationFunctions::Normalize.instance))
+  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH, CooCoo::ActivationFunctions::Logistic.instance))
 
   input_seqs = 2.times.collect do
     SEQUENCE_LENGTH.times.collect do
@@ -194,10 +206,16 @@ if __FILE__ == $0
   target_seqs.last[DELAY][0] = 1.0
 
   def cost(net, expecting, outputs)
-    outputs.zip(expecting).inject(CooCoo::Vector.zeros(outputs.last.last.size)) do |acc, (output, target)|
-      acc + CooCoo::CostFunctions.difference(net.prep_input(target), output.last)
-    end
+    #outputs.zip(expecting).inject(CooCoo::Vector.zeros(outputs.last.last.size)) do |acc, (output, target)|
+    #  acc + CooCoo::CostFunctions.difference(net.prep_input(target), output.last)
+    #end
+
+    CooCoo::Sequence[outputs.zip(expecting).collect do |output, target|
+      CooCoo::CostFunctions.difference(net.prep_input(target), output.last)
+    end]
   end
+
+  learning_rate = ENV.fetch("RATE", 0.3).to_f
   
   ENV.fetch("LOOPS", 100).to_i.times do |n|
     input_seqs.zip(target_seqs).each do |input_seq, target_seq|

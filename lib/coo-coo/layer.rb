@@ -5,6 +5,8 @@ require 'coo-coo/cuda'
 require 'coo-coo/layer_factory'
 require 'coo-coo/neuron_layer'
 require 'coo-coo/vector_layer'
+require 'coo-coo/linear_layer'
+require 'coo-coo/fully_connected_layer'
 
 module CooCoo
   if ENV["COOCOO_USE_VECTOR"] != "0" # && (ENV["COOCOO_USE_CUDA"] != "0" && CooCoo::CUDA.available?)

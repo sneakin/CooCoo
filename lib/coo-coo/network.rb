@@ -50,18 +50,26 @@ module CooCoo
       activation_function.prep_input(input)
     end
 
+    def process_output(output)
+      activation_function.process_output(output)
+    end
+
     def final_output(outputs)
       outputs.last
     end
     
-    def forward(input, hidden_state = nil, flattened = false)
+    def forward(input, hidden_state = nil, flattened = false, processed = false)
       unless flattened || input.kind_of?(CooCoo::Vector)
         input = CooCoo::Vector[input.to_a.flatten, num_inputs]
       end
 
       hidden_state ||= Hash.new
 
-      output = prep_input(input)
+      output = if processed
+                 input
+               else
+                 prep_input(input)
+               end
       
       outputs = @layers.each_with_index.inject([]) do |acc, (layer, i)|
         #debug("Layer: #{i} #{layer.num_inputs} #{layer.size}")
@@ -75,10 +83,10 @@ module CooCoo
       return outputs, hidden_state
     end
 
-    def predict(input, hidden_state = nil, flattened = false)
+    def predict(input, hidden_state = nil, flattened = false, processed = false)
       hidden_state ||= Hash.new
-      outputs, hidden_state = forward(input, hidden_state, flattened)
-      return activation_function.process_output(outputs.last), hidden_state
+      outputs, hidden_state = forward(input, hidden_state, flattened, processed)
+      return process_output(final_output(outputs)), hidden_state
     end
 
     def backprop(outputs, errors, hidden_state = nil)
@@ -113,7 +121,7 @@ module CooCoo
     end
 
     def weight_deltas(input, outputs, deltas)
-      @layers.each_with_index.collect do |layer, i|
+      d = @layers.each_with_index.collect do |layer, i|
         inputs = if i != 0
                    outputs[i - 1] #[i - 1]
                  else
@@ -121,6 +129,8 @@ module CooCoo
                  end
         layer.weight_deltas(inputs, deltas[i])
       end
+
+      d
     end
 
     def learn(input, expecting, rate, cost_function = CostFunctions.method(:difference), hidden_state = nil)

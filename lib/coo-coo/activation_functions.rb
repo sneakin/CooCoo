@@ -75,11 +75,11 @@ module CooCoo
       end
       
       def prep_input(arr)
-        (arr - 0.5) * 2.0
+        (arr.minmax_normalize - 0.5) * 2.0
       end
 
       def process_output(arr)
-        arr / 2.0 - 0.5
+        arr.minmax_normalize
       end
     end
 

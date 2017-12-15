@@ -174,7 +174,8 @@ if __FILE__ == $0
 
   if File.exists?(options.model_path)
     $stdout.print("Loading #{options.model_path}...")
-    net = CooCoo::TemporalNetwork.from_hash(YAML.load(File.read(options.model_path)))
+    $stdout.flush
+    net = CooCoo::TemporalNetwork.new(network: CooCoo::Network.load(options.model_path))
     puts("\rLoaded #{options.model_path}:")
     #net = Marshal.load(File.read(options.model_path))
   else
@@ -228,7 +229,7 @@ if __FILE__ == $0
   training_data = training_enumerator(data, options.sequence_size)
 
   if options.trainer
-    puts("Training on #{data.size} bytes from #{options.input_path} #{options.epochs} times in batches of #{options.batch_size} at a learning rate of #{options.learning_rate}...")
+    puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{options.batch_size} at a learning rate of #{options.learning_rate}...")
 
     trainer = options.trainer
     bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / options.batch_size.to_f).ceil)

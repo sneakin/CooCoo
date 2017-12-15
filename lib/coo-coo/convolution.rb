@@ -5,64 +5,110 @@ module CooCoo
     class BoxLayer
       LayerFactory.register_type(self)
 
-      def initialize(horizontal_span, vertical_span, internal_layer, input_width, input_height, output_width, output_height)
+      attr_reader :width
+      attr_reader :height
+      attr_reader :horizontal_step
+      attr_reader :vertical_step
+      attr_reader :input_width
+      attr_reader :input_height
+      attr_reader :int_output_width
+      attr_reader :int_output_height
+      attr_reader :internal_layer
+      attr_reader :delta_accumulator
+      
+      def initialize(width, height, horizontal_step, vertical_step, internal_layer, input_width, input_height, int_output_width, int_output_height, update_weights_with = :average)
         @internal_layer = internal_layer
-        @horizontal_span = horizontal_span
-        @vertical_span = vertical_span
+        @width = width
+        @height = height
+        @horizontal_step = horizontal_step
+        @vertical_step = vertical_step
         @input_width = input_width
         @input_height = input_height
         raise ArgumentError.new("Input size mismatch: #{input_width * input_height} is not #{internal_layer.num_inputs}") if internal_layer.num_inputs != (input_width * input_height)
-        @output_width = output_width
-        @output_height = output_height
-        raise ArgumentError.new("Input size mismatch: #{output_width * output_height} is not #{internal_layer.size}") if internal_layer.size != (output_width * output_height)
+        @int_output_width = int_output_width
+        @int_output_height = int_output_height
+        raise ArgumentError.new("Input size mismatch: #{int_output_width * int_output_height} is not #{internal_layer.size}") if internal_layer.size != (int_output_width * int_output_height)
+        @delta_accumulator = delta_accumulator || :average
+        raise ArgumentError.new("Weights delta accumulator can only be averaged or summed") unless [ :average, :sum ].include?(@delta_accumulator)
       end
 
-      attr_reader :horizontal_span
-      attr_reader :vertical_span
-      attr_reader :input_width
-      attr_reader :input_height
-      attr_reader :output_width
-      attr_reader :output_height
-      attr_reader :internal_layer
-      
       def activation_function
         internal_layer.activation_function
       end
+
+      def horizontal_span
+        @horizontal_span ||= (@width / @horizontal_step.to_f).ceil
+      end
+
+      def vertical_span
+        @vertical_span ||= (@height / @vertical_step.to_f).ceil
+      end
       
       def num_inputs
-        @horizontal_span * @input_width * @vertical_span * @input_height
+        @width * @height
+      end
+
+      def output_width
+        (horizontal_span * int_output_width).to_i
+      end
+
+      def output_height
+        (vertical_span * int_output_height).to_i
       end
 
       def size
-        @vertical_span * @horizontal_span * @internal_layer.size
+        output_height * output_width
       end
 
       def neurons
         internal_layer.neurons
       end
 
+      def flatten_areas(outputs, w, h, inner_width)
+        out = CooCoo::Vector.new(w * h)
+        
+        each_area do |grid_x, grid_y|
+          area_output = outputs[grid_y][grid_x]
+          gx = grid_x * w / horizontal_span.to_f
+          gy = grid_y * h / vertical_span.to_f
+          out.set2d!(w, area_output, inner_width, gx, gy)
+        end
+
+        out
+      end
+      
       def forward(input, hidden_state)
-        return CooCoo::Vector[each_area do |grid_x, grid_y|
-                                output, hidden_state = @internal_layer.forward(slice_input(input, grid_x, grid_y), hidden_state)
-                                output.to_a
-                              end.flatten, size], hidden_state
+        hs = hidden_state[self] || Array.new
+        outputs = each_area do |grid_x, grid_y|
+          hs_index = (grid_y * horizontal_span + grid_x).to_i
+          output, layer_hs = @internal_layer.forward(slice_input(input, grid_x, grid_y), hs[hs_index])
+          hs[hs_index] = layer_hs
+          output
+        end
+        hidden_state[self] = hs
+        [ flatten_areas(outputs, horizontal_span * int_output_width, vertical_span * int_output_height, int_output_width), hidden_state ]
       end
 
       def backprop(output, errors, hidden_state)
-        return CooCoo::Vector[each_area do |grid_x, grid_y|
-                                d, hidden_state = @internal_layer.backprop(slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y), hidden_state)
-                                d.to_a
-                       end.flatten, size], hidden_state
+        hs = hidden_state[self] || Array.new
+        deltas = each_area do |grid_x, grid_y|
+          hs_index = grid_y * horizontal_span + grid_x
+          d, layer_hs = @internal_layer.backprop(slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y), hs[hs_index])
+          hs[hs_index] = layer_hs
+          d
+        end
+        hidden_state[self] = hs
+        [ Sequence[deltas.collect { |d| Sequence[d] }], hidden_state ]
       end
 
       def transfer_error(deltas)
-        CooCoo::Vector[each_area do |grid_x, grid_y|
-                         @internal_layer.transfer_error(slice_output(deltas, grid_x, grid_y)).to_a
-                       end.flatten, num_inputs]
+        flatten_areas(each_area do |grid_x, grid_y|
+                        @internal_layer.transfer_error(deltas[grid_y][grid_x]).to_a
+                      end, width, height, input_width)
       end
 
       def update_weights!(inputs, deltas)
-        adjust_weights!(weight_deltas(inputs, deltas))
+        adjust_weights!(*weight_deltas(inputs, deltas))
       end
 
       def adjust_weights!(deltas)
@@ -74,46 +120,55 @@ module CooCoo
         #rate = rate / (@horizontal_span * @vertical_span).to_f
         change = []
         wd = []
-        
+
+        d = []
         each_area do |grid_x, grid_y|
-          slice_change, slice_wd = @internal_layer.
+          hs_index = grid_y * horizontal_span + grid_x
+          delta, hs = @internal_layer.
             weight_deltas(slice_input(inputs, grid_x, grid_y),
-                          slice_output(deltas, grid_x, grid_y))
-          change << slice_change
-          wd << slice_wd
+                          deltas[grid_y][grid_x])
+          d << delta
         end
 
-        [ Sequence[change].sum, Sequence[wd].sum ]
+        Sequence[d].send(@delta_accumulator)
       end
 
       def ==(other)
         other.kind_of?(self.class) &&
-          horizontal_span == other.horizontal_span &&
-          vertical_span == other.vertical_span &&
+          width == other.width &&
+          height == other.height &&
+          horizontal_step == other.horizontal_step &&
+          vertical_step == other.vertical_step &&
           input_width == other.input_width &&
           input_height == other.input_height &&
-          output_width == other.output_width &&
-          output_height == other.output_height &&
-          internal_layer == other.internal_layer
+          int_output_width == other.int_output_width &&
+          int_output_height == other.int_output_height &&
+          internal_layer == other.internal_layer &&
+          delta_accumulator == other.delta_accumulator
       end
 
       def to_hash(network = nil)
         { type: self.class.to_s,
-          horizontal_span: @horizontal_span,
-          vertical_span: @vertical_span,
+          width: @width,
+          height: @height,
+          horizontal_step: @horizontal_step,
+          vertical_step: @vertical_step,
           input_width: @input_width,
           input_height: @input_height,
-          output_width: @output_width,
-          output_height: @output_height,
+          int_output_width: @int_output_width,
+          int_output_height: @int_output_height,
+          delta_accumulator: @delta_accumulator,
           internal_layer: @internal_layer.to_hash(network)
         }
       end
 
       def self.from_hash(h, network = nil)
-        self.new(h.fetch(:horizontal_span), h.fetch(:vertical_span),
+        self.new(h.fetch(:width), h.fetch(:height),
+                 h.fetch(:horizontal_step), h.fetch(:vertical_step),
                  LayerFactory.from_hash(h.fetch(:internal_layer)),
                  h.fetch(:input_width), h.fetch(:input_height),
-                 h.fetch(:output_width), h.fetch(:output_height))
+                 h.fetch(:int_output_width), h.fetch(:int_output_height),
+                 h.fetch(:delta_accumulator, :average))
       end
 
       #private
@@ -121,30 +176,30 @@ module CooCoo
       def each_area
         return to_enum(:each_area) unless block_given?
 
-        @vertical_span.times.collect do |grid_y|
-          @horizontal_span.times.collect do |grid_x|
+        vertical_span.to_i.times.collect do |grid_y|
+          horizontal_span.to_i.times.collect do |grid_x|
             yield(grid_x, grid_y)
           end
         end
       end
       
       def slice_input(input, grid_x, grid_y)
-        origin_x = grid_x * @input_width
-        origin_y = grid_y * @input_height
-        input.slice_2d(@horizontal_span * @input_width,
-                       @vertical_span * @input_height,
+        origin_x = grid_x * @horizontal_step
+        origin_y = grid_y * @vertical_step
+        input.slice_2d(@width,
+                       @height,
                        origin_x, origin_y,
                        @input_width, @input_height,
                        0.0)
       end
       
       def slice_output(output, grid_x, grid_y)
-        origin_x = grid_x * @output_width
-        origin_y = grid_y * @output_height
-        output.slice_2d(@horizontal_span * @output_width,
-                        @vertical_span * @output_height,
+        origin_x = grid_x * @int_output_width
+        origin_y = grid_y * @int_output_height
+        output.slice_2d((horizontal_span * @int_output_width).to_i,
+                        (vertical_span * @int_output_height).to_i,
                         origin_x, origin_y,
-                        @output_width, @output_height,
+                        @int_output_width, @int_output_height,
                         0.0)
       end
     end
@@ -154,20 +209,22 @@ end
 if __FILE__ == $0
   require 'coo-coo/layer'
   
-  IN_WIDTH = 16
-  IN_HEIGHT = 16
+  WIDTH = 16
+  HEIGHT = 16
+  X_STEP = 4
+  Y_STEP = 4
   CONV_WIDTH = 4
   CONV_HEIGHT = 4
   CONV_OUT_WIDTH = 1
   CONV_OUT_HEIGHT = 1
-  OUT_WIDTH = IN_WIDTH / CONV_WIDTH * CONV_OUT_WIDTH
-  OUT_HEIGHT = IN_HEIGHT / CONV_HEIGHT * CONV_OUT_HEIGHT
   activation = CooCoo::ActivationFunctions.from_name(ENV.fetch('ACTIVATION', 'Logistic'))
   inner_layer = CooCoo::Layer.new(CONV_WIDTH * CONV_HEIGHT, CONV_OUT_WIDTH * CONV_OUT_HEIGHT, activation)
-  layer = CooCoo::Convolution::BoxLayer.new(IN_WIDTH / CONV_WIDTH, IN_HEIGHT / CONV_HEIGHT, inner_layer, CONV_WIDTH, CONV_HEIGHT, CONV_OUT_WIDTH, CONV_OUT_HEIGHT)
+  layer = CooCoo::Convolution::BoxLayer.new(WIDTH, HEIGHT, X_STEP, Y_STEP, inner_layer, CONV_WIDTH, CONV_HEIGHT, CONV_OUT_WIDTH, CONV_OUT_HEIGHT)
 
-  INPUT_SIZE = IN_WIDTH * IN_HEIGHT
-  OUTPUT_SIZE = OUT_WIDTH * OUT_HEIGHT
+  INPUT_SIZE = layer.num_inputs
+  OUT_WIDTH = layer.output_width
+  OUT_HEIGHT = layer.output_height
+  OUTPUT_SIZE = layer.size
   learning_rate = ENV.fetch('RATE', 0.3).to_f
   
   input = [ 1.0 ] + (INPUT_SIZE - 2).times.collect { 0.0 } + [ 1.0 ]
@@ -209,8 +266,8 @@ if __FILE__ == $0
     bm.report("loops") do
       ENV.fetch("LOOPS", 100).to_i.times do |i|
         puts("#{i}\n========\n")
-        #puts("Inputs =\n#{matrix_image(input, IN_WIDTH)}")
-        output, hs = layer.forward(input, nil)
+        #puts("Inputs =\n#{matrix_image(input, WIDTH)}")
+        output, hs = layer.forward(input, {})
         #puts("Output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")
         err = output - target
         #puts("Target = #{target}\n#{matrix_image(target, OUT_WIDTH)}")
@@ -222,7 +279,7 @@ if __FILE__ == $0
         #puts("Xfer error = #{xfer}\n#{matrix_image(xfer, OUT_WIDTH)}")
         layer.update_weights!(input, deltas * -learning_rate)
         #puts("Weights updated")
-        output, hs = layer.forward(input, nil)
+        output, hs = layer.forward(input, {})
         puts("New output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")
       end
     end

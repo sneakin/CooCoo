@@ -19,12 +19,12 @@ module CooCoo
       def self.[](value, max_size = nil, default_value = 0.0)
         if value.respond_to?(:[])
           v = new(max_size || value.size, default_value) do |i|
-            value[i] || default_value
+            value[i].to_f || default_value
           end
         else
           v = new(max_size || value.size, default_value) do |i|
             begin
-              value.next || default_value
+              value.next.to_f || default_value
             rescue StopIteration
               default_value
             end
@@ -384,11 +384,16 @@ module CooCoo
         end
       end
 
-      def []=(i, v)
+      def []=(i, l, v = nil)
         i = size + i if i < 0
         raise RangeError.new if i >= size || i < 0
 
-        @elements[i] = v
+        if v
+          @elements[i, l] = v
+        else
+          @elements[i] = l
+        end
+        # @elements[i] = v
       end
 
       def set(values)

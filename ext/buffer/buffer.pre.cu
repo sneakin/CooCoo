@@ -244,6 +244,17 @@ PUBLIC cudaError_t buffer_set(Buffer buffer, Buffer other)
   return cudaMemcpy(buffer->data, other->data, length * sizeof(double), cudaMemcpyDeviceToDevice);
 }
 
+PUBLIC cudaError_t buffer_setn(Buffer buffer, size_t offset, Buffer other, size_t length)
+{
+  if(length > other->length) {
+    length = other->length;
+  }
+  if((offset + length) > buffer->length) {
+    length = buffer->length - offset;
+  }
+  return cudaMemcpy(buffer->data + offset, other->data, length * sizeof(double), cudaMemcpyDeviceToDevice);
+}
+
 PUBLIC cudaError_t buffer_setvn(Buffer buffer, size_t offset, void *data, size_t length)
 {
   if((offset + length) > buffer->length) {
@@ -373,6 +384,56 @@ PUBLIC Buffer buffer_slice_2d(const Buffer in, int width, int height, int x, int
   }
 
   return out;
+}
+
+cudaError_t buffer_set2d_inner(Buffer dest, size_t dest_width, const void *src, size_t src_width, size_t src_height, size_t x, size_t y, cudaMemcpyKind kind)
+{
+  if(dest == NULL
+     || dest->data == NULL
+     || dest_width == 0
+     || src == NULL
+     || src_width == 0
+     || src_height == 0) {
+    return cudaErrorInvalidValue;
+  }
+  
+  size_t copy_width = src_width;
+  if(x + src_width > dest_width) {
+    copy_width = dest_width - x;
+  }
+  size_t dest_height = dest->length / dest_width;
+  size_t copy_height = src_height;
+  if(y + src_height > dest_height) {
+    copy_height = dest_height - y;
+  }
+  size_t idx = y * dest_width + x;
+  if(idx >= dest->length
+     || (idx + copy_width * copy_height) > dest->length) {
+    return cudaSuccess;
+  }
+  cudaError_t err = cudaMemcpy2D(dest->data + idx,
+                                 dest_width * sizeof(double),
+                                 src, src_width * sizeof(double),
+                                 copy_width * sizeof(double),
+                                 copy_height,
+                                 kind);
+  return err;
+}
+
+PUBLIC cudaError_t buffer_set2d(Buffer dest, size_t dest_width, const Buffer src, size_t src_width, size_t x, size_t y)
+{
+  if(dest->length == 0
+     || src->length == 0
+     || src_width == 0
+     || src->length % src_width > 0) {
+    return cudaErrorInvalidValue;
+  }
+  return buffer_set2d_inner(dest, dest_width, src->data, src_width, src->length / src_width, x, y, cudaMemcpyDeviceToDevice);
+}
+
+PUBLIC cudaError_t buffer_set2dv(Buffer dest, size_t dest_width, const void *src, size_t src_width, size_t src_height, size_t x, size_t y)
+{
+  return buffer_set2d_inner(dest, dest_width, src, src_width, src_height, x, y, cudaMemcpyHostToDevice);
 }
 
 typedef double (*ReduceOp)(double a, double b);

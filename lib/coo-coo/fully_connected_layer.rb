@@ -2,25 +2,26 @@ require 'coo-coo/consts'
 require 'coo-coo/math'
 require 'coo-coo/debug'
 require 'coo-coo/layer_factory'
-require 'coo-coo/activation_functions'
 require 'coo-coo/weight_deltas'
 
 module CooCoo
-  class VectorLayer
+  class FullyConnectedLayer
     LayerFactory.register_type(self)
     
-    attr_accessor :activation_function
     attr_reader :bias
     attr_reader :weights
     
-    def initialize(num_inputs, size, activation_function = CooCoo.default_activation)
-      @activation_function = activation_function
+    def initialize(num_inputs, size, weights = nil, bias = nil)
       @num_inputs = num_inputs
       @size = size
-      @weights = CooCoo::Vector.rand(num_inputs * size).normalize
-      @bias = CooCoo::Vector.new(size, @activation_function.initial_bias)
+      @weights = weights || CooCoo::Vector.rand(num_inputs * size).normalize
+      @bias = bias || CooCoo::Vector.rand(size)
     end
 
+    def activation_function
+      ActivationFunctions::Identity.instance
+    end
+    
     def num_inputs
       @num_inputs
     end
@@ -30,19 +31,11 @@ module CooCoo
     end
 
     def forward(input, hidden_state)
-      return transfer(activate(input)), hidden_state
-    end
-
-    def transfer(activations)
-      @activation_function.call(activations)
-    end
-
-    def activate(input)
-      @weights.dot(num_inputs, size, input, 1, num_inputs) + @bias
+      return @weights.dot(num_inputs, size, input, 1, num_inputs) + @bias, hidden_state
     end
 
     def backprop(output, errors, hidden_state)
-      return errors * @activation_function.inv_derivative(output), hidden_state
+      return errors, hidden_state
     end
 
     def transfer_error(deltas)
@@ -60,7 +53,6 @@ module CooCoo
     def adjust_weights!(deltas)
       @bias += deltas.bias_deltas
       @weights += deltas.weight_deltas
-
       self
     end
 
@@ -79,8 +71,7 @@ module CooCoo
       @weights.each_slice(num_inputs).with_index.collect do |neuron_weights, i|
         { num_inputs: num_inputs,
           weights: neuron_weights.to_a,
-          bias: @bias[i],
-          f: @activation_function.name
+          bias: @bias[i]
         }      
       end
     end
@@ -119,7 +110,6 @@ module CooCoo
     end
 
     def update_from_hash!(h)
-      @activation_function = ActivationFunctions.from_name(h[:neurons][0][:f])
       add_neurons!(h[:outputs])
       add_inputs!(h[:neurons][0][:num_inputs])
       
@@ -134,15 +124,13 @@ module CooCoo
       other.kind_of?(self.class) &&
         size == other.size &&
         bias == other.bias &&
-        weights == other.weights &&
-        activation_function == other.activation_function
+        weights == other.weights
     end
     
     class << self
       def from_hash(h, network = nil)
         self.new(h[:neurons][0][:num_inputs],
-                 h[:outputs],
-                 ActivationFunctions.from_name(h[:neurons][0][:f])).
+                 h[:outputs]).
           update_from_hash!(h)
       end
     end
@@ -150,7 +138,15 @@ module CooCoo
 end
 
 if __FILE__ == $0
-  layer = CooCoo::VectorLayer.new(4, 2, CooCoo::ActivationFunctions.from_name(ENV.fetch("ACTIVATION", "Logistic")))
+  require 'coo-coo/network'
+  require 'coo-coo/linear_layer'
+
+  activation = ENV.fetch('ACTIVATION', 'Logistic')
+  net = CooCoo::Network.new
+  fc_layer = CooCoo::FullyConnectedLayer.new(4, 2, CooCoo::Vector.ones(4 * 2), CooCoo::Vector.ones(2))
+  net.layer(fc_layer)
+  net.layer(CooCoo::LinearLayer.new(2, CooCoo::ActivationFunctions.from_name(activation)))
+  
   inputs = [ [ 1.0, 0.0, 0.0, 0.0 ],
              [ 0.0, 0.0, 1.0, 0.0 ],
              [ 0.0, 1.0, 0.0, 0.0],
@@ -167,23 +163,34 @@ if __FILE__ == $0
   end
 
   inputs.zip(targets).cycle(ENV.fetch('LOOPS', 100).to_i).each do |(input, target)|
-    output, hidden_state = layer.forward(input, Hash.new)
+    output, hidden_state = net.forward(input, Hash.new)
     puts("#{input} -> #{target} #{target.inspect}")
     puts("\toutput: #{output}")
 
-    err = (output - target)
+    err = (output.last - target)
     puts("\terr: #{err}")
     #err = err * err * 0.5
-    delta, hidden_state = layer.backprop(output, err, hidden_state)
+    delta, hidden_state = net.backprop(output, err, hidden_state)
     puts("\tdelta: #{delta}")
     puts("\terror: #{err}")
-    puts("\txfer: #{layer.transfer_error(delta)}")
+    puts("\txfer: #{net.transfer_errors(delta)}")
 
-    layer.update_weights!(input, delta * -0.5)
+    net.update_weights!(input, output, delta, 0.5)
   end
 
+  new_net = CooCoo::Network.new()
+  h = fc_layer.to_hash
+  h[:type] = 'CooCoo::VectorLayer'
+  h[:neurons].each do |n|
+    n[:f] = activation
+  end
+  new_net.layer(CooCoo::Layer.from_hash(h))
+
+  puts("\nInput\tFully\tVector\tTarget")
   inputs.zip(targets).each do |(input, target)|
-    output, hidden_state = layer.forward(input, Hash.new)
-    puts("#{input} -> #{output}\t#{target}")
+    oa, hsa = net.forward(input, Hash.new)
+    ob, hsb = new_net.forward(input, Hash.new)
+    
+    puts("#{input} -> #{oa.last}\t#{ob.last}\t#{target}")
   end
 end

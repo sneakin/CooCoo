@@ -15,6 +15,10 @@ module CooCoo
         "CUDA API Error: #{name} #{string}"
       end
 
+      def error
+        @err
+      end
+      
       def name
         Runtime.cudaGetErrorName(@err)
       end

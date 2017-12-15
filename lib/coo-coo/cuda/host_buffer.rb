@@ -27,8 +27,10 @@ module CooCoo
       def self.[](other, length = nil)
         if other.kind_of?(self)
           return other.resize(length || other.size)
-        elsif other.respond_to?(:each_with_index) || other.kind_of?(Numeric)
+        elsif other.respond_to?(:each_with_index)
           return self.new(length || other.size).set(other)
+        elsif other.kind_of?(Numeric)
+          return self.new(length || 1).set(other)
         else
           return self[other.to_enum, length]
         end

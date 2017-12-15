@@ -97,6 +97,20 @@ describe CooCoo::ActivationFunctions::TanH do
       CooCoo::Vector[[0.3, 1, 12.3]] => CooCoo::Vector[[0.91, 0.0, -150.29000000000002]]
     }
   }
+
+  describe '#prep_input' do
+    it "adjusts the range to be -1...1" do
+      i = CooCoo::Vector[[-2, -1, 0, 1, 2]]
+      expect(subject.prep_input(i)).to eq([-1, -0.5, 0, 0.5, 1])
+    end
+  end
+
+  describe '#process_output' do
+    it "adjusts the range to be 0...1" do
+      i = CooCoo::Vector[[-2, -1, 0, 1, 2]]
+      expect(subject.process_output(i)).to eq([0, 0.25, 0.5, 0.75, 1.0])
+    end
+  end
 end
 
 describe CooCoo::ActivationFunctions::ReLU do

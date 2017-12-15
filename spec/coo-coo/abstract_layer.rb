@@ -57,7 +57,8 @@ shared_examples 'for an abstract layer' do
     end
 
     describe 'the backprop result' do
-      it { expect(deltas).to be_kind_of(outputs.class) }
+      it { expect(deltas + deltas * 0.5).to be_kind_of(deltas.class) }
+      #it { expect(deltas).to be_kind_of(outputs.class) }
       # it { expect(deltas.size).to eq(size) } # TODO dictate size? Convolution size?
     end
   end
@@ -77,15 +78,7 @@ shared_examples 'for an abstract layer' do
     let(:weight_deltas) { subject.weight_deltas(input, deltas) }
 
     describe 'summing deltas' do
-      describe 'the bias deltas' do
-        it { expect { weight_deltas[0] + weight_deltas[0] }.to_not raise_error }
-        it { expect((weight_deltas[0] + weight_deltas[0]).size).to eq(weight_deltas[0].size) }
-      end
-
-      describe 'the weight deltas' do
-        it { expect { weight_deltas[1] + weight_deltas[1] }.to_not raise_error }
-        it { expect((weight_deltas[1] + weight_deltas[1]).size).to eq(weight_deltas[1].size) }
-      end
+      it { expect { (weight_deltas + weight_deltas) / 2.0 }.to_not raise_error }
     end
   end
 

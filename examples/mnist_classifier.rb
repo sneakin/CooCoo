@@ -33,12 +33,18 @@ options.learning_rate = 1.0/3.0
 options.activation_function = CooCoo.default_activation
 options.trainer = 'Stochastic'
 options.convolution = nil
+options.conv_step = 8
 options.test_images_path = MNist::TEST_IMAGES_PATH
 options.test_labels_path = MNist::TEST_LABELS_PATH
 
 opts = OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
     options.model_path = Pathname.new(path)
+    options.binary_blob = File.extname(options.model_path) == '.bin'
+  end
+
+  o.on('--binary') do
+    options.binary_blob = true
   end
 
   o.on('-t', '--train NUMBER') do |n|
@@ -104,10 +110,18 @@ opts = OptionParser.new do |o|
   o.on('--convolution') do
     options.convolution = true
   end
+
+  o.on('--convolution-step NUMBER') do |n|
+    n = n.to_i
+    raise ArgumentError.new("The convolution step must be >0.") if n <= 0
+    options.conv_step = n
+  end
 end
 
 argv = opts.parse!(ARGV)
 max_rad = options.max_rotation.to_f * Math::PI / 180.0
+
+raise ArgumentError.new("The convolution step must be >=8 when stacking convolutions.") if options.conv_step < 8
 
 puts("Loading MNist data")
 data = MNist::DataStream.new
@@ -116,16 +130,20 @@ net = CooCoo::Network.new
 
 if options.model_path && File.exists?(options.model_path)
   puts("Loading #{options.model_path}")
-  net.load!(options.model_path)
+  if options.binary_blob
+    net = Marshal.load(File.read(options.model_path))
+  else
+    net.load!(options.model_path)
+  end
 else
   area = data.width * data.height
 
   if options.convolution
-    net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 4, options.activation_function), 4, 4, 2, 2))
-
-    area = 7 * 7 * 2 * 2
+    l = CooCoo::Convolution::BoxLayer.new(data.width, data.height, options.conv_step, options.conv_step, CooCoo::Layer.new(16, 4, options.activation_function), 4, 4, 2, 2)
+    net.layer(l)
+    area = l.size
   end
-  
+
   # net.layer(CooCoo::Layer.new(area, 50, options.activation_function))
   # net.layer(CooCoo::Layer.new(50, 20, , options.activation_function))
   # net.layer(CooCoo::Layer.new(20, 10, options.activation_function))
@@ -134,15 +152,17 @@ else
 
   if options.hidden_layers
     net.layer(CooCoo::Layer.new(area, options.hidden_size, options.activation_function))
-    options.hidden_layers.times do
-      net.layer(CooCoo::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
+    if options.hidden_layers > 2
+      (options.hidden_layers - 2).times do
+        net.layer(CooCoo::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
+      end
     end
     net.layer(CooCoo::Layer.new(options.hidden_size, 10, options.activation_function))
   else
     net.layer(CooCoo::Layer.new(area, area / 4, options.activation_function))
     net.layer(CooCoo::Layer.new(area / 4, 10, options.activation_function))
   end
-
+  
   #net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 4), 4, 4, 2, 2))
   #net.layer(CooCoo::Layer.new(14 * 14, 10))
 
@@ -186,15 +206,21 @@ if options.batch_size
   puts("Training #{nex} examples in #{options.batch_size} sized batches at a rate of #{options.learning_rate} with #{trainer.name}.")
 
   trainer.train(net, ts, options.learning_rate, options.batch_size) do |n, batch, dt, err|
-    mag = err * err
-    avg_err = mag.average
-    cost = avg_err.sum
-    puts("Cost\t#{cost * 100.0}%\t#{avg_err}")
+    #mag = err * err
+    avg_err = err.average
+    cost = avg_err.magnitude
+    puts("Cost\t#{cost}\t#{avg_err}")
 
     if options.model_path
       puts("Batch #{batch} took #{dt} seconds")
       puts("Saving to #{options.model_path}")
-      net.save(options.model_path)
+      if options.binary_blob
+        File.open(options.model_path, 'wb') do |f|
+          f.write(Marshal.dump(net))
+        end
+      else
+        net.save(options.model_path)
+      end
     end
 
     $stdout.flush

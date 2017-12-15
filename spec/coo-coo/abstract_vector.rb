@@ -1,3 +1,5 @@
+require 'coo-coo/core_ext'
+
 shared_examples "for an AbstractVector" do
   epsilon = 0.000000001
 
@@ -675,5 +677,103 @@ shared_examples "for an AbstractVector" do
                               123, 123, 0
                             ]])
     }
+  end
+
+  describe '#set2d!' do
+    subject { described_class[16.times] }
+    let(:width) { 4 }
+
+    it { expect(subject.set2d!(width, described_class.rand(4), 2, 0, 0)).
+      to be(subject)
+    }
+    
+    it "sets a 2d block" do
+      expect(subject.set2d!(width, described_class[[996, 997, 998, 999]], 2, 0, 0)).
+        to eq(described_class[[ 996, 997, 2, 3,
+                                998, 999, 6, 7,
+                                8, 9, 10, 11,
+                                12, 13, 14, 15
+                              ]])
+    end
+
+    it "clips the source if there's not enough room" do
+      expect(subject.set2d!(width, described_class[[996, 997, 998, 999]], 2, 3, 0)).
+        to eq(described_class[[ 0, 1, 2, 996,
+                                4, 5, 6, 998,
+                                8, 9, 10, 11,
+                                12, 13, 14, 15
+                              ]])
+    end
+
+    it "clips the source if there's not enough room" do
+      expect(subject.set2d!(width, described_class[[996, 997, 998, 999]], 2, 0, 3)).
+        to eq(described_class[[ 0, 1, 2, 3,
+                                4, 5, 6, 7,
+                                8, 9, 10, 11,
+                                996, 997, 14, 15
+                              ]])
+    end
+
+    it "can set just the last value" do
+      expect(subject.set2d!(width, [999], 1, 3, 3)).
+        to eq(described_class[[ 0, 1, 2, 3,
+                                4, 5, 6, 7,
+                                8, 9, 10, 11,
+                                12, 13, 14, 999
+                              ]])
+    end
+    
+    it "has no effect out of range" do
+      expect(subject.set2d!(width, described_class[[996, 997, 998, 999]], 2, 4, 4)).
+        to eq(described_class[16.times])
+    end
+
+    it "raises an error if the src width is too big" do
+      expect { subject.set2d!(width, described_class[[996, 997, 998, 999]], 3, 0, 0) }.
+        to raise_error(ArgumentError)
+    end
+
+    [ 4.times, 4.times.to_a ].each do |v|
+      context "with an #{v.class} (#{v.inspect}) as a value" do
+        before { subject.set2d!(width, v, 2, 1, 1) }
+        
+        it "sets the 2d block" do
+          expect(subject.slice_2d(4, 4, 1, 1, 2, 2)).
+            to eq(described_class[v])
+        end
+      end
+    end
+  end
+
+  describe '#minmax' do
+    subject { described_class[32.times] - 16 }
+    
+    it "returns the minimum and the maximum" do
+      expect(subject.minmax).to eq([-16, 32 - 16 - 1])
+    end
+  end
+
+  describe '#min' do
+    subject { described_class[32.times] - 16 }
+    
+    it "returns the minimum" do
+      expect(subject.min).to eq(-16)
+    end
+  end
+
+  describe '#max' do
+    subject { described_class[32.times] - 16 }
+    
+    it "returns the maximum" do
+      expect(subject.max).to eq(32 - 16 - 1)
+    end
+  end
+  
+  describe '#minmax_normalize' do
+    subject { described_class[[-2, -1, 0, 1, 2]] }
+
+    it "adjusts the range to be 0...1" do
+      expect(subject.minmax_normalize).to eq([0, 0.25, 0.5, 0.75, 1.0])
+    end
   end
 end
