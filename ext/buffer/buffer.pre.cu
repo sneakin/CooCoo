@@ -615,6 +615,9 @@ PUBLIC int buffer_eq(const Buffer a, const Buffer b)
 
 FUNCTION_OP(abs, { out[i] = abs(a[i]); });
 FUNCTION_OP(exp, { out[i] = exp(a[i]); });
+FUNCTION_OP(log, { out[i] = log(a[i]); });
+FUNCTION_OP(log10, { out[i] = log10(a[i]); });
+FUNCTION_OP(log2, { out[i] = log2(a[i]); });
 FUNCTION_OP(sqrt, { out[i] = sqrt(a[i]); });
 FUNCTION_OP(floor, { out[i] = floor(a[i]); });
 FUNCTION_OP(ceil, { out[i] = ceil(a[i]); });

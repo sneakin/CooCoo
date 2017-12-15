@@ -39,8 +39,10 @@ module CooCoo
         (self - min) / (max - min)
       end
 
-      def sqrt
-        self.class[each.collect(&:sqrt)]
+      [ :log, :log2, :log10, :sqrt ].each do |op|
+        define_method(op) do
+          self.class[each.collect(&op)]
+        end
       end
 
       def slice_2d(src_width, src_height, origin_x, origin_y, width, height, initial = 0.0)

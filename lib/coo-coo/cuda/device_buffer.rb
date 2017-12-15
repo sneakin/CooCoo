@@ -166,7 +166,7 @@ module CooCoo
         end
       end
 
-      [ :abs, :exp, :sqrt,
+      [ :abs, :exp, :log, :log10, :log2, :sqrt,
         :sin, :asin, :cos, :acos, :tan, :atan,
         :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,
         :ceil, :floor, :round

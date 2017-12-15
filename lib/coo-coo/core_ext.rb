@@ -1,5 +1,5 @@
 class Numeric
-  [ :exp, :sqrt,
+  [ :exp, :sqrt, :log, :log10, :log2,
     :sin, :asin, :cos, :acos, :tan, :atan,
     :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,
     :ceil, :floor, :round
