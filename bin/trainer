@@ -1,0 +1,198 @@
+#!/bin/ruby
+
+require 'coo-coo'
+
+class GenerationScript
+  EvalBinding = Struct.new(:log)
+  EvalBinding.class_eval do
+    def get_binding
+      binding
+    end
+  end
+
+  def initialize(path, log)
+    @path = path
+    @log = log
+    load(path)
+  end
+
+  def load(path)
+    env = EvalBinding.new(@log)
+    @generator, @opts = eval(File.read(path), env.get_binding, path)
+    @path = path
+    self
+  end
+
+  def parse_args(argv)
+    left_overs = []
+    begin
+      left_overs += @opts.parse!(argv)
+    rescue OptionParser::InvalidOption
+      left_overs += $!.args
+      left_overs << argv.shift
+      retry
+    end
+
+    left_overs
+  end
+
+  def call(argv, *args)
+    argv = parse_args(argv)
+    [ argv, @generator.call(*args) ]
+  end
+end
+
+def load_script(path, argv)
+  env = EvalBinding.new($stdout, argv)
+  return eval(File.read(path), env.get_binding, path)
+end
+
+require 'ostruct'
+options = OpenStruct.new
+options.learning_rate = 0.3
+options.batch_size = 1024
+options.epochs = 1000
+options.dataset = nil
+options.model_path = nil
+options.prototype = nil
+options.trainer = nil
+options.num_tests = 20
+options.start_tests_at = 0
+
+require 'optparse'
+
+opts = OptionParser.new do |o|
+  o.on('-d', '--dataset PATH') do |path|
+    options.dataset = path
+  end
+  
+  o.on('-m', '--model PATH') do |path|
+    options.model_path = Pathname.new(path)
+    options.binary_blob = options.binary_blob || File.extname(options.model_path) == '.bin'
+  end
+
+  o.on('--prototype PATH') do |path|
+    options.prototype = path
+  end
+
+  o.on('--binary') do
+    options.binary_blob = true
+  end
+
+  o.on('-t', '--train NUMBER') do |n|
+    options.epochs = n.to_i
+  end
+
+  o.on('-b', '--batch-size NUMBER') do |n|
+    options.batch_size = n.to_i
+  end
+
+  o.on('-p', '--predict NUMBER') do |n|
+    options.num_tests = n.to_i
+  end
+
+  o.on('-s', '--skip NUMBER') do |n|
+    options.start_tests_at = n.to_i
+  end
+
+  o.on('--trainer NAME') do |name|
+    options.trainer = name
+  end
+
+  o.on('--rate NUMBER') do |n|
+    options.learning_rate = n.to_f
+  end
+
+  o.on('-h', '--help') do
+    puts(opts)
+    if options.dataset
+      _, opts = load_script(options.dataset.to_s, [])
+      puts(opts)
+    end
+    if options.prototype
+      _, opts = load_script(options.prototype.to_s, [])
+      puts(opts)
+    end
+    exit
+  end
+end
+
+argv = []
+begin
+  argv += opts.parse!(ARGV)
+rescue OptionParser::InvalidOption
+  argv += $!.args
+  argv << ARGV.shift
+  retry
+end
+
+puts("Loading training set #{options.dataset}")
+
+training_set_gen = GenerationScript.new(options.dataset.to_s, $stdout)
+argv, training_set = training_set_gen.call(argv)
+
+if options.model_path && File.exists?(options.model_path.to_s)
+  puts("Loading network #{options.model_path}")
+  if options.binary_blob
+    net = Marshal.load(File.read(options.model_path))
+  else
+    net = CooCoo::Network.load(options.model_path)
+  end
+else
+  puts("Generating network from #{options.prototype}")
+  net_gen = GenerationScript.new(options.prototype.to_s, $stdout)
+  argv, net = net_gen.call(argv, training_set)
+end
+
+puts("Net ready:")
+puts("\tAge: #{net.age}")
+puts("\tActivation: #{net.activation_function}")
+puts("\tInputs: #{net.num_inputs}")
+puts("\tOutputs: #{net.num_outputs}")
+puts("\tLayers: #{net.num_layers}")
+net.layers.each_with_index do |l, i|
+  puts("\t\t#{i}\t#{l.num_inputs}\t#{l.size}\t#{l.class}")
+end
+
+$stdout.flush
+
+if options.trainer
+  trainer = CooCoo::Trainer.from_name(options.trainer)
+  num_batches = options.epochs.to_i * training_set.size / options.batch_size
+  
+  puts("Training #{num_batches} batches of #{options.batch_size} examples for #{options.epochs} epochs at a rate of #{options.learning_rate} with #{trainer.name}.")
+
+  bar = CooCoo::ProgressBar.create(:total => num_batches)
+  
+  trainer.train(net, training_set.each.cycle(options.epochs), options.learning_rate, options.batch_size) do |n, batch, dt, err|
+    avg_err = (err * err).average
+    status = []
+    status << "Cost\t#{avg_err.sum}\t#{avg_err}"
+    status << "Batch #{batch} took #{dt} seconds"
+    if options.model_path
+      if options.binary_blob
+        File.write_to(options.model_path) do |f|
+          f.write(Marshal.dump(net))
+        end
+      else
+        net.save(options.model_path)
+      end
+      status << "Saved network to #{options.model_path}"
+    end
+    bar.log(status.join("\n"))
+    bar.increment
+  end
+end
+
+if options.num_tests
+  puts("Running #{options.num_tests} tests starting from #{options.start_tests_at}:")
+  e = training_set.each
+  e = e.drop(options.start_tests_at) if options.start_tests_at > 0
+  e.first(options.num_tests).
+    each_with_index do |(target, pixels), i|
+    out, hs = net.predict(pixels)
+    puts("#{options.start_tests_at + i}\t#{target}\t#{out}")
+    $stdout.flush
+    GC.start
+  end
+end
