@@ -45,3 +45,31 @@ class Array
     self.class.new(size, 0.0)
   end
 end
+
+class File
+  def self.write_to(path, &block)
+    tmp = path.to_s + ".tmp"
+    bak = path.to_s + "~"
+
+    # write to temp file
+    File.open(tmp, "w", &block)
+
+    # create a backup file
+    if File.exists?(path)
+      # remove any existing backup
+      if File.exists?(bak)
+        File.delete(bak)
+      end
+
+      File.rename(path, bak)
+    end
+
+    # finalize the save
+    File.rename(tmp, path)
+    
+    self
+  rescue
+    File.delete(tmp)
+    raise
+  end
+end

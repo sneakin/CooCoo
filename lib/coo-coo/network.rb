@@ -1,6 +1,7 @@
 require 'yaml'
 require 'coo-coo/consts'
 require 'coo-coo/debug'
+require 'coo-coo/core_ext'
 require 'coo-coo/math'
 require 'coo-coo/layer'
 require 'coo-coo/enum'
@@ -146,28 +147,9 @@ module CooCoo
     end
 
     def save(path)
-      tmp = path.to_s + ".tmp"
-      bak = path.to_s + "~"
-
-      # write to temp file
-      File.open(tmp, "w") do |f|
+      File.write_to(path) do |f|
         f.write(to_hash.to_yaml)
       end
-
-      # create a backup file
-      if File.exists?(path)
-        # remove any existing backup
-        if File.exists?(bak)
-          File.delete(bak)
-        end
-
-        File.rename(path, bak)
-      end
-
-      # finalize the save
-      File.rename(tmp, path)
-      
-      self
     end
 
     def load!(path)
