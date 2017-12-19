@@ -56,3 +56,8 @@ desc "Start an IRB session with everything loaded."
 task :shell => :compile do
   exec("bundle exec irb -Ilib -Iexamples -rcoo-coo/shell")
 end
+
+desc "Start a Pry session with everything loaded."
+task :pry => :compile do
+  exec("bundle exec pry -Ilib -Iexamples -rcoo-coo/shell")
+end
