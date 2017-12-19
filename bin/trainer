@@ -47,6 +47,18 @@ def load_script(path, argv)
   return eval(File.read(path), env.get_binding, path)
 end
 
+require 'pry'
+$pry = {
+  binding: binding,
+  main_thread: Thread.current
+}
+
+Signal.trap("USR1") do
+  $pry[:thread] ||= Thread.new do
+    $pry[:binding].pry
+  end
+end
+
 require 'ostruct'
 options = OpenStruct.new
 options.learning_rate = 0.3
