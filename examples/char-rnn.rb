@@ -203,8 +203,8 @@ if __FILE__ == $0
 
       #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
       #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
-
-      net.layer(rec.backend(options.hidden_size))
+      net.layer(rec.backend)
+      net.layer(CooCoo::Layer.new(NUM_INPUTS, NUM_INPUTS, options.activation_function))
     end
 
     if options.hidden_size != NUM_INPUTS

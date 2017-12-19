@@ -6,25 +6,25 @@ require 'coo-coo/recurrence/backend'
 
 describe CooCoo::Recurrence::Backend do
   context 'small layer' do
+    let(:size) { 64 }
     let(:recurrent_size) { 8 }
     let(:num_inputs) { size + recurrent_size }
-    let(:frontend) { CooCoo::Recurrence::Frontend.new(num_inputs, recurrent_size) }
-    let(:size) { 64 }
+    let(:frontend) { CooCoo::Recurrence::Frontend.new(size, recurrent_size) }
     let(:input) {
       v = CooCoo::Vector.zeros(num_inputs)
       v[0] = 1.0
       v
     }
-    let(:hidden_state) { Hash.new }
     let(:expected_output) {
       v = CooCoo::Vector.zeros(size)
       v[0] = 1.0
       v[v.size - 1] = 1.0
       v
     }
+    let(:hidden_state) { Hash.new }
 
     context 'created by frontend.backend' do
-      subject { frontend.backend(size) }
+      subject { frontend.backend }
       before do
         allow(network).to receive(:layer_index) { 2 }
         allow(network).to receive(:layers) { [ double("layer"), double("layer"), frontend ] }

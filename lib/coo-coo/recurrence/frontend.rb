@@ -28,8 +28,8 @@ module CooCoo
         @num_recurrent_outputs
       end
 
-      def backend(passthroughs)
-        @layer ||= Backend.new(self, passthroughs, recurrent_size)
+      def backend
+        @layer ||= Backend.new(self, @num_inputs, recurrent_size)
       end
 
       def forward(inputs, hidden_state)
