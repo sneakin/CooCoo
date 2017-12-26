@@ -2,9 +2,11 @@
 #define PUBLIC_H
 
 #if !defined(PUBLIC)
-#define PUBLIC
-#elif defined(_WIN32)
-#define PUBLIC __declspec(dllexport)
+#  if defined(_WIN32)
+#    define PUBLIC __declspec(dllexport)
+#  else
+#    define PUBLIC
+#  endif
 #endif
 
 #endif
