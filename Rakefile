@@ -1,10 +1,10 @@
 require 'bundler/gem_tasks'
 
-task :default => 'spec:coverage'
+task :default => [ 'spec:coverage', 'doc' ]
 
 desc "Clean any output files."
 task :clean => :clean_ext do
-  sh("rm -rf doc/coverage doc/rdoc doc/spec.html")
+  sh("rm -rf doc/coverage doc/rdoc doc/spec.html doc/api")
 end
 
 task :clean_ext do
@@ -26,6 +26,13 @@ else
   end
 end
 
+desc 'Create the YARDocs'
+require 'yard'
+YARD::Rake::YardocTask.new(:doc) do |t|
+  t.files = [ 'lib/**/*.rb', 'examples/**/*.rb', 'spec/**/*.spec', '-', 'README.md' ]
+  t.options = [ '--plugin', 'rspec', '-o', 'doc/api' ]
+end
+
 desc "Run the rspecs."
 require 'rspec/core/rake_task'
 RSpec::Core::RakeTask.new(:spec => :compile) do |t, args|
@@ -40,7 +47,7 @@ namespace :spec do
   end
 
   desc "Run the specs with code coverage."
-  task :coverage do
+  task :coverage => :compile do
     ENV['COVERAGE'] = 'true'
     Rake::Task['spec:html'].execute
   end

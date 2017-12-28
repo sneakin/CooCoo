@@ -15,6 +15,7 @@ Gem::Specification.new do |s|
 
   if s.respond_to?(:metadata)
     s.metadata['allowed_push_host'] = "TODO: Set to 'http://mygemserver.com'"
+    s.metadata['yard.run'] = 'yri'
   else
     raise "RubyGems 2.0 or newer is required to protect against " \
       "public gem pushes."
@@ -30,6 +31,8 @@ Gem::Specification.new do |s|
   s.add_development_dependency "bundler", "~> 1.14"
   s.add_development_dependency "rake", "~> 10.0"
   s.add_development_dependency "rspec", "~> 3.0"
+  s.add_development_dependency "yard"
+  s.add_development_dependency "yard-rspec"
   s.add_development_dependency "pry", "~> 0.11.3"
   s.add_development_dependency 'simplecov'
   s.add_development_dependency 'coderay'
