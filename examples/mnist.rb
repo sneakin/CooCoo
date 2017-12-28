@@ -290,7 +290,7 @@ module MNist
   end
 
   class TrainingSet
-    def initialize(data_stream)
+    def initialize(data_stream = MNist::DataStream.new(MNist::TRAIN_LABELS_PATH, MNist::TRAIN_IMAGES_PATH))
       @stream = data_stream
     end
 
