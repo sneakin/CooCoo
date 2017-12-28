@@ -50,12 +50,20 @@ PUBLIC void buffer_set_max_grid_size(int gs)
   _max_grid_size = gs;
 }
 
-static size_t _total_bytes_allocated;
+static size_t _total_bytes_allocated = 0;
 
 PUBLIC size_t buffer_total_bytes_allocated()
 {
   return _total_bytes_allocated;
 }
+
+static long long _num_allocated = 0;
+
+PUBLIC long long buffer_num_allocated()
+{
+  return _num_allocated;
+}
+
 
 typedef void (*kernel_func_t)(int, double *, const double *, const double *, int, void *);
 
@@ -212,6 +220,7 @@ PUBLIC Buffer buffer_new(size_t length, double initial_value)
     }
 
     _total_bytes_allocated += length * sizeof(double);
+    _num_allocated++;
   }
       
   return ptr;
@@ -226,6 +235,7 @@ PUBLIC cudaError_t buffer_free(Buffer buffer)
         return err;
       }
       _total_bytes_allocated -= buffer->length * sizeof(double);
+      _num_allocated--;
     }
     free(buffer);
   }
@@ -494,6 +504,11 @@ double launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer
   }
 
   partial_sums = (double *)malloc(sizeof(double) * _block_size);
+  if(partial_sums == NULL) {
+    buffer_free(partial_buffer);
+    return NAN;
+  }
+  
   buffer_get(partial_buffer, partial_sums, _block_size);
 
   out = partial_sums[0];
@@ -548,6 +563,7 @@ PUBLIC double buffer_max(const Buffer b)
 BINARY_OP(add, { out[i] = a[i] + b[i]; });
 BINARY_OP(sub, { out[i] = a[i] - b[i]; });
 BINARY_OP(mul, { out[i] = a[i] * b[i]; });
+BINARY_OP(pow, { out[i] = pow(a[i], b[i]); });
 BINARY_OP(div, { out[i] = a[i] / b[i]; });
 BINARY_OP(any_eq, { out[i] = a[i] == b[i]; });
 BINARY_OP(any_neq, { out[i] = a[i] != b[i]; });
@@ -573,6 +589,7 @@ BINARY_OP(any_gte, { out[i] = a[i] >= b[i]; });
 SCALAR_OP(add, { out[i] = a[i] + b; });
 SCALAR_OP(sub, { out[i] = a[i] - b; });
 SCALAR_OP(mul, { out[i] = a[i] * b; });
+SCALAR_OP(pow, { out[i] = pow(a[i], b); });
 SCALAR_OP(div, { out[i] = a[i] / b; });
 SCALAR_OP(any_eq, { out[i] = a[i] == b; });
 SCALAR_OP(any_neq, { out[i] = a[i] != b; });

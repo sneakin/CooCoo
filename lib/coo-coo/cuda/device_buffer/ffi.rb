@@ -40,6 +40,7 @@ module CooCoo
 
         buffer_function :init, [ :int ], :int
         buffer_function :total_bytes_allocated, [], :size_t
+        buffer_function :num_allocated, [], :long_long
 
         buffer_function :new, [ :size_t, :double ], DeviceBuffer.auto_ptr
         buffer_function :free, [ DeviceBuffer ], :size_t
@@ -56,7 +57,7 @@ module CooCoo
         buffer_function :set2dv, [ DeviceBuffer, :size_t, :pointer, :size_t, :size_t, :size_t, :size_t ], :int
         buffer_function :host_slice, [ DeviceBuffer, :pointer, :size_t, :size_t ], :int
 
-        [ :add, :sub, :mul, :div,
+        [ :add, :sub, :mul, :pow, :div,
           :any_eq, :any_neq, :any_lt, :any_lte, :any_gt, :any_gte
         ].each do |binary_op|
           buffer_function binary_op, [ DeviceBuffer, DeviceBuffer ], DeviceBuffer.auto_ptr

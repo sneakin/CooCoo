@@ -322,6 +322,11 @@ shared_examples "for an AbstractVector" do
           it { expect(@a * @b).to eq(described_class[[2, 6, 12, 20]]) }
         end
 
+        describe '#**' do
+          it { expect(@a ** 2).to eq(described_class[[1, 4, 9, 16]]) }
+          it { expect(@a ** @b).to eq(described_class[[1, 8, 81, 1024]]) }
+        end
+
         describe '#/' do
           it { expect(@a / @b).to eq(described_class[[1/2.0, 2/3.0, 3/4.0, 4/5.0]]) }
           it { expect(@b / @a).to eq(described_class[[2, 3/2.0, 4/3.0, 5/4.0]]) }

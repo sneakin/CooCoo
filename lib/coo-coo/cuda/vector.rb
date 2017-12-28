@@ -1,5 +1,6 @@
 require 'coo-coo/math/abstract_vector'
 require 'coo-coo/cuda/device_buffer'
+require 'coo-coo/core_ext'
 
 module CooCoo
   module CUDA
@@ -10,8 +11,10 @@ module CooCoo
         elsif length != nil
           @elements = DeviceBuffer.create(length, initial_value)
           if block
-            @elements.size.times do |i|
-              @elements[i] = block.call(i)
+            @elements.size.times.each_slice(1024).with_index do |slice, slice_idx|
+              @elements[slice_idx * 1024, 1024] = slice.collect do |i|
+                block.call(i)
+              end
             end
           end
         end
@@ -85,6 +88,10 @@ module CooCoo
         '[' + each.collect(&:to_f).join(', ') + ']'
       end
       
+      def inspect
+        to_a.inspect
+      end
+      
       def to_a
         @elements.to_a
       end
@@ -135,13 +142,16 @@ module CooCoo
         end
       end
 
-      def min
-        @elements.min
-      end
-
-      def max
-        @elements.max
-      end
+      # @!method min
+      #   @return [Float] minimum value of +self+
+      # @!method max
+      #   @return [Float] maximum value of +self+
+      # @!method minmax
+      #   @return [[Float, Float]] {#min} and {#max} values of +self+
+      # @!method sum
+      #   Reduces the vector with {#:+}.
+      #   @return [Float] the sum of +self+
+      delegate :min, :max, :minmax, :sum, :to => :elements
 
       def sum
         @elements.sum
@@ -173,47 +183,38 @@ module CooCoo
         end
       end
 
-      def ==(other)
-        if other.kind_of?(self.class)
-          @elements == other.elements
-        elsif other != nil
-          a, b = coerce(other)
-          a == b
-        end
-      end
-
-      [ :<, :<=, :>=, :> ].each do |comp_op|
-        define_method(comp_op) do |other|
+      private
+      def self.bin_op(op)
+        class_eval <<-EOT
+        def #{op}(other)
           if other.kind_of?(self.class)
-            self.class[@elements.send(comp_op, other.elements)]
+            self.class[@elements.send(:#{op}, other.elements)]
           else
-            self.class[@elements.send(comp_op, other)]
+            self.class[@elements.send(:#{op}, other)]
           end
         end
-      end
-      
-      def +(other)
-        if other.kind_of?(self.class)
-          v = @elements + other.elements
-          self.class[v]
-        else
-          self.class[@elements + other]
-        end
+EOT
       end
 
+      public
+      # @!macro [attach] vector.bin_op
+      #   @!method $1()
+      #     Calls the equivalent of +#$1+ on each element of +self+ against +other+.
+      #     @return [Vector]
+      bin_op :<
+      bin_op :<=
+      bin_op :>=
+      bin_op :>
+      bin_op :+
+      bin_op :-
+      bin_op :*
+      bin_op :/
+      bin_op :**
+      
       def -@
         self * -1.0
       end
       
-      def -(other)
-        if other.kind_of?(self.class)
-          v = @elements - other.elements
-          self.class[v]
-        else
-          self.class[@elements - other]
-        end
-      end
-
       def size
         @elements.size
       end
@@ -222,24 +223,6 @@ module CooCoo
         @elements.size
       end
       
-      def *(other)
-        if other.kind_of?(self.class)
-          v = @elements * other.elements
-          self.class[v]
-        else
-          self.class[@elements * other]
-        end
-      end
-
-      def /(other)
-        if other.kind_of?(self.class)
-          v = @elements / other.elements
-          self.class[v]
-        else
-          self.class[@elements / other]
-        end
-      end
-
       def ==(other)
         if other.kind_of?(self.class)
           @elements == other.elements
@@ -251,15 +234,42 @@ module CooCoo
         end
       end
 
-      [ :abs, :exp, :log, :log10, :log2, :sqrt,
-        :sin, :asin, :cos, :acos, :tan, :atan,
-        :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,
-        :ceil, :floor, :round
-      ].each do |f|
-        define_method(f) do
-          self.class[@elements.send(f)]
+      private
+      def self.f(name)
+        class_eval <<-EOT
+        def #{name}
+          self.class[@elements.send(:#{name})]
         end
+EOT
       end
+
+      public
+      
+      # @!macro [attach] vector.f
+      #   @!method $1()
+      #     Calls the equivalent of +Math.$1+ on each element of +self+.
+      #     @return [Vector] the equivalent of +Math.$1+ over +self+.
+      f :abs
+      f :exp
+      f :log
+      f :log10
+      f :log2
+      f :sqrt
+      f :sin
+      f :asin
+      f :cos
+      f :acos
+      f :tan
+      f :atan
+      f :sinh
+      f :asinh
+      f :cosh
+      f :acosh
+      f :tanh
+      f :atanh
+      f :ceil
+      f :floor
+      f :round
 
       def slice_2d(*args)
         self.class[@elements.slice_2d(*args)]
@@ -273,10 +283,6 @@ module CooCoo
         self
       end
 
-      def inspect
-        to_a.inspect
-      end
-      
       protected
       def elements
         @elements

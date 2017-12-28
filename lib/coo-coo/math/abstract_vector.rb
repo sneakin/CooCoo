@@ -2,12 +2,10 @@ module CooCoo
   module Math
     class AbstractVector
       def self.rand(length, range = nil)
-        v = new(length)
-        length.times do |i|
+        new(length) do |i|
           args = [ range ] if range
-          v[i] = Random.rand(*args)
+          Random.rand(*args)
         end
-        v
       end
 
       def self.zeros(length)

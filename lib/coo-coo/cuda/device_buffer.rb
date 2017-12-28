@@ -54,7 +54,8 @@ module CooCoo
 
       def []=(index, value, length = nil)
         index = size + index if index < 0
-        raise RangeError.new if index >= size || index < 0
+        raise RangeError.new("#{index} >= #{size}") if index >= size
+        raise RangeError.new("#{index} < 0") if index < 0
 
         if length
           value, length = length, value
@@ -209,6 +210,7 @@ module CooCoo
       ffi_operator(:+, :add)
       ffi_operator(:-, :sub)
       ffi_operator(:*, :mul)
+      ffi_operator(:**, :pow)
       ffi_operator(:/, :div)
 
       def self.identity(w, h)
@@ -225,6 +227,10 @@ module CooCoo
 
       def max
         FFI.buffer_max(self)
+      end
+
+      def minmax
+        return min, max
       end
     end
   end
