@@ -7,6 +7,7 @@ PATH
       colorize
       ffi
       nmatrix
+      nokogiri
       parallel
       ruby-progressbar
 
@@ -29,9 +30,14 @@ GEM
     ffi (1.9.18-x64-mingw32)
     json (2.1.0)
     method_source (0.9.0)
+    mini_portile2 (2.3.0)
     native-package-installer (1.0.6)
     nmatrix (0.2.4)
       packable (~> 1.3, >= 1.3.5)
+    nokogiri (1.8.1)
+      mini_portile2 (~> 2.3.0)
+    nokogiri (1.8.1-x64-mingw32)
+      mini_portile2 (~> 2.3.0)
     packable (1.3.9)
       backports
     parallel (1.12.1)

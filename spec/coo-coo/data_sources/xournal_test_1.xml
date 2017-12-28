@@ -1,0 +1,17 @@
+<?xml version='1.0' standalone='no'?>
+<xournal version='0.4.8'>
+  <title>Test Doc</title>
+  <page width='23' height='10'>
+    <layer>
+      <stroke width="0 0.5 1 0.5 0">0 0 1 0 1 1 0 1 0 0</stroke>
+      <stroke width="1">10 10 20 20</stroke>
+      <text font='Verdana' size='14.25' x='99.9' y='100.0' color='red'>Hello</text>
+    </layer>
+  </page>
+  <page width='23' height='10'>
+    <background type='solid' color='black' style='lined' />
+    <layer>
+      <stroke tool='highlighter' color='red' width="0 0.5">0 0 1 0</stroke>
+    </layer>
+  </page>
+</xournal>

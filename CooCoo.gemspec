@@ -31,14 +31,15 @@ Gem::Specification.new do |s|
   s.add_development_dependency "rake", "~> 10.0"
   s.add_development_dependency "rspec", "~> 3.0"
   s.add_development_dependency "pry", "~> 0.11.3"
+  s.add_development_dependency 'simplecov'
+  s.add_development_dependency 'coderay'
 
   s.add_dependency 'nmatrix'
   s.add_dependency 'parallel'
+  s.add_dependency 'nokogiri'
   s.add_dependency 'ruby-progressbar'
   s.add_dependency 'chunky_png'
   s.add_dependency 'cairo'
   s.add_dependency 'colorize'
-  s.add_development_dependency 'simplecov'
-  s.add_development_dependency 'coderay'
   s.add_dependency 'ffi'
 end
