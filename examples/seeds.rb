@@ -125,9 +125,10 @@ options.data_path = DATA_FILE
 options.batch_size = 1000
 options.activation_function = CooCoo.default_activation
 options.hidden_size = 21
-options.trainer = 'Stochastic'
 options.num_layers = 2
+options.trainer = 'Stochastic'
 options.learning_rate = 0.3
+options.cost_function = CooCoo::CostFunctions::MeanSquare
 
 op = OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
@@ -165,6 +166,10 @@ op = OptionParser.new do |o|
   o.on('--learning-rate NUMBER') do |num|
     options.learning_rate = num.to_f
   end
+  
+  o.on('--cost NAME') do |name|
+    options.cost_function = CooCoo::CostFunctions.from_name(name)
+  end
 end
 
 args = op.parse!(ARGV)
@@ -201,26 +206,22 @@ if options.epochs
   now = Time.now
   trainer = CooCoo::Trainer.from_name(options.trainer)
   bar = CooCoo::ProgressBar.create(:total => options.epochs.to_i)
-  last_error = nil
+  errors = Array.new
   options.epochs.to_i.times do |epoch|
-    trainer.train(model, training_data.each_example, options.learning_rate, options.batch_size) do |t, ex, dt, err|
-      last_error = err
+    trainer.train(model, training_data.each_example, options.learning_rate, options.batch_size, options.cost_function) do |t, ex, dt, err|
+      errors << err.average
     end
-    cost = (last_error * last_error).sum.average
-    bar.log("Cost #{cost}")
+    cost = CooCoo::Sequence[errors].average
+    bar.log("Cost #{cost.average} #{cost}")
+    if options.model_path
+      backup(options.model_path)
+      model.save(options.model_path)
+      bar.log("Saved to #{options.model_path}")
+    end
     bar.increment
   end
   puts("\n\tElapsed #{(Time.now - now) / 60.0} min.")
-  avg_error = last_error.average
-  puts("\n\tErrors\t#{(last_error * last_error).sum}\t#{last_error}\t#{last_error * last_error}")
-  puts("\tAverage Error\t#{avg_error.magnitude}\t#{avg_error}\t#{avg_error * avg_error}") if last_error
   puts("Trained!")
-
-  if options.model_path
-    puts("Saving to #{options.model_path}")
-    backup(options.model_path)
-    model.save(options.model_path)
-  end
 end
 
 puts("Predicting:")

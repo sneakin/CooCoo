@@ -68,6 +68,7 @@ options.dataset = nil
 options.model_path = nil
 options.prototype = nil
 options.trainer = nil
+options.cost_function = CooCoo::CostFunctions::MeanSquare
 options.num_tests = 20
 options.start_tests_at = 0
 
@@ -109,6 +110,10 @@ opts = OptionParser.new do |o|
 
   o.on('--trainer NAME') do |name|
     options.trainer = name
+  end
+
+  o.on('--cost NAME') do |name|
+    options.cost_function = CooCoo::CostFunctions.from_name(name)
   end
 
   o.on('--rate NUMBER') do |n|
@@ -176,8 +181,8 @@ if options.trainer
 
   bar = CooCoo::ProgressBar.create(:total => num_batches)
   
-  trainer.train(net, training_set.each.cycle(options.epochs), options.learning_rate, options.batch_size) do |n, batch, dt, err|
-    avg_err = (err * err).average
+  trainer.train(net, training_set.each.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |n, batch, dt, err|
+    avg_err = err.average
     status = []
     status << "Cost\t#{avg_err.sum}\t#{avg_err}"
     status << "Batch #{batch} took #{dt} seconds"

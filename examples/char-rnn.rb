@@ -44,10 +44,6 @@ if NUM_INPUTS == 39
     v
   end
 
-  def encode_string(s)
-    s.bytes.collect { |b| encode_input(b) }
-  end
-
   def decode_output(v)
     v, i = v.each_with_index.max
     decode_byte(i)
@@ -71,6 +67,10 @@ elsif NUM_INPUTS == 256
 
     $encoded_output_hash[v]
   end
+end
+
+def encode_string(s)
+  s.bytes.collect { |b| encode_input(b) }
 end
 
 def decode_sequence(s)
@@ -110,7 +110,8 @@ if __FILE__ == $0
   options.num_layers = 1
   options.hidden_size = NUM_INPUTS
   options.num_recurrent_layers = 2
-
+  options.cost_function = CooCoo::CostFunctions.from_name('CrossEntropy')
+  
   opts = OptionParser.new do |o|
     o.on('-m', '--model PATH') do |path|
       options.model_path = path
@@ -154,6 +155,10 @@ if __FILE__ == $0
 
     o.on('-t', '--trainer NAME') do |name|
       options.trainer = CooCoo::Trainer.from_name(name)
+    end
+
+    o.on('-c', '--cost NAME') do |name|
+      options.cost_function = CooCoo::CostFunctions.from_name(name)
     end
 
     o.on('-n', '--sequence-size NUMBER') do |n|
@@ -233,8 +238,9 @@ if __FILE__ == $0
 
     trainer = options.trainer
     bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / options.batch_size.to_f).ceil)
-    trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size) do |n, batch, dt, err|
-      cost = (err * err).sum.sum #average
+    trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |n, batch, dt, err|
+      #cost = err.sum.sum #average
+      cost = err.collect { |e| e.collect(&:sum) }.average
       bar.log("Cost #{cost.sum} #{cost.average}")
       bar.increment
 
