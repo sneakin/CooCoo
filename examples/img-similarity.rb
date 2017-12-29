@@ -67,12 +67,14 @@ class ImageSlicer
       @stream.each.with_index do |(path, width, height, pixels), i|
         xr = rand(width)
         yr = rand(height)
+        half_w = @slice_width / 2
+        half_h = @slice_height / 2
         @chitters.times do |chitter|
           x = xr
-          x += rand(@slice_width) - (@slice_width / 2) if @chitters > 1
+          x += rand(@slice_width) - half_w if @chitters > 1
           x = width - @slice_width if x + @slice_width > width
           y = yr
-          y += rand(@slice_height) - (@slice_height / 2) if @chitters > 1
+          y += rand(@slice_height) - half_h if @chitters > 1
           y = height - @slice_height if y + @slice_height > height
 
           slice = pixels.slice_2d(width * channels, height, x, y, @slice_width * channels, @slice_height)
@@ -103,19 +105,25 @@ class TrainingSet
     2 * @slicer.channels * @slicer.slice_width * @slicer.slice_height
   end
 
+  def interleave(a, b)
+    img = CooCoo::Vector.zeros(input_size)
+    stride = @slicer.slice_width * @slicer.channels
+
+    @slicer.slice_height.times do |y|
+      row = y * stride
+      img[2 * row, stride] = a[row, stride]
+      img[2 * row + stride, stride] = b[row, stride]
+    end
+    
+    img
+  end
+  
   def each(&block)
     return to_enum(__method__) unless block_given?
 
     @slicer.each.each_slice(@batch_size) do |batch|
       batch.shuffle.zip(batch.shuffle) do |a, b|
-        img = CooCoo::Vector.zeros(input_size)
-        stride = @slicer.slice_width * @slicer.channels
-        @slicer.slice_height.times do |y|
-          row = y * stride
-          img[2 * row, stride] = a[1][row, stride]
-          img[2 * row + stride, stride] = b[1][row, stride]
-        end
-        yield([target_for(a, b), img])
+        yield([target_for(a, b), interleave(a[1], b[1])])
       end
     end
   end
