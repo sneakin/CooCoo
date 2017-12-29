@@ -110,6 +110,7 @@ if __FILE__ == $0
   options.num_layers = 1
   options.hidden_size = NUM_INPUTS
   options.num_recurrent_layers = 2
+  options.softmax = nil
   options.cost_function = CooCoo::CostFunctions.from_name('CrossEntropy')
   
   opts = OptionParser.new do |o|
@@ -147,6 +148,10 @@ if __FILE__ == $0
 
     o.on('--recurrent-layers NUMBER') do |n|
       options.num_recurrent_layers = n.to_i
+    end
+
+    o.on('--softmax') do
+      options.softmax = true
     end
 
     o.on('-p', '--predict') do
@@ -214,6 +219,10 @@ if __FILE__ == $0
 
     if options.hidden_size != NUM_INPUTS
       net.layer(CooCoo::Layer.new(options.hidden_size, NUM_INPUTS, options.activation_function))
+    end
+
+    if options.softmax
+      net.layer(CooCoo::LinearLayer.new(NUM_INPUTS, CooCoo::ActivationFunctions.from_name('SoftMax')))
     end
   end
 

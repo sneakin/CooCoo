@@ -52,12 +52,12 @@ if __FILE__ == $0
 
     err = (output - target)
     #err = err * err * 0.5
-    delta, hidden_state = layer.backprop(output, err, hidden_state)
+    delta, hidden_state = layer.backprop(input, output, err, hidden_state)
     puts("\tdelta: #{delta}")
     puts("\terror: #{err}")
     puts("\txfer: #{layer.transfer_error(delta)}")
 
-    layer.update_weights!(input, delta * -0.5)
+    layer.update_weights!(input, delta * 0.5)
   end
 
   inputs.zip(targets).each do |(input, target)|

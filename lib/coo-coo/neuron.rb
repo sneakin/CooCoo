@@ -8,10 +8,9 @@ module CooCoo
   class Neuron
     def initialize(num_inputs, activation_func = CooCoo.default_activation)
       @num_inputs = num_inputs
-      @weights = CooCoo::Vector.rand(num_inputs).normalize
-      @weights = @weights / @weights.sum.to_f
       @activation_func = activation_func
-      @bias = activation_func.initial_bias
+      @weights = @activation_func.initial_weights(num_inputs, 1)
+      @bias = @activation_func.initial_bias(1)[0]
     end
 
     def to_hash
@@ -26,7 +25,7 @@ module CooCoo
       @num_inputs = h.fetch(:num_inputs, h.fetch(:weights, []).size)
       @weights = CooCoo::Vector[h[:weights]]
       @activation_func = CooCoo::ActivationFunctions.from_name(h[:f] || CooCoo.default_activation.name)
-      @bias = h.fetch(:bias, @activation_func.initial_bias)
+      @bias = h.fetch(:bias, @activation_func.initial_bias(1)[0])
       self
     end
 
@@ -50,8 +49,9 @@ module CooCoo
       @activation_func.call(activation)
     end
     
-    def backprop(output, error)
-      error * @activation_func.inv_derivative(output)
+    def backprop(input, output, error)
+      # Properly: error * @activation_func.derivative(activate(input), output)
+      error * @activation_func.derivative(nil, output)
     end
 
     def transfer_error(delta)
@@ -70,8 +70,8 @@ module CooCoo
     end
 
     def adjust_weights!(bias_delta, weight_deltas)
-      @bias += bias_delta
-      @weights += weight_deltas
+      @bias -= bias_delta
+      @weights -= weight_deltas
     end
 
     def ==(other)
@@ -97,13 +97,13 @@ if __FILE__ == $0
     inputs.zip(targets).each do |input, target|
       puts("#{i}: #{input} -> #{target}")
       o = n.forward(input)
-      err1 = CooCoo::CostFunctions.difference(target, o)
-      puts("\tPre: #{input} * #{n.weights} = #{o}\t#{err1}\t#{0.5 * err1 * err1}")
-      delta = n.backprop(o, err1)
+      err1 = CooCoo::CostFunctions::MeanSquare.derivative(target, o)
+      puts("\tPre: #{input} * #{n.weights} = #{o}\t#{err1}\t#{CooCoo::CostFunctions::MeanSquare.call(target, o)}")
+      delta = n.backprop(input, o, err1)
       puts("\tDelta: #{delta}")
-      n.update_weights!(input, delta * -0.3)
+      n.update_weights!(input, delta * 0.3)
       o = n.forward(input)
-      err2 = CooCoo::CostFunctions.difference(target, o)
+      err2 = CooCoo::CostFunctions::MeanSquare.derivative(target, o)
       puts("\tPost: #{input} * #{n.weights} = #{o}\t#{err2}")
       puts("\tChange in Cost: #{err2} - #{err1} = #{err2 - err1}")
       puts("")

@@ -48,7 +48,7 @@ shared_examples 'for an abstract layer' do
     let(:outputs) { forward_ret[0] }
     let(:forward_hidden_state) { forward_ret[1] }
     let(:cost) { outputs - expected_output }
-    let(:return_value) { subject.backprop(outputs, cost, forward_hidden_state) }
+    let(:return_value) { subject.backprop(input, outputs, cost, forward_hidden_state) }
     let(:deltas) { return_value[0] }
     let(:new_hidden_state) { return_value[1] }
 
@@ -72,7 +72,7 @@ shared_examples 'for an abstract layer' do
     let(:outputs) { forward_ret[0] }
     let(:forward_hidden_state) { forward_ret[1] }
     let(:cost) { outputs - expected_output }
-    let(:backprop) { subject.backprop(outputs, cost, forward_hidden_state) }
+    let(:backprop) { subject.backprop(input, outputs, cost, forward_hidden_state) }
     let(:deltas) { backprop[0] }
     let(:bp_hidden_state) { backprop[1] }
     let(:weight_deltas) { subject.weight_deltas(input, deltas) }

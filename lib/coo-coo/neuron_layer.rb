@@ -41,9 +41,9 @@ module CooCoo
       return o, hidden_state
     end
 
-    def backprop(output, errors, hidden_state)
+    def backprop(input, output, errors, hidden_state)
       o = @neurons.each_with_index.inject(CooCoo::Vector.zeros(size)) do |acc, (n, i)|
-        acc[i] = n.backprop(output[i], errors[i])
+        acc[i] = n.backprop(input, output[i], errors[i])
         acc
       end
 
@@ -153,12 +153,12 @@ if __FILE__ == $0
 
     err = (output - target)
     #err = err * err * 0.5
-    delta, hidden_state = layer.backprop(output, err, hidden_state)
+    delta, hidden_state = layer.backprop(input, output, err, hidden_state)
     puts("\tdelta: #{delta}")
     puts("\terror: #{err}")
     puts("\txfer: #{layer.transfer_error(delta)}")
 
-    layer.update_weights!(input, delta * -0.5)
+    layer.update_weights!(input, delta * 0.5)
   end
 
   inputs.zip(targets).each do |(input, target)|

@@ -1,23 +1,34 @@
 require 'singleton'
+require 'coo-coo/from_name'
 
 module CooCoo
+  # Activation functions are functions of a single variable used by some
+  # {Layer}s to introduce non-linearities into or to alter data from a
+  # previous layer.
+  #
+  # To get an activation function instance use the included {#from_name}.
+  # From there you can call the methods found on the {Identity} activation
+  # function on any activation function.
+  #
+  # To create a new activation function that can be used in stored networks,
+  # you must subclass {Identity} and call {ActivationFunctions.register}.
   module ActivationFunctions
-    def self.functions
-      constants.
-        select { |c| const_get(c).ancestors.include?(Identity) }.
-        collect(&:to_s).
-        sort
+    class << self
+      include FromName
     end
-    
-    def self.from_name(name)
-      const_get(name).instance
-    rescue NameError
-      raise ArgumentError.new("ActivationFunction must be one of #{functions.join(', ')}")
-    end
-    
+
+    # The base for all the ActivationFunctions. Implements a do nothing
+    # activation function for a {Layer}.
     class Identity
       include Singleton
+      ActivationFunctions.register(self)
 
+      # Forwards missing class methods to the #instance.
+      def self.method_missing(mid, *args, &block)
+        instance.send(mid, *args, &block)
+      end
+
+      # A file friendly name for the activation function.
       def name
         self.class.name.split("::").last
       end
@@ -25,67 +36,100 @@ module CooCoo
       def to_s
         name
       end
-      
+
+      # Perform the activation.
+      # @param x [Numeric, Vector]
+      # @return [Numeric, Vector]
       def call(x)
         x
       end
 
-      def inv_derivative(y)
-        if y.respond_to?(:size)
-          Vector.ones(y.size)
-        else
+      # Calculate the derivative at +x+.
+      # @param x [Numeric, Vector]
+      # @param y [Numeric, Vector, nil] Optional precomputed return value from #call.
+      def derivative(x, y = nil)
+        if (y || x).kind_of?(Numeric)
           1.0
+        else
+          (y || x).class.ones((y || x).size)
         end
       end
 
-      def initial_bias
-        1.0
-      end
-      
-      def prep_input(arr)
-        arr
+      # Initial weights a {Layer} should use when using this function.
+      # @param num_inputs [Integer] Number of inputs into the {Layer}
+      # @param size [Integer] The size or number of outputs of the {Layer}.
+      # @return [Vector] of weights that are randomly distributed
+      # between -1.0 and 1.0.
+      def initial_weights(num_inputs, size)
+        (CooCoo::Vector.rand(num_inputs * size) * 2.0 - 1.0) / num_inputs.to_f.sqrt
       end
 
-      def process_output(arr)
-        arr
+      # Initial bias for a {Layer}.
+      # @param size [Integer] Number of bias elements to return.
+      # @return [Vector]
+      def initial_bias(size)
+        CooCoo::Vector.ones(size)
+      end
+
+      # Adjusts a {Network}'s inputs to the domain of the function.
+      # @param x [Vector]
+      # @return [Vector]
+      def prep_input(x)
+        x
+      end
+
+      # Adjusts a training set's target domain from +0..1+ to domain of the
+      # function's output.
+      # @param x [Vector]
+      # @return [Vector]
+      def prep_output_target(x)
+        x
       end
     end
     
     class Logistic < Identity
+      ActivationFunctions.register(self)
+
       def call(x)
         1.0 / ( 1.0 + (-x).exp)
       end
 
-      def inv_derivative(y)
+      def derivative(x, y = nil)
+        y ||= call(x)
         y * (1.0 - y)
       end
     end
 
     class TanH < Identity
+      ActivationFunctions.register(self)
+
       def call(x)
         2.0 / (1.0 + (x * -2.0).exp) - 1.0
       end
 
-      def inv_derivative(y)
+      def derivative(x, y = nil)
+        y ||= call(x)
         1.0 - y * y
       end
 
-      def initial_bias
-        0.0
+      def initial_bias(size)
+        CooCoo::Vector.ones(size)
       end
       
       def prep_input(arr)
         (arr.minmax_normalize - 0.5) * 2.0
       end
 
-      def process_output(arr)
-        arr.minmax_normalize
+      def prep_output_target(arr)
+        prep_input(arr)
       end
     end
 
     class ReLU < Identity
+      ActivationFunctions.register(self)
+
       def call(x)
-        t = x >= 0
+        t = x > 0
         if t.kind_of?(FalseClass)
           0.0
         elsif t.kind_of?(TrueClass)
@@ -95,8 +139,9 @@ module CooCoo
         end
       end
 
-      def inv_derivative(y)
-        t = y >= 0
+      def derivative(x, y = nil)
+        y ||= call(x)
+        t = y > 0
         if t.kind_of?(FalseClass)
           0.0
         elsif t.kind_of?(TrueClass)
@@ -105,37 +150,198 @@ module CooCoo
           t
         end
       end
+
+      def initial_weights(num_inputs, size)
+        (CooCoo::Vector.rand(num_inputs * size) * 2.0 - 1.0) * (num_inputs * 2.0).sqrt
+      end
     end
 
     class LeakyReLU < Identity
+      ActivationFunctions.register(self)
+      public_class_method :new
+      
       def initialize(pos = 1.0, neg = 0.0001)
-        @pos_coeff = pos
-        @neg_coeff = neg
+        @positive_coeff = pos.to_f
+        @negative_coeff = neg.to_f
       end
+
+      attr_accessor :positive_coeff
+      attr_accessor :negative_coeff
       
       def call(x)
-        pos = x >= 0
+        pos = x > 0
 
         if pos.kind_of?(FalseClass)
-          x * @neg_coeff
+          x * @negative_coeff
         elsif pos.kind_of?(TrueClass)
-          x * @pos_coeff
+          x * @positive_coeff
         else
-          neg = x < 0
-          (x * pos * @pos_coeff) + (x * neg * @neg_coeff)
+          neg = x <= 0
+          (x * pos * @positive_coeff) + (x * neg * @negative_coeff)
         end
       end
 
-      def inv_derivative(y)
-        pos = y >= 0
+      def derivative(x, y = nil)
+        y ||= call(x)
+        pos = y > 0
         if pos.kind_of?(FalseClass)
-          @neg_coeff
+          @negative_coeff
         elsif pos.kind_of?(TrueClass)
-          @pos_coeff
+          @positive_coeff
         else
-          neg = y < 0
-          (pos * @pos_coeff) + (neg * @neg_coeff)
+          neg = y <= 0
+          (pos * @positive_coeff) + (neg * @negative_coeff)
         end
+      end
+
+      def initial_weights(num_inputs, size)
+        (CooCoo::Vector.rand(num_inputs * size) * 2.0 - 1.0) * (num_inputs * 2.0).sqrt
+      end
+
+      def ==(other)
+        other.kind_of?(self.class) &&
+          positive_coeff == other.positive_coeff &&
+          negative_coeff == other.negative_coeff
+      end
+    end
+
+    # Computes the Softmax function given a {Vector}:
+    #   y_i = e ** x_i / sum(e ** x)
+    # @see https://deepnotes.io/softmax-crossentropy
+    class SoftMax < Identity
+      ActivationFunctions.register(self)
+
+      def call(x)
+        e = x.exp
+        e / e.sum
+      end
+
+      def derivative(x, y = nil)
+        y ||= call(x)
+        y - 1.0
+      end
+    end
+
+    # Computes the Softmax function given a {Vector} but subtracts the
+    # maximum value from every element prior to Softmax to prevent overflows:
+    #   y_i = e ** (x_i - max(x)) / sum(e ** (x - max(x)))
+    class ShiftedSoftMax < SoftMax
+      ActivationFunctions.register(self)
+
+      def call(x)
+        super(x - x.max)
+      end
+
+      def derivative(x, y = nil)
+        super(x - x.max, y)
+      end
+    end
+
+    class MinMax < Identity
+      ActivationFunctions.register(self)
+
+      def call(x)
+        if x.respond_to?(:minmax_normalize)
+          x.minmax_normalize
+        else
+          x
+        end
+      end
+
+      def derivative(x, y = nil)
+        min, max = x.minmax
+        (y || x).class.new((y || x).size, 1.0 / (max - min))
+      end
+
+      def prep_output_target(x)
+        x.minmax_normalize
+      end
+    end
+
+    # Like the {MinMax} but safe when the input is all the same value.
+    class ZeroSafeMinMax < Identity
+      ActivationFunctions.register(self)
+
+      def call(x)
+        if x.respond_to?(:minmax_normalize)
+          min, max = x.minmax
+          delta = max - min
+          if delta == 0.0
+            x * 0.0
+          else
+            (x - min) / delta
+          end
+        else
+          x
+        end
+      end
+
+      def derivative(x, y = nil)
+        min, max = x.minmax
+        delta = max - min
+        if delta == 0.0
+          x * 0.0
+        else
+          (y || x).class.new((y || x).size, 1.0 / (max - min))
+        end
+      end
+
+      def prep_output_target(x)
+        call(x)
+      end
+    end
+    
+    class Normalize < Identity
+      ActivationFunctions.register(self)
+
+      def call(x)
+        if x.respond_to?(:normalize)
+          x.normalize
+        else
+          x.coerce(0)
+        end
+      end
+
+      def derivative(x, y = nil)
+        mag = x.magnitude()
+        y ||= call(x)
+        1.0 / mag - y * y / mag
+      end
+
+      def prep_output_target(x)
+        x.normalize
+      end
+    end
+
+    # Like the {Normalize} but safe when the input is all the same value.
+    class ZeroSafeNormalize < Identity
+      ActivationFunctions.register(self)
+
+      def call(x)
+        if x.respond_to?(:normalize)
+          m = x.magnitude
+          if m == 0.0
+            0.0
+          else
+            x / magnitude
+          end
+        else
+          x.coerce(0)
+        end
+      end
+
+      def derivative(x, y = nil)
+        mag = x.magnitude()
+        if mag == 0.0
+          0.0
+        else
+          y ||= call(x)
+          1.0 / mag - y * y / mag
+        end
+      end
+
+      def prep_output_target(x)
+        x.normalize
       end
     end
   end

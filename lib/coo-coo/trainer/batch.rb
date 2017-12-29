@@ -5,18 +5,20 @@ require 'coo-coo/trainer/base'
 module CooCoo
   module Trainer
     class Batch < Base
-      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions.method(:difference), processes = Parallel.processor_count, &block)
+      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions::MeanSquare, processes = Parallel.processor_count, &block)
         batch_size ||= training_data.size
         t = Time.now
         
         training_data.each_slice(batch_size).with_index do |batch, i|
           deltas_errors = in_parallel(processes, batch) do |(expecting, input)|
             output, hidden_state = network.forward(input, Hash.new)
-            errors = cost_function.call(network.prep_input(expecting), network.final_output(output))
-            new_deltas, hidden_state = network.backprop(output, errors, hidden_state)
-            new_deltas = network.weight_deltas(input, output, new_deltas * -learning_rate)
+            target = network.prep_output_target(expecting)
+            final_output = network.final_output(output)
+            errors = cost_function.derivative(target, final_output)
+            new_deltas, hidden_state = network.backprop(input, output, errors, hidden_state)
+            new_deltas = network.weight_deltas(input, output, new_deltas * learning_rate)
 
-            [ new_deltas, errors ]
+            [ new_deltas, cost_function.call(target, final_output) ]
           end
 
           deltas, total_errors = deltas_errors.transpose

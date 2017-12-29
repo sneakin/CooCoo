@@ -170,6 +170,11 @@ op = OptionParser.new do |o|
   o.on('--cost NAME') do |name|
     options.cost_function = CooCoo::CostFunctions.from_name(name)
   end
+
+  o.on('--softmax') do
+    options.softmax = true
+    options.cost_function = CooCoo::CostFunctions.from_name('CrossEntropy')
+  end
 end
 
 args = op.parse!(ARGV)
@@ -196,6 +201,11 @@ else
              end
     model.layer(CooCoo::Layer.new(inputs, outputs, options.activation_function))
   end
+
+  if options.softmax
+    model.layer(CooCoo::LinearLayer.new(training_data.num_types, CooCoo::ActivationFunctions.from_name('ShiftedSoftMax')))
+  end
+  
   #model.layer(CooCoo::Layer.new(7, options.hidden_size, options.activation_function))
   #model.layer(CooCoo::Layer.new(10, 5))
   #model.layer(CooCoo::Layer.new(options.hidden_size, training_data.num_types, options.activation_function))

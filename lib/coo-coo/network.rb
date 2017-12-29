@@ -43,16 +43,29 @@ module CooCoo
     end
 
     def activation_function
-      @activation_function ||= @layers.find { |l| l.activation_function }
-      @activation_function.activation_function
+      unless @activation_function
+        layer = @layers.find { |l| l.activation_function }
+        @activation_function = layer.activation_function
+      end
+            
+      @activation_function
+    end
+
+    def output_activation_function
+      unless @output_activation_function
+        layer = @layers.reverse.find { |l| l.activation_function }
+        @output_activation_function = layer.activation_function
+      end
+
+      @output_activation_function
     end
     
     def prep_input(input)
       activation_function.prep_input(input)
     end
 
-    def process_output(output)
-      activation_function.process_output(output)
+    def prep_output_target(target)
+      output_activation_function.prep_output_target(target)
     end
 
     def final_output(outputs)
@@ -87,13 +100,22 @@ module CooCoo
     def predict(input, hidden_state = nil, flattened = false, processed = false)
       hidden_state ||= Hash.new
       outputs, hidden_state = forward(input, hidden_state, flattened, processed)
-      return process_output(final_output(outputs)), hidden_state
+      out = final_output(outputs)
+      return out, hidden_state
     end
 
-    def backprop(outputs, errors, hidden_state = nil)
+    def backprop(inputs, outputs, errors, hidden_state = nil)
       hidden_state ||= Hash.new
       d = @layers.reverse_each.each_with_index.inject([]) do |acc, (layer, i)|
-        deltas, hidden_state = layer.backprop(outputs[@layers.size - i - 1], errors, hidden_state)
+        input = if i < (@layers.size - 2)
+                  outputs[@layers.size - i - 2]
+                else
+                  prep_input(inputs) # TODO condition prep_input
+                end
+        deltas, hidden_state = layer.backprop(input,
+                                              outputs[@layers.size - i - 1],
+                                              errors,
+                                              hidden_state)
         errors = layer.transfer_error(deltas)
         acc.unshift(deltas)
       end
@@ -134,12 +156,12 @@ module CooCoo
       d
     end
 
-    def learn(input, expecting, rate, cost_function = CostFunctions.method(:difference), hidden_state = nil)
+    def learn(input, expecting, rate, cost_function = CostFunctions::MeanSquare, hidden_state = nil)
       hidden_state ||= Hash.new
       output, hidden_state = forward(input, hidden_state)
-      cost = cost_function.call(prep_input(expecting), output.last)
-      deltas, hidden_state = backprop(output, cost, hidden_state)
-      update_weights!(input, output, deltas * -rate)
+      cost = cost_function.derivative(prep_input(expecting), output.last)
+      deltas, hidden_state = backprop(input, output, cost, hidden_state)
+      update_weights!(input, output, deltas * rate)
       return self, hidden_state
     rescue
       CooCoo.debug("Network#learn caught #{$!}", input, expecting)

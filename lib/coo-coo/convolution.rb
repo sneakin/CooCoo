@@ -89,11 +89,11 @@ module CooCoo
         [ flatten_areas(outputs, horizontal_span * int_output_width, vertical_span * int_output_height, int_output_width), hidden_state ]
       end
 
-      def backprop(output, errors, hidden_state)
+      def backprop(input, output, errors, hidden_state)
         hs = hidden_state[self] || Array.new
         deltas = each_area do |grid_x, grid_y|
           hs_index = grid_y * horizontal_span + grid_x
-          d, layer_hs = @internal_layer.backprop(slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y), hs[hs_index])
+          d, layer_hs = @internal_layer.backprop(slice_input(input, grid_x, grid_y), slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y), hs[hs_index])
           hs[hs_index] = layer_hs
           d
         end
@@ -208,6 +208,7 @@ end
 
 if __FILE__ == $0
   require 'coo-coo/layer'
+  require 'coo-coo/cost_functions'
   
   WIDTH = 16
   HEIGHT = 16
@@ -218,6 +219,8 @@ if __FILE__ == $0
   CONV_OUT_WIDTH = 1
   CONV_OUT_HEIGHT = 1
   activation = CooCoo::ActivationFunctions.from_name(ENV.fetch('ACTIVATION', 'Logistic'))
+  cost_function = CooCoo::CostFunctions.from_name(ENV.fetch('COST', 'MeanSquare'))
+  
   inner_layer = CooCoo::Layer.new(CONV_WIDTH * CONV_HEIGHT, CONV_OUT_WIDTH * CONV_OUT_HEIGHT, activation)
   layer = CooCoo::Convolution::BoxLayer.new(WIDTH, HEIGHT, X_STEP, Y_STEP, inner_layer, CONV_WIDTH, CONV_HEIGHT, CONV_OUT_WIDTH, CONV_OUT_HEIGHT)
 
@@ -269,15 +272,15 @@ if __FILE__ == $0
         #puts("Inputs =\n#{matrix_image(input, WIDTH)}")
         output, hs = layer.forward(input, {})
         #puts("Output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")
-        err = output - target
+        err = cost_function.derivative(target, output)
         #puts("Target = #{target}\n#{matrix_image(target, OUT_WIDTH)}")
         #puts("Err = #{err}\n#{matrix_image(err * 10.0, OUT_WIDTH)}")
         puts("|Err| = #{err.magnitude} #{(err * err).magnitude}")
-        deltas, hs = layer.backprop(output, err, hs)
+        deltas, hs = layer.backprop(input, output, err, hs)
         #puts("Deltas = #{deltas}\n#{matrix_image(deltas, OUT_WIDTH)}")
         xfer = layer.transfer_error(deltas)
         #puts("Xfer error = #{xfer}\n#{matrix_image(xfer, OUT_WIDTH)}")
-        layer.update_weights!(input, deltas * -learning_rate)
+        layer.update_weights!(input, deltas * learning_rate)
         #puts("Weights updated")
         output, hs = layer.forward(input, {})
         puts("New output = #{output}\n#{matrix_image(output, OUT_WIDTH)}")

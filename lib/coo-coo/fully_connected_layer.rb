@@ -10,12 +10,14 @@ module CooCoo
     
     attr_reader :bias
     attr_reader :weights
+    attr_reader :activation_function
     
-    def initialize(num_inputs, size, weights = nil, bias = nil)
+    def initialize(num_inputs, size, activation_func = ActivationFunctions::Identity.instance, weights = nil, bias = nil)
       @num_inputs = num_inputs
       @size = size
-      @weights = weights || CooCoo::Vector.rand(num_inputs * size).normalize
-      @bias = bias || CooCoo::Vector.rand(size)
+      @activation_function = activation_func
+      @weights = weights || @activation_function.initial_weights(num_inputs, size)
+      @bias = bias || @activation_function.initial_bias(size)
     end
 
     def activation_function
@@ -34,7 +36,7 @@ module CooCoo
       return @weights.dot(num_inputs, size, input, 1, num_inputs) + @bias, hidden_state
     end
 
-    def backprop(output, errors, hidden_state)
+    def backprop(input, output, errors, hidden_state)
       return errors, hidden_state
     end
 
@@ -51,8 +53,8 @@ module CooCoo
     end
 
     def adjust_weights!(deltas)
-      @bias += deltas.bias_deltas
-      @weights += deltas.weight_deltas
+      @bias -= deltas.bias_deltas
+      @weights -= deltas.weight_deltas
       self
     end
 
@@ -63,7 +65,8 @@ module CooCoo
     def to_hash(network = nil)
       { type: self.class.to_s,
         outputs: size,
-        neurons: neuron_hash
+        neurons: neuron_hash,
+        f: activation_function.name
       }
     end
 
@@ -78,8 +81,14 @@ module CooCoo
 
     def add_neurons!(new_size)
       if new_size != @size
-        @weights = CooCoo::Vector.rand(num_inputs * new_size).set(@weights)
-        @bias = CooCoo::Vector.rand(new_size).set(@bias)
+        w = CooCoo::Vector.zeros(num_inputs * new_size)
+        w[0, @weights.size] = @weights
+        w[@weights.size, num_inputs] = @activation_function.initial_weights(num_inputs, 1)
+        @weights = w
+
+        @bias = CooCoo::Vector.ones(new_size).set(@bias)
+        @bias[-1] = @activation_function.initial_bias(1)[0]
+        
         @size = new_size
       end
       
@@ -88,11 +97,9 @@ module CooCoo
 
     def add_inputs!(new_size)
       if new_size != num_inputs
-        w = CooCoo::Vector.rand(new_size * size)
-        @weights.each_slice(num_inputs).with_index do |slice, i|
-          w[i * new_size, num_inputs] = slice
-        end
-
+        w = CooCoo::Vector.zeros(new_size * size)
+        w.set2d!(new_size, @weights, num_inputs, 0, 0)
+        w.set2d!(new_size, @activation_function.initial_weights(size, 1), 1, new_size - 1, 0)
         @weights = w
         @num_inputs = new_size
       end
@@ -124,13 +131,15 @@ module CooCoo
       other.kind_of?(self.class) &&
         size == other.size &&
         bias == other.bias &&
-        weights == other.weights
+        weights == other.weights &&
+        activation_function == other.activation_function
     end
     
     class << self
       def from_hash(h, network = nil)
         self.new(h[:neurons][0][:num_inputs],
-                 h[:outputs]).
+                 h[:outputs],
+                 ActivationFunctions.from_name(h[:f] || 'Identity')).
           update_from_hash!(h)
       end
     end
@@ -143,7 +152,7 @@ if __FILE__ == $0
 
   activation = ENV.fetch('ACTIVATION', 'Logistic')
   net = CooCoo::Network.new
-  fc_layer = CooCoo::FullyConnectedLayer.new(4, 2, CooCoo::Vector.ones(4 * 2), CooCoo::Vector.ones(2))
+  fc_layer = CooCoo::FullyConnectedLayer.new(4, 2, CooCoo::ActivationFunctions.from_name('Identity'), CooCoo::Vector.ones(4 * 2), CooCoo::Vector.ones(2))
   net.layer(fc_layer)
   net.layer(CooCoo::LinearLayer.new(2, CooCoo::ActivationFunctions.from_name(activation)))
   
@@ -170,12 +179,12 @@ if __FILE__ == $0
     err = (output.last - target)
     puts("\terr: #{err}")
     #err = err * err * 0.5
-    delta, hidden_state = net.backprop(output, err, hidden_state)
+    delta, hidden_state = net.backprop(input, output, err, hidden_state)
     puts("\tdelta: #{delta}")
     puts("\terror: #{err}")
     puts("\txfer: #{net.transfer_errors(delta)}")
 
-    net.update_weights!(input, output, delta, 0.5)
+    net.update_weights!(input, output, delta * 0.5)
   end
 
   new_net = CooCoo::Network.new()

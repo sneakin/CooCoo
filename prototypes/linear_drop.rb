@@ -2,17 +2,23 @@ require('ostruct')
 @options = OpenStruct.new
 @options.activation_function = CooCoo::ActivationFunctions.from_name('Logistic')
 @options.hidden_layers = 2
+@options.softmax = false
 
 require 'optparse'
 
 @opts = OptionParser.new do |o|
   o.banner = "Linear drop out network prototype options"
   
-  o.on('--activation NAME') do |n|
+  o.on('--activation NAME', "The activation function the network uses at each layer. Valid options are: #{CooCoo::ActivationFunctions.functions.join(', ')}") do |n|
     @options.activation_function = CooCoo::ActivationFunctions.from_name(n)
   end
-  o.on('--layers NUMBER') do |n|
+
+  o.on('--layers NUMBER', 'The number of layers the network will have.') do |n|
     @options.hidden_layers = n.to_i
+  end
+
+  o.on('--softmax', 'Adds a SoftMax layer to the end of the network.') do
+    @options.softmax = true
   end
 end
 
@@ -32,6 +38,10 @@ def generate(training_set)
                               outputs,
                               @options.activation_function)
     net.layer(layer)
+  end
+
+  if @options.softmax
+    net.layer(CooCoo::LinearLayer.new(training_set.output_size, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))
   end
 
   net

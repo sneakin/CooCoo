@@ -15,10 +15,10 @@ module CooCoo
     
     def initialize(num_inputs, size, activation_function = CooCoo.default_activation)
       @activation_function = activation_function
-      @num_inputs = num_inputs
-      @size = size
-      @weights = CooCoo::Vector.rand(num_inputs * size).normalize
-      @bias = CooCoo::Vector.new(size, @activation_function.initial_bias)
+      @num_inputs = num_inputs.to_i
+      @size = size.to_i
+      @weights = @activation_function.initial_weights(@num_inputs, @size)
+      @bias = @activation_function.initial_bias(@size)
     end
 
     def num_inputs
@@ -41,8 +41,9 @@ module CooCoo
       @weights.dot(num_inputs, size, input, 1, num_inputs) + @bias
     end
 
-    def backprop(output, errors, hidden_state)
-      return errors * @activation_function.inv_derivative(output), hidden_state
+    def backprop(input, output, errors, hidden_state)
+      # Properly: return errors * @activation_func.derivative(activate(input), output), hidden_state
+      return errors * @activation_function.derivative(nil, output), hidden_state
     end
 
     def transfer_error(deltas)
@@ -58,8 +59,8 @@ module CooCoo
     end
 
     def adjust_weights!(deltas)
-      @bias += deltas.bias_deltas
-      @weights += deltas.weight_deltas
+      @bias -= deltas.bias_deltas
+      @weights -= deltas.weight_deltas
 
       self
     end
@@ -87,8 +88,14 @@ module CooCoo
 
     def add_neurons!(new_size)
       if new_size != @size
-        @weights = CooCoo::Vector.rand(num_inputs * new_size).set(@weights)
-        @bias = CooCoo::Vector.rand(new_size).set(@bias)
+        w = CooCoo::Vector.zeros(num_inputs * new_size)
+        w[0, @weights.size] = @weights
+        w[@weights.size, num_inputs] = @activation_func.initial_weights(num_inputs, 1)
+        @weights = w
+
+        @bias = CooCoo::Vector.ones(new_size).set(@bias)
+        @bias[-1] = @activation_func.initial_bias(1)[0]
+
         @size = new_size
       end
       
@@ -97,11 +104,9 @@ module CooCoo
 
     def add_inputs!(new_size)
       if new_size != num_inputs
-        w = CooCoo::Vector.rand(new_size * size)
-        @weights.each_slice(num_inputs).with_index do |slice, i|
-          w[i * new_size, num_inputs] = slice
-        end
-
+        w = CooCoo::Vector.zeros(new_size * size)
+        w.set2d!(new_size, @weights, num_inputs, 0, 0)
+        w.set2d!(new_size, @activation_func.initial_weights(size, 1), 1, new_size - 1, 0)
         @weights = w
         @num_inputs = new_size
       end
@@ -174,12 +179,12 @@ if __FILE__ == $0
     err = (output - target)
     puts("\terr: #{err}")
     #err = err * err * 0.5
-    delta, hidden_state = layer.backprop(output, err, hidden_state)
+    delta, hidden_state = layer.backprop(input, output, err, hidden_state)
     puts("\tdelta: #{delta}")
     puts("\terror: #{err}")
     puts("\txfer: #{layer.transfer_error(delta)}")
 
-    layer.update_weights!(input, delta * -0.5)
+    layer.update_weights!(input, delta * 0.5)
   end
 
   inputs.zip(targets).each do |(input, target)|

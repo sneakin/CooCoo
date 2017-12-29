@@ -27,10 +27,20 @@ module CooCoo
     def prep_input(input)
       if input.kind_of?(Enumerable)
         CooCoo::Sequence[input.collect do |i|
-          @network.prep_input(i)
-        end]
+                           @network.prep_input(i)
+                         end]
       else
         @network.prep_input(input)
+      end
+    end
+
+    def prep_output_target(target)
+      if target.kind_of?(Enumerable)
+        CooCoo::Sequence[target.collect do |t|
+                           @network.prep_output_target(t)
+                         end]
+      else
+        @network.prep_output_target(target)
       end
     end
 
@@ -64,7 +74,7 @@ module CooCoo
       end
     end
     
-    def learn(input, expecting, rate, cost_function = CostFunctions.method(:difference), hidden_state = nil)
+    def learn(input, expecting, rate, cost_function = CostFunctions::MeanSquare, hidden_state = nil)
       expecting.zip(input).each do |target, input|
         n, hidden_state = @network.learn(input, target, rate, cost_function, hidden_state)
       end
@@ -72,11 +82,11 @@ module CooCoo
       return self, hidden_state
     end
 
-    def backprop(outputs, errors, hidden_state = nil)
+    def backprop(inputs, outputs, errors, hidden_state = nil)
       errors = Sequence.new(outputs.size) { errors / outputs.size.to_f } unless errors.kind_of?(Sequence)
       
-      o = outputs.zip(errors).reverse.collect do |output, err|
-        output, hidden_state = @network.backprop(output, err, hidden_state)
+      o = outputs.zip(inputs, errors).reverse.collect do |output, input, err|
+        output, hidden_state = @network.backprop(input, output, err, hidden_state)
         output
       end.reverse
 
@@ -118,23 +128,17 @@ module CooCoo
     end
 
     private
-    def accumulate_inner(init, new, weight)
-      new.each_with_index.collect do |layer, li|
-        if init && init[li]
-          [ layer[0] * weight + init[li][0],
-            layer[1] * weight + init[li][1]
-          ]
-        else
-          [ layer[0] * weight, layer[1] * weight ]
-        end
-      end
-    end
-
     def accumulate_deltas(deltas)
       weight = 1.0 / deltas.size.to_f
-      deltas = deltas.inject([]) do |acc, delta|
-        accumulate_inner(acc, delta, weight)
+
+      acc = deltas[0]
+      deltas[1, deltas.size].each do |step|
+        step.each_with_index do |layer, i|
+          acc[i] += layer * weight
+        end
       end
+
+      acc
     end
   end
 end
@@ -156,10 +160,10 @@ if __FILE__ == $0
 
   INPUT_LENGTH = 2
   OUTPUT_LENGTH = 2
-  SEQUENCE_LENGTH = 6
+  SEQUENCE_LENGTH = ENV.fetch('SEQUENCE_LENGTH', 6).to_i
   HIDDEN_LENGTH = 10
   RECURRENT_LENGTH = SEQUENCE_LENGTH * 4 # boosts the signal
-  DELAY = 2
+  DELAY = ENV.fetch('DELAY', 2).to_i
   SINGLE_LAYER = (ENV.fetch('SINGLE_LAYER', 'true') == "true")
 
   activation_function = CooCoo::ActivationFunctions.from_name(ENV.fetch('ACTIVATION', 'Logistic'))
@@ -180,8 +184,8 @@ if __FILE__ == $0
   #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::Normalize.instance))
   #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))  
   #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::TanH.instance))  
-  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::MinMax.instance))  
-  net.layer(rec.backend(OUTPUT_LENGTH))
+  net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ZeroSafeMinMax.instance))  
+  net.layer(rec.backend)
   #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ReLU.instance))  
   #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))
   #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH, CooCoo::ActivationFunctions::Normalize.instance))
@@ -206,12 +210,8 @@ if __FILE__ == $0
   target_seqs.last[DELAY][0] = 1.0
 
   def cost(net, expecting, outputs)
-    #outputs.zip(expecting).inject(CooCoo::Vector.zeros(outputs.last.last.size)) do |acc, (output, target)|
-    #  acc + CooCoo::CostFunctions.difference(net.prep_input(target), output.last)
-    #end
-
     CooCoo::Sequence[outputs.zip(expecting).collect do |output, target|
-      CooCoo::CostFunctions.difference(net.prep_input(target), output.last)
+      CooCoo::CostFunctions::MeanSquare.derivative(net.prep_input(target), output.last)
     end]
   end
 
@@ -231,9 +231,9 @@ if __FILE__ == $0
         end
       end
 
-      c = cost(net, target_seq, outputs)
-      all_deltas, hidden_state = net.backprop(outputs, c, hidden_state)
-      net.update_weights!(input_seq, outputs, all_deltas * -learning_rate)
+      c = cost(net, net.prep_output_target(target_seq), outputs)
+      all_deltas, hidden_state = net.backprop(input_seq, outputs, c, hidden_state)
+      net.update_weights!(input_seq, outputs, all_deltas * learning_rate)
       if n % 500 == 0
         puts("\tcost\t#{(c * c).sum}\n\t\t#{c.to_a.join("\n\t\t")}")
         puts

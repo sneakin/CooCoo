@@ -55,7 +55,7 @@ def sgd(opts)
   epochs.times do |e|
     output = f.call()
     c = cost.call(*output)
-    deltas = loss.call(c, *output) * -rate
+    deltas = loss.call(c, *output) * rate
     update.call(deltas, last_deltas * rate)
     last_deltas = deltas
     dt = Time.now - last_time
@@ -94,12 +94,12 @@ def backprop_digit(loops, rate, net, digit, initial_input = CooCoo::Vector.zeros
         output.last - target
       end,
       loss: lambda do |c, output, hs|
-        deltas, hs = net.backprop(output, c, hs)
+        deltas, hs = net.backprop(input, output, c, hs)
         errs = net.transfer_errors(deltas)
         x = errs.first
       end,
       update: lambda do |deltas, last_deltas|
-        input = input + deltas + last_deltas
+        input = input - deltas + last_deltas
       end,
       status: lambda do |opts|
         puts("#{opts[:epoch]} #{digit} Input", output_to_ascii(input))

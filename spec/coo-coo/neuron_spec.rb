@@ -13,7 +13,7 @@ describe CooCoo::Neuron do
         LOOPS.to_i.times do |i|
           o = @neuron.forward(@input)
           @pre_error = @neuron.cost(@target, o)
-          delta = @neuron.backprop(o, @pre_error)
+          delta = @neuron.backprop(@input, o, @pre_error)
           @neuron.update_weights!(@input, delta, 0.5)
 
           o = @neuron.forward(@input)

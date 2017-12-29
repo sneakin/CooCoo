@@ -38,7 +38,7 @@ module CooCoo
         return inputs[0, size], hidden_state
       end
 
-      def backprop(output, errors, hidden_state)
+      def backprop(input, output, errors, hidden_state)
         layer_state = hidden_state[@recurrence_layer]
         rec_outputs, rec_errors = *(layer_state && layer_state.pop)
 
@@ -86,10 +86,17 @@ module CooCoo
       end
 
       def self.from_hash(h, network)
-        self.new(network.layers[h.fetch(:recurrence_layer)],
-                 h.fetch(:outputs),
-                 h.fetch(:recurrent_size)).
+        frontend = network.layers[h.fetch(:recurrence_layer)]
+        raise ArgumentError.new("Frontend not found") unless frontend
+        
+        layer = self.new(frontend,
+                         h.fetch(:outputs),
+                         h.fetch(:recurrent_size)).
           update_from_hash!(h)
+
+        frontend.backend = layer
+        
+        layer
       end
     end
   end
