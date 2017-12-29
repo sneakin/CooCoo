@@ -1,4 +1,7 @@
-#!/bin/ruby
+#!/bin/env ruby
+
+ROOT = File.dirname(File.dirname(__FILE__))
+$: << File.join(ROOT, 'lib') << File.join(ROOT, 'examples')
 
 require 'coo-coo'
 
@@ -9,6 +12,8 @@ class GenerationScript
       binding
     end
   end
+
+  attr_reader :opts
 
   def initialize(path, log)
     @path = path
@@ -42,9 +47,10 @@ class GenerationScript
   end
 end
 
-def load_script(path, argv)
-  env = EvalBinding.new($stdout, argv)
-  return eval(File.read(path), env.get_binding, path)
+def load_script_opts(path)
+  GenerationScript.
+    new(path, $stdout).
+    opts
 end
 
 require 'pry'
@@ -92,7 +98,7 @@ opts = OptionParser.new do |o|
     options.binary_blob = true
   end
 
-  o.on('-t', '--train NUMBER') do |n|
+  o.on('-e', '--train NUMBER') do |n|
     options.epochs = n.to_i
   end
 
@@ -108,7 +114,7 @@ opts = OptionParser.new do |o|
     options.start_tests_at = n.to_i
   end
 
-  o.on('--trainer NAME') do |name|
+  o.on('-t', '--trainer NAME') do |name|
     options.trainer = name
   end
 
@@ -123,11 +129,11 @@ opts = OptionParser.new do |o|
   o.on('-h', '--help') do
     puts(opts)
     if options.dataset
-      _, opts = load_script(options.dataset.to_s, [])
+      opts = load_script_opts(options.dataset.to_s)
       puts(opts)
     end
     if options.prototype
-      _, opts = load_script(options.prototype.to_s, [])
+      opts = load_script_opts(options.prototype.to_s)
       puts(opts)
     end
     exit
@@ -159,6 +165,10 @@ else
   puts("Generating network from #{options.prototype}")
   net_gen = GenerationScript.new(options.prototype.to_s, $stdout)
   argv, net = net_gen.call(argv, training_set)
+end
+
+unless argv.empty?
+  raise ArgumentError.new("Unknown arguments: #{argv.inspect}")
 end
 
 puts("Net ready:")
