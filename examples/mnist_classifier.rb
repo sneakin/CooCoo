@@ -1,3 +1,5 @@
+#!/bin/env ruby
+
 require 'fileutils'
 require 'mnist'
 require 'optparse'
