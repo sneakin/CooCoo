@@ -34,7 +34,7 @@ module CooCoo
     end
 
     def layer_index(layer)
-      @layers.find_index { |l| l == layer }
+      @layers.find_index { |l| l.eql?(layer) }
     end
     
     def layer(new_layer)
