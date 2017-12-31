@@ -20,7 +20,7 @@ module CooCoo
       
       def self.call(target, x)
         d = derivative(target, x)
-        0.5 * d * d
+        d * d * 0.5
       end
 
       def self.derivative(target, x, y = nil)
