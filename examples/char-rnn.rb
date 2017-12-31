@@ -111,7 +111,7 @@ if __FILE__ == $0
   options.hidden_size = NUM_INPUTS
   options.num_recurrent_layers = 2
   options.softmax = nil
-  options.cost_function = CooCoo::CostFunctions.from_name('CrossEntropy')
+  options.cost_function = CooCoo::CostFunctions.from_name('MeanSquare')
   
   opts = OptionParser.new do |o|
     o.on('-m', '--model PATH') do |path|
@@ -152,6 +152,7 @@ if __FILE__ == $0
 
     o.on('--softmax') do
       options.softmax = true
+      options.cost_function = CooCoo::CostFunctions::CrossEntropy
     end
 
     o.on('-p', '--predict') do
@@ -208,11 +209,6 @@ if __FILE__ == $0
         net.layer(CooCoo::Layer.new(options.hidden_size + rec.recurrent_size, options.hidden_size + rec.recurrent_size, options.activation_function))
       end
 
-      #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS * 2, options.activation_function))
-      #net.layer(CooCoo::Layer.new(NUM_INPUTS * 2, NUM_INPUTS + rec.recurrent_size, options.activation_function))
-
-      #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
-      #net.layer(CooCoo::Layer.new(NUM_INPUTS + rec.recurrent_size, NUM_INPUTS + rec.recurrent_size, options.activation_function))
       net.layer(rec.backend)
       net.layer(CooCoo::Layer.new(NUM_INPUTS, NUM_INPUTS, options.activation_function))
     end
@@ -250,17 +246,13 @@ if __FILE__ == $0
     trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |n, batch, dt, err|
       #cost = err.sum.sum #average
       cost = err.collect { |e| e.collect(&:sum) }.average
-      bar.log("Cost #{cost.sum} #{cost.average}")
+      bar.log("Cost #{cost.average} #{cost}")
       bar.increment
 
-      File.open(options.model_path + ".tmp", "w") do |f|
+      File.write_to(options.model_path) do |f|
         f.puts(net.to_hash.to_yaml)
         #f.puts(Marshal.dump(net))
       end
-
-      File.delete(options.model_path + "~") if File.exists?(options.model_path + "~")
-      File.rename(options.model_path, options.model_path + "~") if File.exists?(options.model_path)
-      File.rename(options.model_path + ".tmp", options.model_path)
     end
   end
 
