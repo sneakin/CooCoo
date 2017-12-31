@@ -53,7 +53,7 @@ class ImageSlicer
   end
 
   def size
-    @num_slices * @stream.size
+    @num_slices * @stream.size * @chitters
   end
 
   def channels
@@ -145,7 +145,7 @@ class TrainingSet
   end
 end
 
-if $0 =~ /trainer/
+if $0 != __FILE__
   require 'pathname'
   require 'ostruct'
 
