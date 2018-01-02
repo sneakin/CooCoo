@@ -775,10 +775,36 @@ shared_examples "for an AbstractVector" do
   end
   
   describe '#minmax_normalize' do
-    subject { described_class[[-2, -1, 0, 1, 2]] }
+    context 'with a range of values' do
+      subject { described_class[[-2, -1, 0, 1, 2]] }
 
-    it "adjusts the range to be 0...1" do
-      expect(subject.minmax_normalize).to eq([0, 0.25, 0.5, 0.75, 1.0])
+      it "adjusts the range to be 0...1" do
+        expect(subject.minmax_normalize).to eq([0, 0.25, 0.5, 0.75, 1.0])
+      end
+    end
+
+    shared_examples 'minmax_normalize with zero delta' do
+      context 'with no arguments' do
+        it "returns NaNs" do
+          expect(subject.minmax_normalize.each.all?(&:nan?)).to be(true)
+        end
+      end
+
+      context 'with a true argument' do
+        it "returns zeros" do
+          expect(subject.minmax_normalize(true)).to eq(described_class.zeros(4))
+        end
+      end
+    end
+
+    context 'with all zero values' do
+      subject { described_class.zeros(4) }
+      include_examples 'minmax_normalize with zero delta'
+    end
+
+    context 'with all one values' do
+      subject { described_class.ones(4) }
+      include_examples 'minmax_normalize with zero delta'
     end
   end
 end

@@ -32,9 +32,14 @@ module CooCoo
         each.minmax
       end
 
-      def minmax_normalize
+      def minmax_normalize(use_zeros = false)
         min, max = minmax
-        (self - min) / (max - min)
+        delta = (max - min)
+        if use_zeros && delta == 0.0
+          zero
+        else
+          (self - min) / delta
+        end
       end
 
       [ :log, :log2, :log10, :sqrt ].each do |op|

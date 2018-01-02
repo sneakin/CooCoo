@@ -117,7 +117,7 @@ module CooCoo
       end
       
       def prep_input(arr)
-        (arr.minmax_normalize - 0.5) * 2.0
+        (arr.minmax_normalize(true) - 0.5) * 2.0
       end
 
       def prep_output_target(arr)
@@ -254,7 +254,7 @@ module CooCoo
       end
 
       def prep_output_target(x)
-        x.minmax_normalize
+        x.minmax_normalize(true)
       end
     end
 
@@ -264,13 +264,7 @@ module CooCoo
 
       def call(x)
         if x.respond_to?(:minmax_normalize)
-          min, max = x.minmax
-          delta = max - min
-          if delta == 0.0
-            x * 0.0
-          else
-            (x - min) / delta
-          end
+          x.minmax_normalize(true)
         else
           x
         end
@@ -280,7 +274,7 @@ module CooCoo
         min, max = x.minmax
         delta = max - min
         if delta == 0.0
-          x * 0.0
+          x.zero
         else
           (y || x).class.new((y || x).size, 1.0 / (max - min))
         end
