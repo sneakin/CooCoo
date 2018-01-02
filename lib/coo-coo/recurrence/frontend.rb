@@ -29,30 +29,28 @@ module CooCoo
       end
 
       def backend
-        @layer ||= Backend.new(self, @num_inputs, recurrent_size)
+        @backend ||= Backend.new(self, @num_inputs, recurrent_size)
       end
 
       def backend=(layer)
-        @layer = layer
+        @backend = layer
       end
 
       def forward(inputs, hidden_state)
-        layer_state = hidden_state[@layer]
+        layer_state = hidden_state[@backend]
         recurrent_input = layer_state && layer_state.pop
         return inputs.append(recurrent_input || empty_input), hidden_state
       end
 
       def backprop(input, outputs, errors, hidden_state)
-        # split for real output and recurrent output
-        norm_outputs = outputs[0, num_inputs]
+        # split for real and recurrent errors
         norm_errors = errors[0, num_inputs]
-        recurrent_outputs = outputs[num_inputs, recurrent_size]
         recurrent_errors = errors[num_inputs, recurrent_size]
 
         # buffer the recurrent output
         hidden_state ||= Hash.new
         hidden_state[self] ||= Array.new
-        hidden_state[self].push([ recurrent_outputs, recurrent_errors ])
+        hidden_state[self].push(recurrent_errors)
 
         # return real errors
         return norm_errors, hidden_state

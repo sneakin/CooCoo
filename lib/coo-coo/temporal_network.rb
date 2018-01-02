@@ -169,23 +169,25 @@ if __FILE__ == $0
   activation_function = CooCoo::ActivationFunctions.from_name(ENV.fetch('ACTIVATION', 'Logistic'))
   
   net = CooCoo::TemporalNetwork.new
-  rec = CooCoo::Recurrence::Frontend.new(INPUT_LENGTH, RECURRENT_LENGTH)
-  net.layer(rec)
-  if SINGLE_LAYER
-    net.layer(CooCoo::FullyConnectedLayer.new(INPUT_LENGTH + rec.recurrent_size, OUTPUT_LENGTH + rec.recurrent_size))
-    net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, activation_function))
-  else
-    net.layer(CooCoo::FullyConnectedLayer.new(INPUT_LENGTH + rec.recurrent_size, HIDDEN_LENGTH))
-    net.layer(CooCoo::LinearLayer.new(HIDDEN_LENGTH, activation_function))
-    net.layer(CooCoo::FullyConnectedLayer.new(HIDDEN_LENGTH, OUTPUT_LENGTH + rec.recurrent_size))
-    net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, activation_function))
+  2.times do |n|
+    rec = CooCoo::Recurrence::Frontend.new(INPUT_LENGTH, RECURRENT_LENGTH)
+    net.layer(rec)
+    if SINGLE_LAYER
+      net.layer(CooCoo::FullyConnectedLayer.new(INPUT_LENGTH + rec.recurrent_size, OUTPUT_LENGTH + rec.recurrent_size))
+      net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, activation_function))
+    else
+      net.layer(CooCoo::FullyConnectedLayer.new(INPUT_LENGTH + rec.recurrent_size, HIDDEN_LENGTH))
+      net.layer(CooCoo::LinearLayer.new(HIDDEN_LENGTH, activation_function))
+      net.layer(CooCoo::FullyConnectedLayer.new(HIDDEN_LENGTH, OUTPUT_LENGTH + rec.recurrent_size))
+      net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, activation_function))
+    end
+    #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::LeakyReLU.instance))
+    #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::Normalize.instance))
+    #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))  
+    #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::TanH.instance))  
+    #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ZeroSafeMinMax.instance))  
+    net.layer(rec.backend)
   end
-  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::LeakyReLU.instance))
-  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::Normalize.instance))
-  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))  
-  #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::TanH.instance))  
-  net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ZeroSafeMinMax.instance))  
-  net.layer(rec.backend)
   #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH + rec.recurrent_size, CooCoo::ActivationFunctions::ReLU.instance))  
   #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))
   #net.layer(CooCoo::LinearLayer.new(OUTPUT_LENGTH, CooCoo::ActivationFunctions::Normalize.instance))
@@ -211,11 +213,12 @@ if __FILE__ == $0
 
   def cost(net, expecting, outputs)
     CooCoo::Sequence[outputs.zip(expecting).collect do |output, target|
-      CooCoo::CostFunctions::MeanSquare.derivative(net.prep_input(target), output.last)
+      CooCoo::CostFunctions::MeanSquare.derivative(net.prep_output_target(target), output.last)
     end]
   end
 
   learning_rate = ENV.fetch("RATE", 0.3).to_f
+  print_rate = ENV.fetch("PRINT_RATE", 500).to_i
   
   ENV.fetch("LOOPS", 100).to_i.times do |n|
     input_seqs.zip(target_seqs).each do |input_seq, target_seq|
@@ -225,7 +228,7 @@ if __FILE__ == $0
 
       outputs, hidden_state = net.forward(input_seq, Hash.new)
 
-      if n % 500 == 0
+      if n % print_rate == 0
         input_seq.zip(outputs, target_seq).each do |input, output, target|
           puts("#{n}\t#{input} -> #{target}\n\t#{output.join("\n\t")}\n")
         end

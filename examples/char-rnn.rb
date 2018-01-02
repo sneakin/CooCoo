@@ -210,7 +210,7 @@ if __FILE__ == $0
       end
 
       net.layer(rec.backend)
-      net.layer(CooCoo::Layer.new(NUM_INPUTS, NUM_INPUTS, options.activation_function))
+      net.layer(CooCoo::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
     end
 
     if options.hidden_size != NUM_INPUTS
@@ -218,7 +218,7 @@ if __FILE__ == $0
     end
 
     if options.softmax
-      net.layer(CooCoo::LinearLayer.new(NUM_INPUTS, CooCoo::ActivationFunctions.from_name('SoftMax')))
+      net.layer(CooCoo::LinearLayer.new(NUM_INPUTS, CooCoo::ActivationFunctions.from_name('ShiftedSoftMax')))
     end
   end
 
@@ -244,15 +244,17 @@ if __FILE__ == $0
     trainer = options.trainer
     bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / options.batch_size.to_f).ceil)
     trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |n, batch, dt, err|
-      #cost = err.sum.sum #average
-      cost = err.collect { |e| e.collect(&:sum) }.average
-      bar.log("Cost #{cost.average} #{cost}")
-      bar.increment
+      cost = err.average.average #sum #average
+      #cost = err.collect { |e| e.collect(&:sum) }.average
+      status = [ "Cost #{cost.average} #{cost}" ]
 
       File.write_to(options.model_path) do |f|
         f.puts(net.to_hash.to_yaml)
         #f.puts(Marshal.dump(net))
       end
+      status << "Saved to #{options.model_path}"
+      bar.log(status.join("\n"))
+      bar.increment
     end
   end
 

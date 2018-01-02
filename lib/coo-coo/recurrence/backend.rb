@@ -40,11 +40,7 @@ module CooCoo
 
       def backprop(input, output, errors, hidden_state)
         layer_state = hidden_state[@recurrence_layer]
-        rec_outputs, rec_errors = *(layer_state && layer_state.pop)
-
-        rec_outputs ||= CooCoo::Vector.zeros(recurrent_size)
-        rec_errors ||= CooCoo::Vector.zeros(recurrent_size)
-        
+        rec_errors = (layer_state && layer_state.pop) || CooCoo::Vector.zeros(recurrent_size)
         return errors.append(rec_errors), hidden_state
       end
 
