@@ -149,7 +149,7 @@ module CooCoo
       # @!method minmax
       #   @return [[Float, Float]] {#min} and {#max} values of +self+
       # @!method sum
-      #   Reduces the vector with {#:+}.
+      #   Reduces the vector with {#+}.
       #   @return [Float] the sum of +self+
       delegate :min, :max, :minmax, :sum, :to => :elements
 
@@ -198,19 +198,22 @@ EOT
 
       public
       # @!macro [attach] vector.bin_op
-      #   @!method $1()
+      #   @!method $1(other)
       #     Calls the equivalent of +#$1+ on each element of +self+ against +other+.
+      #     @param other [Vector, Array, Enumerable, Numeric]
       #     @return [Vector]
-      bin_op :<
-      bin_op :<=
-      bin_op :>=
-      bin_op :>
-      bin_op :+
-      bin_op :-
-      bin_op :*
-      bin_op :/
-      bin_op :**
-      
+      bin_op('<')
+      bin_op('<=')
+      bin_op('>=')
+      bin_op('>')
+      bin_op('+')
+      bin_op('-')
+      bin_op('*')
+      bin_op('/')
+      bin_op('**')
+
+      # Negates every element in the vector.
+      # @return [Vector]
       def -@
         self * -1.0
       end
