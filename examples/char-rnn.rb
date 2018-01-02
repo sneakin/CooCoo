@@ -113,6 +113,10 @@ if __FILE__ == $0
   options.softmax = nil
   options.cost_function = CooCoo::CostFunctions.from_name('MeanSquare')
   options.verbose = false
+  options.generator = false
+  options.generator_temperature = 4
+  options.generator_amount = 140
+  options.generator_init = "\n"
   
   opts = OptionParser.new do |o|
     o.on('-v', '--verbose') do
@@ -182,6 +186,23 @@ if __FILE__ == $0
       n = n.to_i
       raise ArgumentError.new("number of layers must be > 0") if n <= 0
       options.num_layers = n
+    end
+
+    o.on('-g', '--generate AMOUNT') do |v|
+      options.generator = true
+      options.generator_amount = v.to_i
+    end
+
+    o.on('--generator-init STRING') do |v|
+      options.generator_init = v
+    end
+
+    o.on('--generator-temp NUMBER') do |v|
+      options.generator_temperature = v.to_i
+    end
+
+    o.on('--seed NUMBER') do |v|
+      srand(v.to_i)
     end
   end
   
@@ -261,31 +282,43 @@ if __FILE__ == $0
       bar.log(status.join("\n"))
       bar.increment
     end
+  elsif options.generator
+    o, hidden_state = net.predict(encode_string(options.generator_init), {})
+    o = o.last
+    options.generator_amount.to_i.times do |n|
+      c = o.each.with_index.sort[-options.generator_temperature, options.generator_temperature].collect(&:last)
+      c = c[rand(c.size)]
+      $stdout.write(decode_byte(c).chr)
+      $stdout.flush
+      o, hidden_state = net.predict(encode_input(c))
+    end
+    
+    $stdout.puts
+  else
+    puts("Predicting:")
+    hidden_state = nil
+    s = data.size.times.collect do |i|
+      input = data[i, options.sequence_size].collect { |e| encode_input(e || 0) }
+      output, hidden_state = net.predict(input, hidden_state)
+      output.collect { |b| decode_output(b) }
+    end
+
+    s.each_with_index do |c, i|
+      input = data[i, options.sequence_size]
+      puts("#{i} #{input.inspect} -> #{c.inspect}\t#{decode_sequence(input)} -> #{decode_sequence(c)}")
+    end
+
+    puts(decode_sequence(s.collect(&:first)))
+    puts(decode_sequence(s.collect(&:last)))
+
+    hidden_state = nil
+    c = data[rand(data.size)]
+    s = data.size.times.collect do |i|
+      o, hidden_state = net.predict(encode_input(c), hidden_state)
+      c = decode_output(o)
+    end
+
+    puts(s.inspect)
+    puts(decode_sequence(s))
   end
-
-  puts("Predicting:")
-  hidden_state = nil
-  s = data.size.times.collect do |i|
-    input = data[i, options.sequence_size].collect { |e| encode_input(e || 0) }
-    output, hidden_state = net.predict(input, hidden_state)
-    output.collect { |b| decode_output(b) }
-  end
-
-  s.each_with_index do |c, i|
-    input = data[i, options.sequence_size]
-    puts("#{i} #{input.inspect} -> #{c.inspect}\t#{decode_sequence(input)} -> #{decode_sequence(c)}")
-  end
-
-  puts(decode_sequence(s.collect(&:first)))
-  puts(decode_sequence(s.collect(&:last)))
-
-  hidden_state = nil
-  c = data[rand(data.size)]
-  s = data.size.times.collect do |i|
-    o, hidden_state = net.predict(encode_input(c), hidden_state)
-    c = decode_output(o)
-  end
-
-  puts(s.inspect)
-  puts(decode_sequence(s))
 end
