@@ -284,13 +284,16 @@ if __FILE__ == $0
     end
   elsif options.generator
     o, hidden_state = net.predict(encode_string(options.generator_init), {})
-    o = o.last
+    data.each do |b|
+      o, hidden_state = net.predict(encode_input(b), hidden_state)
+    end
     options.generator_amount.to_i.times do |n|
-      c = o.each.with_index.sort[-options.generator_temperature, options.generator_temperature].collect(&:last)
+      c = o.each.with_index.sort[-options.generator_temperature, options.generator_temperature.abs].collect(&:last)
       c = c[rand(c.size)]
-      $stdout.write(decode_byte(c).chr)
+      c = decode_byte(c) if NUM_INPUTS != 256
+      $stdout.write(c.chr)
       $stdout.flush
-      o, hidden_state = net.predict(encode_input(c))
+      o, hidden_state = net.predict(encode_input(c), hidden_state)
     end
     
     $stdout.puts
