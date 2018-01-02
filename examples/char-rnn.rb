@@ -112,8 +112,13 @@ if __FILE__ == $0
   options.num_recurrent_layers = 2
   options.softmax = nil
   options.cost_function = CooCoo::CostFunctions.from_name('MeanSquare')
+  options.verbose = false
   
   opts = OptionParser.new do |o|
+    o.on('-v', '--verbose') do
+      options.verbose = true
+    end
+    
     o.on('-m', '--model PATH') do |path|
       options.model_path = path
     end
@@ -246,7 +251,7 @@ if __FILE__ == $0
     trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |n, batch, dt, err|
       cost = err.average.average #sum #average
       #cost = err.collect { |e| e.collect(&:sum) }.average
-      status = [ "Cost #{cost.average} #{cost}" ]
+      status = [ "Cost #{cost.average} #{options.verbose ? cost : ''}" ]
 
       File.write_to(options.model_path) do |f|
         f.puts(net.to_hash.to_yaml)
