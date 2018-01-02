@@ -112,3 +112,5 @@ Credits
 Loosely based on [Implement Backpropagation Algorithm From Scratch in Python](http://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/)
 
 And more than a few of [Siraj Raval's videos](https://www.youtube.com/channel/UCWN3xxRkmTPmbKwht9FuE5A)
+
+Cross entropy & Softmax sorted out with [DeepNotes.io](https://deepnotes.io/softmax-crossentropy)
