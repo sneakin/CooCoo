@@ -1,7 +1,7 @@
 CooCoo
 ==========
 
-Copyright &copy; 2017 [Nolan Eakins](mailto:sneakin+at+semanticgap.com)
+Copyright &copy; 2017-2018 [Nolan Eakins](mailto:sneakin+at+semanticgap.com)
 
 THIS IS NOT PRODUCTION QUALITY. USE AT YOUR OWN RISK.
 
