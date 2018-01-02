@@ -5,7 +5,7 @@ require 'coo-coo/trainer/base'
 module CooCoo
   module Trainer
     class MomentumStochastic < Base
-      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions::MeanSquare, momentum = 0.3, &block)
+      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions::MeanSquare, momentum = learning_rate, &block)
         batch_size ||= training_data.size
         t = Time.now
         

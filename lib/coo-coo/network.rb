@@ -146,7 +146,7 @@ module CooCoo
     def weight_deltas(input, outputs, deltas)
       d = @layers.each_with_index.collect do |layer, i|
         inputs = if i != 0
-                   outputs[i - 1] #[i - 1]
+                   outputs[i - 1]
                  else
                    prep_input(input)
                  end
