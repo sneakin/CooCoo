@@ -152,7 +152,7 @@ module CooCoo
       end
 
       def initial_weights(num_inputs, size)
-        (CooCoo::Vector.rand(num_inputs * size) * 2.0 - 1.0) * (num_inputs * 2.0).sqrt
+        CooCoo::Vector.rand(num_inputs * size) * (2.0 / (num_inputs * size).to_f).sqrt
       end
     end
 
@@ -195,7 +195,7 @@ module CooCoo
       end
 
       def initial_weights(num_inputs, size)
-        (CooCoo::Vector.rand(num_inputs * size) * 2.0 - 1.0) * (num_inputs * 2.0).sqrt
+        CooCoo::Vector.rand(num_inputs * size) * (2.0 / (num_inputs * size).to_f).sqrt
       end
 
       def ==(other)
