@@ -8,6 +8,6 @@ function run()
 tee >(run grep -i cost |
           run sed -e 's: :\t:g' |
           run cut -f 2 |
-          trend -t "${TREND_TITLE:-Cost}" -c 1a -geometry ${TREND_GEOMETRY:-320x64-0-24} - ${TREND_SIZE:-$((60*4*5))x4} ${TREND_SCALE})
+          trend -t "${TREND_TITLE:-Cost}" -c 1a -geometry ${TREND_GEOMETRY:-320x64-0-24} - ${TREND_SIZE:-$((60*4*5))x2} ${TREND_SCALE})
 
 [[ -z `jobs -p` ]] || kill $(jobs -p)
