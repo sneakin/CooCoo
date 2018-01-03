@@ -1,9 +1,44 @@
 require 'coo-coo'
 
-#NUM_INPUTS = 26 + 10 + 1 + 1 + 1
-NUM_INPUTS = 256
+NUM_INPUTS = 26 + 10 + 1 + 1 + 1
+#NUM_INPUTS = 256
 
-if NUM_INPUTS == 39
+class InputEncoder
+  protected
+  def initialize
+  end
+
+  public
+  def vector_size
+    raise NotImplementedError
+  end
+
+  def encode_input(s)
+    raise NotImplementedError
+  end
+
+  def decode_byte(b)
+    raise NotImplementedError
+  end
+
+  def decode_output(b)
+    raise NotImplementedError
+  end
+
+  def encode_string(s)
+    s.bytes.collect { |b| encode_input(b) }
+  end
+
+  def decode_sequence(s)
+    s.pack('c*')
+  end
+
+  def decode_to_string(output)
+    decode_sequence(output.collect { |v| decode_output(v) })
+  end
+end
+
+class LittleInputEncoder < InputEncoder
   UA = 'A'.bytes[0]
   UZ = 'Z'.bytes[0]
   LA = 'a'.bytes[0]
@@ -12,6 +47,10 @@ if NUM_INPUTS == 39
   N9 = '9'.bytes[0]
   SPACE = ' '.bytes[0]
 
+  def vector_size
+    39
+  end
+  
   def encode_byte(b)
     if b >= UA && b <= UZ
       return (b - UA) + 2
@@ -48,7 +87,13 @@ if NUM_INPUTS == 39
     v, i = v.each_with_index.max
     decode_byte(i)
   end
-elsif NUM_INPUTS == 256
+end
+
+class AsciiInputEncoder < InputEncoder
+  def vector_size
+    256
+  end
+  
   def encode_input(b)
     $encoded_input_hash ||= Hash.new do |h, k|
       v = CooCoo::Vector.zeros(NUM_INPUTS)
@@ -69,27 +114,20 @@ elsif NUM_INPUTS == 256
   end
 end
 
-def encode_string(s)
-  s.bytes.collect { |b| encode_input(b) }
-end
-
-def decode_sequence(s)
-  s.pack('c*')
-end
-
-def decode_to_string(output)
-  decode_sequence(output.collect { |v| decode_output(v) })
-end
-
-def training_enumerator(data, sequence_size)
+def training_enumerator(data, sequence_size, encoder)
   Enumerator.new do |yielder|
-    iters = sequence_size.times.collect { |i| data.each.drop(i) }
-    iters[0].zip(*iters.drop(1)).
-      each_with_index do |values, i|
-      input = values[0, values.size - 1].collect { |e| encode_input(e || 0) }
-      output = values[1, values.size - 1].collect { |e| encode_input(e || 0) }
+    data.size.times do |i|
+      input = data[0, sequence_size].collect { |e| encoder.encode_input(e || 0) }
+      output = data[1, sequence_size].collect { |e| encoder.encode_input(e || 0) }
       yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
     end
+    # iters = sequence_size.times.collect { |i| data.each.drop(i) }
+    # iters[0].zip(*iters.drop(1)).
+    #   each_with_index do |values, i|
+    #   input = values[0, values.size - 1].collect { |e| encoder.encode_input(e || 0) }
+    #   output = values[1, values.size - 1].collect { |e| encoder.encode_input(e || 0) }
+    #   yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
+    # end
   end
 end
 
@@ -97,6 +135,7 @@ if __FILE__ == $0
   require 'ostruct'
 
   options = OpenStruct.new
+  options.encoder = AsciiInputEncoder.new
   options.recurrent_size = 1024
   options.learning_rate = 0.3
   options.activation_function = CooCoo::ActivationFunctions.from_name('Logistic')
@@ -108,7 +147,7 @@ if __FILE__ == $0
   options.trainer = nil
   options.sequence_size = 4
   options.num_layers = 1
-  options.hidden_size = NUM_INPUTS
+  options.hidden_size = nil
   options.num_recurrent_layers = 2
   options.softmax = nil
   options.cost_function = CooCoo::CostFunctions.from_name('MeanSquare')
@@ -122,9 +161,17 @@ if __FILE__ == $0
     o.on('-v', '--verbose') do
       options.verbose = true
     end
+
+    o.on('--little') do |v|
+      options.encoder = LittleInputEncoder.new
+    end
     
     o.on('-m', '--model PATH') do |path|
       options.model_path = path
+    end
+
+    o.on('-b', '--binary') do
+      options.binary = true
     end
 
     o.on('-r', '--recurrent-size NUMBER') do |size|
@@ -208,24 +255,29 @@ if __FILE__ == $0
   
   argv = opts.parse!(ARGV)
   options.input_path = argv[0]
+  encoder = options.encoder
+  options.hidden_size ||= encoder.vector_size
 
   if File.exists?(options.model_path)
     $stdout.print("Loading #{options.model_path}...")
     $stdout.flush
-    net = CooCoo::TemporalNetwork.new(network: CooCoo::Network.load(options.model_path))
+    net = if options.binary
+            Marshal.load(File.read(options.model_path))
+          else
+            CooCoo::TemporalNetwork.new(network: CooCoo::Network.load(options.model_path))
+          end
     puts("\rLoaded #{options.model_path}:")
-    #net = Marshal.load(File.read(options.model_path))
   else
     puts("Creating new network")
     puts("\tNumber of layers: #{options.num_layers}")
-    puts("\tHidden size: #{options.hidden_size}#{' with mix' if options.hidden_size != NUM_INPUTS}")
+    puts("\tHidden size: #{options.hidden_size}#{' with mix' if options.hidden_size != encoder.vector_size}")
     puts("\tRecurrent size: #{options.recurrent_size}")
     puts("\tActivation: #{options.activation_function}")
     puts("\tRecurrent layers: #{options.num_recurrent_layers}")
     
     net = CooCoo::TemporalNetwork.new()
-    if options.hidden_size != NUM_INPUTS
-      net.layer(CooCoo::Layer.new(NUM_INPUTS, options.hidden_size, options.activation_function))
+    if options.hidden_size != encoder.vector_size
+      net.layer(CooCoo::Layer.new(encoder.vector_size, options.hidden_size, options.activation_function))
     end
 
     options.num_recurrent_layers.to_i.times do |n|
@@ -239,12 +291,12 @@ if __FILE__ == $0
       net.layer(CooCoo::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
     end
 
-    if options.hidden_size != NUM_INPUTS
-      net.layer(CooCoo::Layer.new(options.hidden_size, NUM_INPUTS, options.activation_function))
+    if options.hidden_size != encoder.vector_size
+      net.layer(CooCoo::Layer.new(options.hidden_size, encoder.vector_size, options.activation_function))
     end
 
     if options.softmax
-      net.layer(CooCoo::LinearLayer.new(NUM_INPUTS, CooCoo::ActivationFunctions.from_name('ShiftedSoftMax')))
+      net.layer(CooCoo::LinearLayer.new(encoder.vector_size, CooCoo::ActivationFunctions.from_name('ShiftedSoftMax')))
     end
   end
 
@@ -262,7 +314,8 @@ if __FILE__ == $0
          end
   data = data.bytes
   puts("Read #{data.size} bytes")
-  training_data = training_enumerator(data, options.sequence_size)
+
+  training_data = training_enumerator(data, options.sequence_size, encoder)
 
   if options.trainer
     puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{options.batch_size} at a learning rate of #{options.learning_rate}...")
@@ -270,30 +323,33 @@ if __FILE__ == $0
     trainer = options.trainer
     bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / options.batch_size.to_f).ceil)
     trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |n, batch, dt, err|
-      cost = err.average.average #sum #average
+      cost = (err / options.batch_size.to_f).average #sum #average
       #cost = err.collect { |e| e.collect(&:sum) }.average
       status = [ "Cost #{cost.average} #{options.verbose ? cost : ''}" ]
 
       File.write_to(options.model_path) do |f|
-        f.puts(net.to_hash.to_yaml)
-        #f.puts(Marshal.dump(net))
+        if options.binary
+          f.puts(Marshal.dump(net))
+        else
+          f.puts(net.to_hash.to_yaml)
+        end
       end
       status << "Saved to #{options.model_path}"
       bar.log(status.join("\n"))
       bar.increment
     end
   elsif options.generator
-    o, hidden_state = net.predict(encode_string(options.generator_init), {})
+    o, hidden_state = net.predict(encoder.encode_string(options.generator_init), {})
     data.each do |b|
-      o, hidden_state = net.predict(encode_input(b), hidden_state)
+      o, hidden_state = net.predict(encoder.encode_input(b), hidden_state)
     end
     options.generator_amount.to_i.times do |n|
       c = o.each.with_index.sort[-options.generator_temperature, options.generator_temperature.abs].collect(&:last)
       c = c[rand(c.size)]
-      c = decode_byte(c) if NUM_INPUTS != 256
+      c = encoder.decode_byte(c) if encoder.vector_size != 256
       $stdout.write(c.chr)
       $stdout.flush
-      o, hidden_state = net.predict(encode_input(c), hidden_state)
+      o, hidden_state = net.predict(encoder.encode_input(c), hidden_state)
     end
     
     $stdout.puts
@@ -301,27 +357,27 @@ if __FILE__ == $0
     puts("Predicting:")
     hidden_state = nil
     s = data.size.times.collect do |i|
-      input = data[i, options.sequence_size].collect { |e| encode_input(e || 0) }
+      input = data[i, options.sequence_size].collect { |e| encoder.encode_input(e || 0) }
       output, hidden_state = net.predict(input, hidden_state)
-      output.collect { |b| decode_output(b) }
+      output.collect { |b| encoder.decode_output(b) }
     end
 
     s.each_with_index do |c, i|
       input = data[i, options.sequence_size]
-      puts("#{i} #{input.inspect} -> #{c.inspect}\t#{decode_sequence(input)} -> #{decode_sequence(c)}")
+      puts("#{i} #{input.inspect} -> #{c.inspect}\t#{encoder.decode_sequence(input)} -> #{encoder.decode_sequence(c)}")
     end
 
-    puts(decode_sequence(s.collect(&:first)))
-    puts(decode_sequence(s.collect(&:last)))
+    puts(encoder.decode_sequence(s.collect(&:first)))
+    puts(encoder.decode_sequence(s.collect(&:last)))
 
     hidden_state = nil
     c = data[rand(data.size)]
     s = data.size.times.collect do |i|
-      o, hidden_state = net.predict(encode_input(c), hidden_state)
-      c = decode_output(o)
+      o, hidden_state = net.predict(encoder.encode_input(c), hidden_state)
+      c = encoder.decode_output(o)
     end
 
     puts(s.inspect)
-    puts(decode_sequence(s))
+    puts(encoder.decode_sequence(s))
   end
 end
