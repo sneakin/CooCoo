@@ -1,8 +1,5 @@
 require 'coo-coo'
 
-NUM_INPUTS = 26 + 10 + 1 + 1 + 1
-#NUM_INPUTS = 256
-
 class InputEncoder
   protected
   def initialize
@@ -78,7 +75,7 @@ class LittleInputEncoder < InputEncoder
   end
 
   def encode_input(b)
-    v = CooCoo::Vector.zeros(NUM_INPUTS)
+    v = CooCoo::Vector.zeros(vector_size)
     v[encode_byte(b)] = 1.0
     v
   end
@@ -96,7 +93,7 @@ class AsciiInputEncoder < InputEncoder
   
   def encode_input(b)
     $encoded_input_hash ||= Hash.new do |h, k|
-      v = CooCoo::Vector.zeros(NUM_INPUTS)
+      v = CooCoo::Vector.zeros(vector_size)
       v[k] = 1.0
       h[k] = v
     end
