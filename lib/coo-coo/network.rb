@@ -10,10 +10,12 @@ require 'coo-coo/cost_functions'
 module CooCoo
   class Network
     attr_reader :age, :activation_function
+    attr_accessor :command, :comments
     
     def initialize
       @layers = Array.new
       @age = 0
+      @command = [ $0 ] + ARGV
       yield(self) if block_given?
     end
 
@@ -190,13 +192,17 @@ module CooCoo
         @layers << CooCoo::LayerFactory.from_hash(layer_hash, self)
       end
 
-      @age = h[:age]
+      @age = h.fetch(:age, 0)
+      @command = h.fetch(:command, nil)
+      @comments = h.fetch(:comments) { Array.new }
 
       self
     end
 
     def to_hash
       { age: @age,
+        command: @command,
+        comments: @comments,
         layers: @layers.collect { |l| l.to_hash(self) }
       }
     end
