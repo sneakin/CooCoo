@@ -219,7 +219,7 @@ if options.epochs
   errors = Array.new
   options.epochs.to_i.times do |epoch|
     trainer.train(model, training_data.each_example, options.learning_rate, options.batch_size, options.cost_function) do |t, ex, dt, err|
-      errors << err.average
+      errors << (err / options.batch_size.to_f)
     end
     cost = CooCoo::Sequence[errors].average
     bar.log("Cost #{cost.average} #{cost}")

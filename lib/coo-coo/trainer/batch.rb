@@ -43,21 +43,15 @@ module CooCoo
       
       def accumulate_deltas(deltas)
         weight = 1.0 / deltas.size.to_f
-        deltas.inject([]) do |acc, delta|
-          accumulate_deltas_inner(acc, delta, weight)
-        end
-      end
-      
-      def accumulate_deltas_inner(init, new, weight)
-        new.each_with_index.collect do |layer, li|
-          if init && init[li]
-            [ layer[0] * weight + init[li][0],
-              layer[1] * weight + init[li][1]
-            ]
-          else
-            [ layer[0] * weight, layer[1] * weight ]
+        
+        acc = deltas[0]
+        deltas[1, deltas.size].each do |step|
+          step.each_with_index do |layer, i|
+            acc[i] += layer * weight
           end
         end
+
+        acc
       end
     end    
   end

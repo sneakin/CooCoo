@@ -209,7 +209,7 @@ if options.batch_size
 
   trainer.train(net, ts, options.learning_rate, options.batch_size) do |n, batch, dt, err|
     #mag = err * err
-    avg_err = err.average
+    avg_err = (err / options.batch_size.to_f)
     cost = avg_err.magnitude
     puts("Cost\t#{cost}\t#{avg_err}")
 

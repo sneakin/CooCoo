@@ -11,12 +11,12 @@ module CooCoo
         
         training_data.each_slice(batch_size).with_index do |batch, i|
           last_delta = 0.0
-          total_errs = batch.collect do |(expecting, input)|
+          total_errs = batch.inject(nil) do |acc, (expecting, input)|
             errs, hidden_state, last_delta = learn(network, input, expecting, learning_rate, last_delta, momentum, cost_function, Hash.new)
-            errs
+            errs + (acc || 0)
           end
           
-          block.call(self, i, Time.now - t, CooCoo::Sequence[total_errs]) if block
+          block.call(self, i, Time.now - t, total_errs) if block
           t = Time.now
         end
       end
