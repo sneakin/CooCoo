@@ -321,7 +321,7 @@ if __FILE__ == $0
     bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / options.batch_size.to_f).ceil)
     trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |n, batch, dt, err|
       cost = (err / options.batch_size.to_f).average #sum #average
-      #cost = err.collect { |e| e.collect(&:sum) }.average
+      raise 'Cost went to NAN' if cost.nan?
       status = [ "Cost #{cost.average} #{options.verbose ? cost : ''}" ]
 
       File.write_to(options.model_path) do |f|

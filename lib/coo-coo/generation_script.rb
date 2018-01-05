@@ -4,6 +4,8 @@ module CooCoo
   class GenerationScript
     EvalBinding = Struct.new(:log)
     EvalBinding.class_eval do
+      CooCoo = ::CooCoo
+      
       def get_binding
         binding
       end

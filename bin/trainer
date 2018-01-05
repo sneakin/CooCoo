@@ -6,7 +6,7 @@ $: << File.join(ROOT, 'lib') << File.join(ROOT, 'examples')
 require 'coo-coo'
 
 def load_script_opts(path)
-  GenerationScript.
+  CooCoo::GenerationScript.
     new(path, $stdout).
     opts
 end
@@ -109,7 +109,7 @@ end
 
 puts("Loading training set #{options.dataset}")
 
-training_set_gen = GenerationScript.new(options.dataset.to_s, $stdout)
+training_set_gen = CooCoo::GenerationScript.new(options.dataset.to_s, $stdout)
 argv, training_set = training_set_gen.call(argv)
 
 if options.model_path && File.exists?(options.model_path.to_s)
@@ -121,7 +121,7 @@ if options.model_path && File.exists?(options.model_path.to_s)
   end
 else
   puts("Generating network from #{options.prototype}")
-  net_gen = GenerationScript.new(options.prototype.to_s, $stdout)
+  net_gen = CooCoo::GenerationScript.new(options.prototype.to_s, $stdout)
   argv, net = net_gen.call(argv, training_set)
 end
 
@@ -151,8 +151,9 @@ if options.trainer
   
   trainer.train(net, training_set.each.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |n, batch, dt, err|
     avg_err = (err / options.batch_size.to_f)
+    raise "Cost went to NAN" if avg_err.nan?
     status = []
-    status << "Cost\t#{avg_err.average}\t#{avg_err}"
+    status << "Cost\t#{avg_err.average}"
     status << "Batch #{batch} took #{dt} seconds"
     if options.model_path
       if options.binary_blob
@@ -176,7 +177,9 @@ if options.num_tests
   e.first(options.num_tests).
     each_with_index do |(target, pixels), i|
     out, hs = net.predict(pixels)
-    puts("#{options.start_tests_at + i}\t#{target}\t#{out}")
+    loss = options.cost_function.call(target, out)
+    target_max = target.each.with_index.max
+    puts("#{options.start_tests_at + i}\t#{loss.average}\t#{target_max}\t#{out[target_max[1]]}\t#{out.each.with_index.max}\t#{target}\t#{out}")
     $stdout.flush
     GC.start
   end
