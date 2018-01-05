@@ -545,7 +545,6 @@ PUBLIC double buffer_max(const Buffer b)
   return launch_reduce(buffer_max_kernel, b);
 }
 
-
 #define BINARY_OP(name, operation) \
     __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double *b, int grid_offset, void *) \
   {                                                                     \
@@ -565,12 +564,12 @@ BINARY_OP(sub, { out[i] = a[i] - b[i]; });
 BINARY_OP(mul, { out[i] = a[i] * b[i]; });
 BINARY_OP(pow, { out[i] = pow(a[i], b[i]); });
 BINARY_OP(div, { out[i] = a[i] / b[i]; });
-BINARY_OP(any_eq, { out[i] = a[i] == b[i]; });
-BINARY_OP(any_neq, { out[i] = a[i] != b[i]; });
-BINARY_OP(any_lt, { out[i] = a[i] < b[i]; });
-BINARY_OP(any_lte, { out[i] = a[i] <= b[i]; });
-BINARY_OP(any_gt, { out[i] = a[i] > b[i]; });
-BINARY_OP(any_gte, { out[i] = a[i] >= b[i]; });
+BINARY_OP(collect_eq, { out[i] = a[i] == b[i]; });
+BINARY_OP(collect_neq, { out[i] = a[i] != b[i]; });
+BINARY_OP(collect_lt, { out[i] = a[i] < b[i]; });
+BINARY_OP(collect_lte, { out[i] = a[i] <= b[i]; });
+BINARY_OP(collect_gt, { out[i] = a[i] > b[i]; });
+BINARY_OP(collect_gte, { out[i] = a[i] >= b[i]; });
 
 #define SCALAR_OP(name, operation) \
   __global__ void buffer_ ## name ## d_inner(int len, double *out, const double *a, const double b, int grid_offset) \
@@ -591,17 +590,17 @@ SCALAR_OP(sub, { out[i] = a[i] - b; });
 SCALAR_OP(mul, { out[i] = a[i] * b; });
 SCALAR_OP(pow, { out[i] = pow(a[i], b); });
 SCALAR_OP(div, { out[i] = a[i] / b; });
-SCALAR_OP(any_eq, { out[i] = a[i] == b; });
-SCALAR_OP(any_neq, { out[i] = a[i] != b; });
-SCALAR_OP(any_lt, { out[i] = a[i] < b; });
-SCALAR_OP(any_lte, { out[i] = a[i] <= b; });
-SCALAR_OP(any_gt, { out[i] = a[i] > b; });
-SCALAR_OP(any_gte, { out[i] = a[i] >= b; });
+SCALAR_OP(collect_eq, { out[i] = a[i] == b; });
+SCALAR_OP(collect_neq, { out[i] = a[i] != b; });
+SCALAR_OP(collect_lt, { out[i] = a[i] < b; });
+SCALAR_OP(collect_lte, { out[i] = a[i] <= b; });
+SCALAR_OP(collect_gt, { out[i] = a[i] > b; });
+SCALAR_OP(collect_gte, { out[i] = a[i] >= b; });
 
 PUBLIC int buffer_eq(const Buffer a, const Buffer b)
 {
   // compare
-  Buffer results = buffer_any_eq(a, b);
+  Buffer results = buffer_collect_eq(a, b);
   if(results != NULL) {
     // reduce
     double sum = buffer_sum(results);
@@ -651,6 +650,8 @@ FUNCTION_OP(tanh, { out[i] = tanh(a[i]); });
 FUNCTION_OP(asinh, { out[i] = asinh(a[i]); });
 FUNCTION_OP(acosh, { out[i] = acosh(a[i]); });
 FUNCTION_OP(atanh, { out[i] = atanh(a[i]); });
+FUNCTION_OP(collect_nan, { out[i] = isnan(a[i]); });
+FUNCTION_OP(collect_inf, { out[i] = isinf(a[i]); });
 
 __global__ void buffer_dot_inner(double *out, const double *a, const double *b, size_t aw, size_t ah, size_t bw, size_t bh)
 {

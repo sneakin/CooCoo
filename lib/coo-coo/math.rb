@@ -1,5 +1,7 @@
 require 'coo-coo/core_ext'
 require 'coo-coo/math/abstract_vector'
+require 'coo-coo/math/functions'
+require 'coo-coo/math/interpolation'
 require 'coo-coo/cuda'
 require 'coo-coo/cuda/vector'
 
@@ -574,7 +576,7 @@ module CooCoo
           end
         end
       end
-      
+
       [ :abs, :exp,
         :floor, :ceil, :round,
         :sin, :cos, :tan, :asin, :acos, :atan,

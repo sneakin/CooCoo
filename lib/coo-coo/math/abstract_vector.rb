@@ -84,6 +84,38 @@ module CooCoo
 
         self
       end
+
+      def collect_equal?(n)
+        if n.respond_to?(:each)
+          self.class[each.zip(n).collect { |a, b| a == b ? 1.0 : 0.0 }]
+        else
+          self.class[each.collect { |e| e == n ? 1.0 : 0.0 }]
+        end
+      end
+
+      def collect_not_equal?(n)
+        if n.respond_to?(:each)
+          self.class[each.zip(n).collect { |a, b| a != b ? 1.0 : 0.0 }]
+        else
+          self.class[each.collect { |e| e != n ? 1.0 : 0.0 }]
+        end
+      end
+
+      def collect_nan?
+        self.class[each.collect { |e| e.nan? ? 1.0 : 0.0 }]
+      end
+
+      def nan?
+        each.any?(&:nan?)
+      end
+
+      def collect_infinite?
+        self.class[each.collect { |e| e.infinite? ? 1.0 : 0.0 }]
+      end
+
+      def infinite?
+        each.any?(&:infinite?)
+      end
     end
   end
 end

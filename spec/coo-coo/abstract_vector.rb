@@ -807,4 +807,65 @@ shared_examples "for an AbstractVector" do
       include_examples 'minmax_normalize with zero delta'
     end
   end
+
+  describe '#collect_equal?' do
+    subject { described_class[10.times] }
+    
+    context 'with a vector' do
+      it { expect(subject.collect_equal?(described_class.new(10, 3))).to eq([0, 0, 0, 1, 0, 0, 0, 0, 0, 0]) }
+    end
+
+    context 'with a scalar' do
+      it { expect(subject.collect_equal?(3)).to eq([0, 0, 0, 1, 0, 0, 0, 0, 0, 0]) }
+    end
+  end
+
+  describe '#collect_not_equal?' do
+    subject { described_class[10.times] }
+    
+    context 'with a vector' do
+      it { expect(subject.collect_not_equal?(described_class.new(10, 3))).to eq([1, 1, 1, 0, 1, 1, 1, 1, 1, 1]) }
+    end
+
+    context 'with a scalar' do
+      it { expect(subject.collect_not_equal?(3)).to eq([1, 1, 1, 0, 1, 1, 1, 1, 1, 1]) }
+    end
+  end
+
+  describe '#collect_nan?' do
+    context 'with a NAN' do
+      subject { described_class.new(4) { |n| n == 2 ? Float::NAN : 1.0 } }
+      it { expect(subject.collect_nan?).to eq([0, 0, 1, 0]) }
+    end
+
+    context 'without a NAN' do
+      subject { described_class.rand(4) }
+      it { expect(subject.collect_nan?).to eq([0, 0, 0, 0]) }
+    end
+  end
+
+  describe '#nan?' do
+    context 'with a NAN' do
+      subject { described_class.new(4) { |n| n == 2 ? Float::NAN : 1.0 } }
+      it { expect(subject).to be_nan }
+    end
+
+    context 'without a NAN' do
+      subject { described_class.rand(4) }
+      it { expect(subject).to_not be_nan }
+    end
+  end
+  
+  describe '#infinite?' do
+    context 'with an infinity' do
+      subject { described_class.new(4) { |n| n == 2 ? Float::INFINITY : 1.0 } }
+      it { expect(subject).to be_infinite }
+    end
+
+    context 'without an infinity' do
+      subject { described_class.rand(4) }
+      it { expect(subject).to_not be_infinite }
+    end
+  end
+  
 end

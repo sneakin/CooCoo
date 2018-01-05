@@ -58,7 +58,7 @@ module CooCoo
         buffer_function :host_slice, [ DeviceBuffer, :pointer, :size_t, :size_t ], :int
 
         [ :add, :sub, :mul, :pow, :div,
-          :any_eq, :any_neq, :any_lt, :any_lte, :any_gt, :any_gte
+          :collect_eq, :collect_neq, :collect_lt, :collect_lte, :collect_gt, :collect_gte
         ].each do |binary_op|
           buffer_function binary_op, [ DeviceBuffer, DeviceBuffer ], DeviceBuffer.auto_ptr
           buffer_function "#{binary_op}d", [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
@@ -80,7 +80,8 @@ module CooCoo
         [ :abs, :exp, :log, :log10, :log2, :sqrt,
           :sin, :asin, :cos, :acos, :tan, :atan,
           :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,
-          :ceil, :floor, :round
+          :ceil, :floor, :round,
+          :collect_nan, :collect_inf
         ].each do |f|
           buffer_function f, [ DeviceBuffer ], DeviceBuffer.auto_ptr
         end

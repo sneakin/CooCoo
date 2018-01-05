@@ -154,13 +154,15 @@ module CooCoo
       { :< => "lt",
         :<= => "lte",
         :>= => "gte",
-        :> => "gt"
+        :> => "gt",
+        :collect_equal? => 'eq',
+        :collect_not_equal? => 'neq'
       }.each do |comp_op, func|
         define_method(comp_op) do |other|
           if other.kind_of?(self.class)
-            FFI.send("any_#{func}", self, other)
+            FFI.send("collect_#{func}", self, other)
           elsif other.kind_of?(Numeric)
-            FFI.send("any_#{func}d", self, other)
+            FFI.send("collect_#{func}d", self, other)
           else
             raise TypeError.new("wrong type #{other.class}")
           end
@@ -170,7 +172,8 @@ module CooCoo
       [ :abs, :exp, :log, :log10, :log2, :sqrt,
         :sin, :asin, :cos, :acos, :tan, :atan,
         :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,
-        :ceil, :floor, :round
+        :ceil, :floor, :round,
+        :collect_nan, :collect_inf
       ].each do |f|
         define_method(f) do
           r = FFI.send(f, self)

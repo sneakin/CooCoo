@@ -211,11 +211,21 @@ EOT
       bin_op('*')
       bin_op('/')
       bin_op('**')
+      bin_op('collect_equal?')
+      bin_op('collect_not_equal?')
 
       # Negates every element in the vector.
       # @return [Vector]
       def -@
         self * -1.0
+      end
+
+      def collect_equal?(n)
+        if n.kind_of?(self.class)
+          self.class[@elements.collect_equal?(n.elements)]
+        else
+          self.class[@elements.collect_equal?(n)]
+        end
       end
       
       def size
@@ -238,10 +248,10 @@ EOT
       end
 
       private
-      def self.f(name)
+      def self.f(name, real_name = nil)
         class_eval <<-EOT
         def #{name}
-          self.class[@elements.send(:#{name})]
+          self.class[@elements.send(:#{real_name || name})]
         end
 EOT
       end
@@ -273,6 +283,16 @@ EOT
       f :ceil
       f :floor
       f :round
+      f :collect_nan?, :collect_nan
+      f :collect_infinite?, :collect_inf
+
+      def nan?
+        collect_nan?.sum > 0
+      end
+
+      def infinite?
+        collect_infinite?.sum > 0
+      end
 
       def slice_2d(*args)
         self.class[@elements.slice_2d(*args)]
