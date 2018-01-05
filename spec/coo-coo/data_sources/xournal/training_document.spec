@@ -22,7 +22,8 @@ describe CooCoo::DataSources::Xournal::TrainingDocument do
       end
       
       it { expect(subject.size).to eq(source.size) }
-      it { expect(subject.examples.collect(&:label).sort).to eq(source.examples.collect(&:label).sort) }
+      it { expect(subject.labels.sort).to eq(source.labels.sort) }
+      it { expect { subject.each_example.zip(source.each_example) { |a, b| a.size == b.size } } }
     end
   end
 end

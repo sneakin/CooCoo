@@ -16,7 +16,7 @@ module CooCoo
 
         # @param examples [Array<Example>]
         def initialize(examples = nil)
-          @examples = examples || Array.new
+          @examples = examples || Hash.new { |h, k| h[k] = Example.new(k) }
         end
 
         # @return [Integer] Number of examples
@@ -24,12 +24,18 @@ module CooCoo
           @examples.size
         end
 
+        # @return [Array<String>] of every example's label
+        def labels
+          @examples.keys
+        end
+
         # Add an example to the set.
         # @param label [String] The label of the example.
         # @param strokes [Array<Stroke>] Strokes associated with this label.
         # @return self
-        def add_example(label, strokes)
-          @examples << Example.new(label, strokes)
+        def add_example(label, strokes = nil)
+          ex = @examples[label]
+          ex.add_set(strokes) if strokes && !strokes.empty?
           self
         end
 
@@ -38,7 +44,9 @@ module CooCoo
         def each_example(&block)
           return to_enum(__method__) unless block_given?
 
-          @examples.each(&block)
+          @examples.each do |label, ex|
+            block.call(ex)
+          end
         end
 
         # Convert the {Example} set into a {Document}.
@@ -47,8 +55,8 @@ module CooCoo
         # @param page_width [Float] Width of the page in points.
         # @param page_height [Float] Height of the page in points.
         # @return [Document]
-        def to_document(columns, rows, page_width = 612, page_height = 792)
-          DocumentMaker.new(self, columns, rows, page_width, page_height).make_document
+        def to_document(columns, rows, cells_per_example = 4, page_width = 612, page_height = 792)
+          DocumentMaker.new(self, columns, rows, cells_per_example, page_width, page_height).make_document
         end
 
         # Load {TrainingDocument} from a Xournal file.

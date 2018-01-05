@@ -1,6 +1,8 @@
 require 'coo-coo/data_sources/xournal/document'
 require 'coo-coo/data_sources/xournal/loader'
 require 'coo-coo/data_sources/xournal/saver'
+require 'coo-coo/data_sources/xournal/renderer'
+require 'coo-coo/data_sources/xournal/training_document'
 
 module CooCoo
   module DataSources

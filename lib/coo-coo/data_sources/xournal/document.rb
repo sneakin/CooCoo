@@ -41,6 +41,10 @@ module CooCoo
           @pages.each(&block)
         end
 
+        def size
+          @pages.size
+        end
+
         def save(*args)
           Saver.save(self, *args)
         end
@@ -225,6 +229,14 @@ module CooCoo
           self
         end
 
+        def size
+          @samples.size
+        end
+        
+        def each_sample(&block)
+          @samples.each(&block)
+        end
+        
         def translate(dx, dy)
           self.class.new(tool, color, samples.collect { |s| s.translate(dx, dy) })
         end
@@ -243,15 +255,6 @@ module CooCoo
           ymin, ymax = @samples.collect(&:y).minmax
           
           [ [ xmin, ymin ], [ xmax, ymax ] ]
-        end
-
-        def within?(min_x, min_y, max_x, max_y)
-          min, max = minmax
-
-          return(min[0] >= min_x && min[0] < max_x &&
-                 min[1] >= min_y && min[1] < max_y &&
-                 max[0] >= min_x && max[0] < max_x &&
-                 max[1] >= min_y && max[1] < max_y)
         end
       end
 
@@ -284,6 +287,31 @@ module CooCoo
           @color = color
           @font = font
         end
+
+        def left
+          x
+        end
+
+        def top
+          y
+        end
+
+        def right
+          x + width
+        end
+
+        def width
+          # TODO but how?
+          @text.length * @size
+        end
+
+        def bottom
+          y + height
+        end
+
+        def height
+          @size * @text.count("\n")
+        end
       end
 
       class Image
@@ -291,10 +319,10 @@ module CooCoo
         attr_accessor :data, :raw_data
 
         def initialize(left, top, right, bottom, data = nil)
-          @left = left
-          @top = top
-          @right = right
-          @bottom = bottom
+          @left = left.to_f
+          @top = top.to_f
+          @right = right.to_f
+          @bottom = bottom.to_f
           self.data = data
         end
 
@@ -310,6 +338,26 @@ module CooCoo
           when nil then @data = @raw_data = nil
           else @raw_data = data
           end
+        end
+
+        def raw_data
+          @raw_data || @data.to_blob
+        end
+
+        def sized_data(zx = 1.0, zy = 1.0)
+          if zx == 1.0 && zy == 1.0
+            @sized_data ||= @data.resample_bilinear(width, height)
+          else
+            @data.resample_bilinear((width * zx).to_i, (height * zy).to_i)
+          end
+        end
+
+        def width
+          (right - left).to_i
+        end
+
+        def height
+          (bottom - top).to_i
         end
 
         def decode_image(data)
