@@ -136,8 +136,8 @@ if __FILE__ == $0
   
   def sample(arr, temperature = 1.0)
     narr = arr.normalize
-    picks = ((CooCoo::Vector.rand(arr.size) / temperature) - narr).each.with_index.select { |v, i| v <= 0.0 }
-    pick = picks[rand(picks.size)]
+    picks = (CooCoo::Vector.rand(arr.size) - narr).each.with_index.select { |v, i| v <= 0.0 }.sort
+    pick = picks[rand(picks.size) * temperature]
     (pick && pick[1]) || 0
   end
   
