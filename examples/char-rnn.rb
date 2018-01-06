@@ -129,6 +129,18 @@ def training_enumerator(data, sequence_size, encoder)
 end
 
 if __FILE__ == $0
+  def sample_top(arr, range)
+    c = arr.each.with_index.sort[-range, range.abs].collect(&:last)
+    c[rand(c.size)]
+  end
+  
+  def sample(arr, temperature = 1.0)
+    narr = arr.normalize
+    picks = ((CooCoo::Vector.rand(arr.size) / temperature) - narr).each.with_index.select { |v, i| v <= 0.0 }
+    pick = picks[rand(picks.size)]
+    (pick && pick[1]) || 0
+  end
+  
   require 'ostruct'
 
   options = OpenStruct.new
@@ -153,6 +165,7 @@ if __FILE__ == $0
   options.generator_temperature = 4
   options.generator_amount = 140
   options.generator_init = "\n"
+  options.sampler = method(:sample)
   
   opts = OptionParser.new do |o|
     o.on('-v', '--verbose') do
@@ -162,7 +175,7 @@ if __FILE__ == $0
     o.on('--little') do |v|
       options.encoder = LittleInputEncoder.new
     end
-    
+
     o.on('-m', '--model PATH') do |path|
       options.model_path = path
     end
@@ -245,6 +258,10 @@ if __FILE__ == $0
       options.generator_temperature = v.to_i
     end
 
+    o.on('--generator-sample-top') do
+      options.sampler = method(:sample_top)
+    end
+    
     o.on('--seed NUMBER') do |v|
       srand(v.to_i)
     end
@@ -341,8 +358,7 @@ if __FILE__ == $0
       o, hidden_state = net.predict(encoder.encode_input(b), hidden_state)
     end
     options.generator_amount.to_i.times do |n|
-      c = o.each.with_index.sort[-options.generator_temperature, options.generator_temperature.abs].collect(&:last)
-      c = c[rand(c.size)]
+      c = options.sampler.call(o, options.generator_temperature)
       c = encoder.decode_byte(c) if encoder.vector_size != 256
       $stdout.write(c.chr)
       $stdout.flush
