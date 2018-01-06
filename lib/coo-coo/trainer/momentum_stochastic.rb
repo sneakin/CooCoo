@@ -1,6 +1,7 @@
 require 'coo-coo/cost_functions'
 require 'coo-coo/sequence'
 require 'coo-coo/trainer/base'
+require 'coo-coo/trainer/batch_stats'
 
 module CooCoo
   module Trainer
@@ -15,8 +16,11 @@ module CooCoo
             errs, hidden_state, last_delta = learn(network, input, expecting, learning_rate, last_delta, momentum, cost_function, Hash.new)
             errs + (acc || 0)
           end
+
+          if block
+            block.call(BatchStats.new(self, i, batch_size, Time.now - t, total_errs))
+          end
           
-          block.call(self, i, Time.now - t, total_errs) if block
           t = Time.now
         end
       end

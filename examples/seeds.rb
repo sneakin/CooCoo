@@ -218,8 +218,8 @@ if options.epochs
   bar = CooCoo::ProgressBar.create(:total => options.epochs.to_i)
   errors = Array.new
   options.epochs.to_i.times do |epoch|
-    trainer.train(model, training_data.each_example, options.learning_rate, options.batch_size, options.cost_function) do |t, ex, dt, err|
-      errors << (err / options.batch_size.to_f)
+    trainer.train(model, training_data.each_example, options.learning_rate, options.batch_size, options.cost_function) do |stats|
+      errors << stats.average_loss
     end
     cost = CooCoo::Sequence[errors].average
     bar.log("Cost #{cost.average} #{cost}")

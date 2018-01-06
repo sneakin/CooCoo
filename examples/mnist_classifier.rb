@@ -207,14 +207,13 @@ if options.batch_size
   nex = "all" if nex == 0
   puts("Training #{nex} examples in #{options.batch_size} sized batches at a rate of #{options.learning_rate} with #{trainer.name}.")
 
-  trainer.train(net, ts, options.learning_rate, options.batch_size) do |n, batch, dt, err|
-    #mag = err * err
-    avg_err = (err / options.batch_size.to_f)
+  trainer.train(net, ts, options.learning_rate, options.batch_size) do |stats|
+    avg_err = stats.average_loss
     cost = avg_err.magnitude
     puts("Cost\t#{cost}\t#{avg_err}")
 
     if options.model_path
-      puts("Batch #{batch} took #{dt} seconds")
+      puts("Batch #{stats.batch} took #{stats.total_time} seconds")
       puts("Saving to #{options.model_path}")
       if options.binary_blob
         File.open(options.model_path, 'wb') do |f|

@@ -149,12 +149,12 @@ if options.trainer
 
   bar = CooCoo::ProgressBar.create(:total => num_batches)
   
-  trainer.train(net, training_set.each.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |n, batch, dt, err|
-    avg_err = (err / options.batch_size.to_f)
+  trainer.train(net, training_set.each.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |stats|
+    avg_err = stats.average_loss
     raise "Cost went to NAN" if avg_err.nan?
     status = []
     status << "Cost\t#{avg_err.average}"
-    status << "Batch #{batch} took #{dt} seconds"
+    status << "Batch #{stats.batch} took #{stats.total_time} seconds"
     if options.model_path
       if options.binary_blob
         File.write_to(options.model_path) do |f|

@@ -1,6 +1,7 @@
 require 'coo-coo/cost_functions'
 require 'coo-coo/sequence'
 require 'coo-coo/trainer/base'
+require 'coo-coo/trainer/batch_stats'
 
 module CooCoo
   module Trainer
@@ -24,7 +25,10 @@ module CooCoo
           deltas, total_errors = deltas_errors.transpose
           network.adjust_weights!(accumulate_deltas(deltas))
 
-          block.call(self, i, Time.now - t, CooCoo::Sequence[total_errors].sum) if block
+          if block
+            block.call(BatchStats.new(self, i, batch_size, Time.now - t, CooCoo::Sequence[total_errors].sum))
+          end
+          
           t = Time.now
         end
       end

@@ -1,9 +1,13 @@
 require 'coo-coo/cost_functions'
 require 'coo-coo/sequence'
 require 'coo-coo/trainer/base'
+require 'coo-coo/trainer/batch_stats'
 
 module CooCoo
   module Trainer
+    # Implements straight up stochastic gradient descent. No alterations
+    # get made to any hyperparameters while learning happens after every
+    # example.
     class Stochastic < Base
       def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions::MeanSquare, &block)
         batch_size ||= training_data.size
@@ -14,8 +18,11 @@ module CooCoo
             errs, hidden_state = learn(network, input, expecting, learning_rate, cost_function, Hash.new)
             errs + (acc || 0)
           end
+
+          if block
+            block.call(BatchStats.new(self, i, batch_size, Time.now - t, total_errs))
+          end
           
-          block.call(self, i, Time.now - t, total_errs) if block
           t = Time.now
         end
       end
