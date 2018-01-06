@@ -7,11 +7,11 @@ require('ostruct')
 @options.convolutions = 1
 @options.convolution_step_x = 3
 @options.convolution_step_y = 3
-@options.convolution_width = 3
 @options.input_width = 3
 @options.input_height = 3
 @options.output_width = 2
 @options.output_height = 2
+@options.softmax = false
 
 require 'optparse'
 
@@ -21,15 +21,20 @@ require 'optparse'
   o.on('--activation NAME') do |n|
     @options.activation_function = CooCoo::ActivationFunctions.from_name(n)
   end
+
   o.on('--layers NUMBER') do |n|
     @options.hidden_layers = n.to_i
   end
 
-  o.on('--data-width VALUE') do |n|
+  o.on('--softmax') do |n|
+    @options.softmax = true
+  end
+
+  o.on('--conv-width VALUE') do |n|
     @options.data_width = n.to_i
   end
   
-  o.on('--data-height VALUE') do |n|
+  o.on('--conv-height VALUE') do |n|
     @options.data_height = n.to_i
   end
 
@@ -45,11 +50,7 @@ require 'optparse'
     @options.convolution_step_y = n.to_i
   end
   
-  o.on('--conv-width VALUE') do |n|
-    @options.convolution_width = n.to_i
-  end
-  
-  o.on('--conv-width VALUE') do |n|
+  o.on('--input-width VALUE') do |n|
     @options.input_width = n.to_i
   end
   
@@ -104,6 +105,10 @@ def generate(training_set)
                               outputs.ceil,
                               @options.activation_function)
     net.layer(layer)
+  end
+
+  if @options.softmax
+    net.layer(CooCoo::LinearLayer.new(training_set.output_size, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))
   end
 
   net
