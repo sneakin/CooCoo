@@ -32,6 +32,7 @@ options.prototype = nil
 options.trainer = nil
 options.num_tests = 20
 options.start_tests_at = 0
+options.test_cost = CooCoo::CostFunctions::MeanSquare
 
 opts = CooCoo::OptionParser.new do |o|
   o.on('-d', '--dataset PATH') do |path|
@@ -65,6 +66,10 @@ opts = CooCoo::OptionParser.new do |o|
 
   o.on('-t', '--trainer NAME') do |name|
     options.trainer = name
+  end
+
+  o.on('--test-cost NAME') do |name|
+    options.test_cost = CooCoo::CostFunctions.from_name(name)
   end
 
   o.on('-h', '--help') do
@@ -135,7 +140,7 @@ $stdout.flush
 if options.trainer
   num_batches = options.epochs.to_i * training_set.size / trainer_options.batch_size
   
-  puts("Training #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name}.")
+  puts("Training in #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name} using #{trainer_options.cost_function.name}.")
 
   bar = CooCoo::ProgressBar.create(:total => num_batches)
   
@@ -169,7 +174,7 @@ if options.num_tests
   e.first(options.num_tests).
     each_with_index do |(target, pixels), i|
     out, hs = net.predict(pixels)
-    loss = options.cost_function.call(target, out)
+    loss = options.test_cost.call(target, out)
     target_max = target.each.with_index.max
     puts("#{options.start_tests_at + i}\t#{loss.average}\t#{target_max}\t#{out[target_max[1]]}\t#{out.each.with_index.max}\t#{target}\t#{out}")
     $stdout.flush
