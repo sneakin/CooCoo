@@ -118,16 +118,23 @@ module CooCoo
           return to_enum(__method__, yield_canvas) unless block_given?
 
           training_documents.each do |td|
-            td.each_example.each_slice(shuffle) do |slice|
-              examples = slice.shuffle.collect do |ex|
-                ex.each_set.collect do |strokes|
-                  [ ex.label, strokes ]
-                end
-              end.flatten(1)
+            stroke_set = 0
 
-              examples.shuffle.each do |(label, strokes)|
-                yield(encode_label(label), encode_strokes(strokes, yield_canvas))
+            loop do
+              td.each_example.each_slice(shuffle) do |slice|
+                examples = slice.collect do |ex|
+                  strokes = ex.stroke_sets[stroke_set]
+                  [ ex.label, strokes ] unless strokes.nil? || strokes.empty?
+                end.reject(&:nil?)
+
+                raise StopIteration if examples.empty?
+
+                examples.shuffle.each do |(label, strokes)|
+                  yield(encode_label(label), encode_strokes(strokes, yield_canvas))
+                end
               end
+              
+              stroke_set += 1
             end
           end
         end
