@@ -217,8 +217,12 @@ module CooCoo
       end
 
       def derivative(x, y = nil)
+        # y ||= call(x)
+        # y - 1.0
+
+        #x.exp * (x.exp.sum - x.exp) / (x.exp ** 2)
         y ||= call(x)
-        y - 1.0
+        y - y * y
       end
     end
 

@@ -63,11 +63,12 @@ module CooCoo
       CostFunctions.register(self, name)
       
       def self.call(target, x)
-        -x.log * target + (-target + 1) * (-x + 1).log
+        -x.log * target - (target - 1) * (-x + 1).log
       end
 
       def self.derivative(target, x)
-        target / x - (-target + 1)/(-x + 1)
+        #target / x + (target - 1)/(-x + 1)
+        (target - 1)/(-x + 1) - target / x
       end
     end
   end
