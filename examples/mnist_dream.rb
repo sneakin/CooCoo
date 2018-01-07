@@ -83,7 +83,7 @@ def backprop_digit(loops, rate, net, digit, initial_input = CooCoo::Vector.zeros
   input = initial_input
   target = CooCoo::Vector.zeros(10)
   target[digit % 10] = 1.0
-  target = net.prep_input(target)
+  target = net.prep_output_target(target)
 
   sgd(epochs: loops, rate: rate, status_time: status_delay, verbose: verbose,
       f: lambda do
