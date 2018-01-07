@@ -6,7 +6,7 @@ require 'coo-coo/trainer/batch_stats'
 module CooCoo
   module Trainer
     class MomentumStochastic < Base
-      DEFAULT_OPTIONS = Base::DEFAULT_OPTIONS.merge(momentum: 1/3.0)
+      DEFAULT_OPTIONS = Base::DEFAULT_OPTIONS.merge(momentum: 1/30.0)
       
       def options
         super(DEFAULT_OPTIONS) do |o, options|
@@ -21,10 +21,10 @@ module CooCoo
         options = options.to_h
         network = options.fetch(:network)
         training_data = options.fetch(:data)
-        learning_rate = options.fetch(:learning_rate, 0.3)
+        learning_rate = options.fetch(:learning_rate, 1/3.0)
         batch_size = options.fetch(:batch_size, 1024)
         cost_function = options.fetch(:cost_function, CostFunctions::MeanSquare)
-        momentum = options.fetch(:momentum, 1/3.0)
+        momentum = options.fetch(:momentum, 1/30.0)
 
         t = Time.now
         

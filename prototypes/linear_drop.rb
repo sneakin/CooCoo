@@ -33,7 +33,7 @@ def generate(training_set)
     outputs = training_set.input_size * (n - 1) / num_layers.to_f
     outputs = training_set.output_size if outputs <= 1.0
     inputs = training_set.input_size * n / num_layers.to_f
-    log.puts("\t#{i}\t#{inputs}\t#{outputs}")
+    log.puts("\t#{i}\t#{inputs}\t#{outputs}\t#{@options.activation_function}")
     layer = CooCoo::Layer.new(inputs,
                               outputs,
                               @options.activation_function)
