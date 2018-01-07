@@ -146,20 +146,17 @@ if __FILE__ == $0
   options = OpenStruct.new
   options.encoder = AsciiInputEncoder.new
   options.recurrent_size = 1024
-  options.learning_rate = 0.3
   options.activation_function = CooCoo::ActivationFunctions.from_name('Logistic')
   options.epochs = 1000
-  options.batch_size = 1024
   options.model_path = "char-rnn.coo-coo_model"
   options.input_path = nil
   options.backprop_limit = nil
-  options.trainer = nil
+  options.trainer = CooCoo::Trainer.from_name('Stochastic')
   options.sequence_size = 4
   options.num_layers = 1
   options.hidden_size = nil
   options.num_recurrent_layers = 2
   options.softmax = nil
-  options.cost_function = CooCoo::CostFunctions.from_name('MeanSquare')
   options.verbose = false
   options.generator = false
   options.generator_temperature = 4
@@ -167,7 +164,7 @@ if __FILE__ == $0
   options.generator_init = "\n"
   options.sampler = method(:sample)
   
-  opts = OptionParser.new do |o|
+  opts = CooCoo::OptionParser.new do |o|
     o.on('-v', '--verbose') do
       options.verbose = true
     end
@@ -188,20 +185,12 @@ if __FILE__ == $0
       options.recurrent_size = size.to_i
     end
 
-    o.on('--learning-rate FLOAT') do |rate|
-      options.learning_rate = rate.to_f
-    end
-
     o.on('--activation NAME') do |name|
       options.activation_function = CooCoo::ActivationFunctions.from_name(name)
     end
 
     o.on('--epochs NUMBER') do |n|
       options.epochs = n.to_i
-    end
-
-    o.on('--batch-size NUMBER') do |n|
-      options.batch_size = n.to_i
     end
 
     o.on('--backprop-limit NUMBER') do |n|
@@ -227,10 +216,6 @@ if __FILE__ == $0
 
     o.on('-t', '--trainer NAME') do |name|
       options.trainer = CooCoo::Trainer.from_name(name)
-    end
-
-    o.on('-c', '--cost NAME') do |name|
-      options.cost_function = CooCoo::CostFunctions.from_name(name)
     end
 
     o.on('-n', '--sequence-size NUMBER') do |n|
@@ -265,9 +250,25 @@ if __FILE__ == $0
     o.on('--seed NUMBER') do |v|
       srand(v.to_i)
     end
+
+    o.on('-h', '--help') do
+      puts(o)
+      if options.trainer
+        t_opts, _ = options.trainer.options
+        puts(t_opts)
+      end
+
+      exit
+    end
   end
   
   argv = opts.parse!(ARGV)
+
+  if options.trainer
+    t_opts, trainer_options = options.trainer.options
+    argv = t_opts.parse!(argv)
+  end
+  
   options.input_path = argv[0]
   encoder = options.encoder
   options.hidden_size ||= encoder.vector_size
@@ -332,11 +333,13 @@ if __FILE__ == $0
   training_data = training_enumerator(data, options.sequence_size, encoder)
 
   if options.trainer
-    puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{options.batch_size} at a learning rate of #{options.learning_rate}...")
+    puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{trainer_options.batch_size} at a learning rate of #{trainer_options.learning_rate}...")
 
     trainer = options.trainer
-    bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / options.batch_size.to_f).ceil)
-    trainer.train(net, training_data.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |stats|
+    bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / trainer_options.batch_size.to_f).ceil)
+    trainer.train({ network: net,
+                    data: training_data.cycle(options.epochs),
+                  }.merge(trainer_options.to_h)) do |stats|
       cost = stats.average_loss
       raise 'Cost went to NAN' if cost.nan?
       status = [ "Cost #{cost.average} #{options.verbose ? cost : ''}" ]

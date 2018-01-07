@@ -4,12 +4,10 @@ require('ostruct')
 @options.hidden_layers = 2
 @options.softmax = false
 
-require 'optparse'
-
-@opts = OptionParser.new do |o|
+@opts = CooCoo::OptionParser.new do |o|
   o.banner = "Linear drop out network prototype options"
   
-  o.on('--activation NAME', "The activation function the network uses at each layer. Valid options are: #{CooCoo::ActivationFunctions.functions.join(', ')}") do |n|
+  o.on('--activation NAME', "The activation function the network uses at each layer. Valid options are: #{CooCoo::ActivationFunctions.named_classes.join(', ')}") do |n|
     @options.activation_function = CooCoo::ActivationFunctions.from_name(n)
   end
 
@@ -34,7 +32,9 @@ def generate(training_set)
     n = num_layers - i
     outputs = training_set.input_size * (n - 1) / num_layers.to_f
     outputs = training_set.output_size if outputs <= 1.0
-    layer = CooCoo::Layer.new(training_set.input_size * n / num_layers.to_f,
+    inputs = training_set.input_size * n / num_layers.to_f
+    log.puts("\t#{i}\t#{inputs}\t#{outputs}")
+    layer = CooCoo::Layer.new(inputs,
                               outputs,
                               @options.activation_function)
     net.layer(layer)

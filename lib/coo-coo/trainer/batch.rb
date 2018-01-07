@@ -5,9 +5,29 @@ require 'coo-coo/trainer/batch_stats'
 
 module CooCoo
   module Trainer
+    # Trains a network by only adjusting the network once a batch. This opens
+    # up parallelism during learning as more examples can be ran at one time.
     class Batch < Base
-      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions::MeanSquare, processes = Parallel.processor_count, &block)
-        batch_size ||= training_data.size
+      DEFAULT_OPTIONS = Base::DEFAULT_OPTIONS.merge(processes: Parallel.processor_count)
+      
+      def options
+        super(DEFAULT_OPTIONS) do |o, options|
+          o.on('--processes INTEGER', Integer, 'Number of threads or processes to use for the batch.') do |n|
+            options.processes = n
+          end
+        end
+      end
+      
+      # @option options [Integer] :processes How many threads or processes to use for the batch. Defaults to the processor count, {Parallel#processor_count}.
+      def train(options, &block)
+        options = options.to_h
+        network = options.fetch(:network)
+        training_data = options.fetch(:data)
+        learning_rate = options.fetch(:learning_rate, 0.3)
+        batch_size = options.fetch(:batch_size, 1024)
+        cost_function = options.fetch(:cost_function, CostFunctions::MeanSquare)
+        processes = options.fetch(:processes, Parallel.processor_count)
+
         t = Time.now
         
         training_data.each_slice(batch_size).with_index do |batch, i|

@@ -1,4 +1,4 @@
-require 'optparse'
+require 'coo-coo/option_parser'
 
 module CooCoo
   class GenerationScript
@@ -27,16 +27,7 @@ module CooCoo
     end
 
     def parse_args(argv)
-      left_overs = []
-      begin
-        left_overs += @opts.parse!(argv)
-      rescue OptionParser::InvalidOption
-        left_overs += $!.args
-        left_overs << argv.shift
-        retry
-      end
-
-      left_overs
+      @opts.parse!(argv)
     end
 
     def call(argv, *args)

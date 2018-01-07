@@ -6,8 +6,26 @@ require 'coo-coo/trainer/batch_stats'
 module CooCoo
   module Trainer
     class MomentumStochastic < Base
-      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions::MeanSquare, momentum = learning_rate, &block)
-        batch_size ||= training_data.size
+      DEFAULT_OPTIONS = Base::DEFAULT_OPTIONS.merge(momentum: 1/3.0)
+      
+      def options
+        super(DEFAULT_OPTIONS) do |o, options|
+          o.on('--momentum FLOAT', Float, 'Multiplier for the accumulated changes.') do |n|
+            options.momentum = n
+          end
+        end
+      end
+      
+      # @option options [Float] :momentum The dampening factor on the reuse of the previous network change.
+      def train(options, &block)
+        options = options.to_h
+        network = options.fetch(:network)
+        training_data = options.fetch(:data)
+        learning_rate = options.fetch(:learning_rate, 0.3)
+        batch_size = options.fetch(:batch_size, 1024)
+        cost_function = options.fetch(:cost_function, CostFunctions::MeanSquare)
+        momentum = options.fetch(:momentum, 1/3.0)
+
         t = Time.now
         
         training_data.each_slice(batch_size).with_index do |batch, i|

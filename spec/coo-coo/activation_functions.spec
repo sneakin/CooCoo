@@ -6,7 +6,7 @@ shared_examples 'activation function' do
   subject { described_class.instance }
   let(:from_name_args) { nil }
 
-  it { expect(CooCoo::ActivationFunctions.functions).to include(subject.name) }
+  it { expect(CooCoo::ActivationFunctions.named_classes).to include(subject.name) }
 
   describe '.from_name' do
     context 'without arguments in the name' do

@@ -1,34 +1,34 @@
 require 'coo-coo/debug'
 begin
-require 'coo-coo/cuda/runtime'
+  require 'coo-coo/cuda/runtime'
 
-module CooCoo
-  module CUDA
-    def self.available?
-      ENV["COOCOO_USE_CUDA"] != "0" && Runtime.device_count > 0
-    end
+  module CooCoo
+    module CUDA
+      def self.available?
+        ENV["COOCOO_USE_CUDA"] != "0"# && Runtime.device_count > 0
+      end
 
-    def self.memory_info
-      Runtime.memory_info
-    end
-    
-    def self.collect_garbage(size = nil)
-      free, total = memory_info
-      if size == nil || (3 * size + free) >= total
-        GC.start
-        new_free, total = memory_info
-        diff = free - new_free
-        if size && (size + new_free) >= total
-          raise NoMemoryError.new(size)
+      def self.memory_info
+        Runtime.memory_info
+      end
+      
+      def self.collect_garbage(size = nil)
+        free, total = memory_info
+        if size == nil || (3 * size + free) >= total
+          GC.start
+          new_free, total = memory_info
+          diff = free - new_free
+          if size && (size + new_free) >= total
+            raise NoMemoryError.new(size)
+          end
         end
       end
     end
   end
-end
 
-require 'coo-coo/cuda/host_buffer'
-require 'coo-coo/cuda/device_buffer'
-require 'coo-coo/cuda/vector'
+  require 'coo-coo/cuda/host_buffer'
+  require 'coo-coo/cuda/device_buffer'
+  require 'coo-coo/cuda/vector'
 
 rescue LoadError
   CooCoo.debug("LoadError #{__FILE__}: #{$!}")

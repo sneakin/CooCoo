@@ -157,9 +157,7 @@ if $0 != __FILE__
   @options.images = []
   @options.chitters = 4
 
-  require 'optparse'
-
-  @opts = OptionParser.new do |o|
+  @opts = CooCoo::OptionParser.new do |o|
     o.banner = "Image Similarity Data Generator options"
     
     o.on('--data-path PATH') do |path|

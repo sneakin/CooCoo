@@ -1,5 +1,4 @@
 require 'coo-coo'
-require 'optparse'
 require 'ostruct'
 require 'colorize'
 
@@ -117,7 +116,7 @@ options.rate = 0.5
 options.initial_input = CooCoo::Vector.zeros(28 * 28)
 options.status_delay = 5.0
 
-opts = OptionParser.new do |o|
+opts = CooCoo::OptionParser.new do |o|
   o.on('--color BOOL') do |bool|
     $use_color = bool =~ /(1|t(rue)?|f(false)?|y(es)?)/
   end

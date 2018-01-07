@@ -9,8 +9,14 @@ module CooCoo
     # get made to any hyperparameters while learning happens after every
     # example.
     class Stochastic < Base
-      def train(network, training_data, learning_rate, batch_size, cost_function = CostFunctions::MeanSquare, &block)
-        batch_size ||= training_data.size
+      def train(options, &block)
+        options = options.to_h
+        network = options.fetch(:network)
+        training_data = options.fetch(:data)
+        learning_rate = options.fetch(:learning_rate, 0.3)
+        batch_size = options.fetch(:batch_size, 1024)
+        cost_function = options.fetch(:cost_function, CostFunctions::MeanSquare)
+        
         t = Time.now
         
         training_data.each_slice(batch_size).with_index do |batch, i|

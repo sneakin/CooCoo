@@ -25,20 +25,15 @@ end
 
 require 'ostruct'
 options = OpenStruct.new
-options.learning_rate = 0.3
-options.batch_size = 1024
 options.epochs = 1000
 options.dataset = nil
 options.model_path = nil
 options.prototype = nil
 options.trainer = nil
-options.cost_function = CooCoo::CostFunctions::MeanSquare
 options.num_tests = 20
 options.start_tests_at = 0
 
-require 'optparse'
-
-opts = OptionParser.new do |o|
+opts = CooCoo::OptionParser.new do |o|
   o.on('-d', '--dataset PATH') do |path|
     options.dataset = path
   end
@@ -60,10 +55,6 @@ opts = OptionParser.new do |o|
     options.epochs = n.to_i
   end
 
-  o.on('-b', '--batch-size NUMBER') do |n|
-    options.batch_size = n.to_i
-  end
-
   o.on('-p', '--predict NUMBER') do |n|
     options.num_tests = n.to_i
   end
@@ -76,14 +67,6 @@ opts = OptionParser.new do |o|
     options.trainer = name
   end
 
-  o.on('--cost NAME') do |name|
-    options.cost_function = CooCoo::CostFunctions.from_name(name)
-  end
-
-  o.on('--rate NUMBER') do |n|
-    options.learning_rate = n.to_f
-  end
-
   o.on('-h', '--help') do
     puts(opts)
     if options.dataset
@@ -94,18 +77,17 @@ opts = OptionParser.new do |o|
       opts = load_script_opts(options.prototype.to_s)
       puts(opts)
     end
+    if options.trainer
+      t = CooCoo::Trainer.from_name(options.trainer)
+      raise ArgumentError.new("Unknown trainer #{options.trainer}") unless t
+      opts, _ = t.options
+      puts(opts)
+    end
     exit
   end
 end
 
-argv = []
-begin
-  argv += opts.parse!(ARGV)
-rescue OptionParser::InvalidOption
-  argv += $!.args
-  argv << ARGV.shift
-  retry
-end
+argv = opts.parse!(ARGV)
 
 puts("Loading training set #{options.dataset}")
 
@@ -125,6 +107,15 @@ else
   argv, net = net_gen.call(argv, training_set)
 end
 
+trainer = nil
+trainer_options = nil
+
+if options.trainer
+  trainer = CooCoo::Trainer.from_name(options.trainer)
+  t_opts, trainer_options = trainer.options
+  argv = t_opts.parse!(argv)
+end
+
 unless argv.empty?
   raise ArgumentError.new("Unknown arguments: #{argv.inspect}")
 end
@@ -142,14 +133,15 @@ end
 $stdout.flush
 
 if options.trainer
-  trainer = CooCoo::Trainer.from_name(options.trainer)
-  num_batches = options.epochs.to_i * training_set.size / options.batch_size
+  num_batches = options.epochs.to_i * training_set.size / trainer_options.batch_size
   
-  puts("Training #{num_batches} batches of #{options.batch_size} examples for #{options.epochs} epochs at a rate of #{options.learning_rate} with #{trainer.name}.")
+  puts("Training #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name}.")
 
   bar = CooCoo::ProgressBar.create(:total => num_batches)
   
-  trainer.train(net, training_set.each.cycle(options.epochs), options.learning_rate, options.batch_size, options.cost_function) do |stats|
+  trainer.train({ network: net,
+                  data: training_set.each.cycle(options.epochs)
+                }.merge(trainer_options.to_h)) do |stats|
     avg_err = stats.average_loss
     raise "Cost went to NAN" if avg_err.nan?
     status = []

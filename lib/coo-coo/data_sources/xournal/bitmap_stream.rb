@@ -146,13 +146,13 @@ if $0 != __FILE__
   @options.height = 28
   @options.shuffle = 128
   
-  require 'optparse'
+  require 'coo-coo/option_parser'
 
-  @opts = OptionParser.new do |o|
+  @opts = CooCoo::OptionParser.new do |o|
     o.banner = "Xournal Training Document Bitmap Stream Generator"
 
     o.on('--data-path PATH', String, 'Adds a Xournal training document to be loaded.') do |p|
-      @options.training_documents << p
+      @options.training_documents += Dir.glob(p).to_a
     end
 
     o.on('--data-labels PATH', String, 'Predefined list of labels to preset the one hot encoding.') do |p|

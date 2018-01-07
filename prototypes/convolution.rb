@@ -13,9 +13,7 @@ require('ostruct')
 @options.output_height = 2
 @options.softmax = false
 
-require 'optparse'
-
-@opts = OptionParser.new do |o|
+@opts = CooCoo::OptionParser.new do |o|
   o.banner = "Convolution layer followed by fully connected layers"
   
   o.on('--activation NAME') do |n|

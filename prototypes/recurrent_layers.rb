@@ -9,12 +9,10 @@ require('ostruct')
 @options.softmax = false
 @options.backprop_limit = nil
 
-require 'optparse'
-
-@opts = OptionParser.new do |o|
+@opts = CooCoo::OptionParser.new do |o|
   o.banner = "Layers recurrent fully connected layers."
   
-  o.on('--activation NAME', "The activation function the network uses at each layer. Valid options are: #{CooCoo::ActivationFunctions.functions.join(', ')}") do |n|
+  o.on('--activation NAME', "The activation function the network uses at each layer. Valid options are: #{CooCoo::ActivationFunctions.named_classes.join(', ')}") do |n|
     @options.activation_function = CooCoo::ActivationFunctions.from_name(n)
   end
 

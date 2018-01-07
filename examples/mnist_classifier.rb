@@ -2,7 +2,6 @@
 
 require 'fileutils'
 require 'mnist'
-require 'optparse'
 require 'ostruct'
 require 'coo-coo'
 require 'coo-coo/image'
@@ -31,15 +30,26 @@ options.translate_dx = 0
 options.translate_dy = 0
 options.hidden_layers = nil
 options.hidden_size = 128
-options.learning_rate = 1.0/3.0
 options.activation_function = CooCoo.default_activation
 options.trainer = 'Stochastic'
 options.convolution = nil
 options.conv_step = 8
+options.stacked_convolution = false
 options.test_images_path = MNist::TEST_IMAGES_PATH
 options.test_labels_path = MNist::TEST_LABELS_PATH
 
-opts = OptionParser.new do |o|
+opts = CooCoo::OptionParser.new do |o|
+  o.on('-h', '--help') do
+    puts(o)
+    if options.trainer
+      t = CooCoo::Trainer.from_name(options.trainer)
+      raise NameError.new("Unknown trainer #{options.trainer}") unless t
+      opts, _ = t.options
+      puts(opts)
+    end
+    exit
+  end
+
   o.on('-m', '--model PATH') do |path|
     options.model_path = Pathname.new(path)
     options.binary_blob = File.extname(options.model_path) == '.bin'
@@ -59,10 +69,6 @@ opts = OptionParser.new do |o|
 
   o.on('--epochs NUMBER') do |n|
     options.epochs = n.to_i
-  end
-
-  o.on('--rate NUMBER') do |n|
-    options.learning_rate = n.to_f
   end
 
   o.on('-p', '--predict NUMBER') do |n|
@@ -122,6 +128,16 @@ end
 
 argv = opts.parse!(ARGV)
 max_rad = options.max_rotation.to_f * Math::PI / 180.0
+
+trainer = nil
+trainer_options = nil
+if options.trainer
+  trainer = CooCoo::Trainer.from_name(options.trainer)
+  raise NameError.new("Unknown trainer #{options.trainer}") unless trainer
+  t_opts, trainer_options = trainer.options
+  argv = t_opts.parse!(argv)
+end
+
 
 raise ArgumentError.new("The convolution step must be >=8 when stacking convolutions.") if options.conv_step < 8
 
@@ -184,7 +200,7 @@ end
 
 $stdout.flush
 
-if options.batch_size
+if trainer_options.batch_size
   if options.model_path
     backup(options.model_path)
   end
@@ -201,16 +217,15 @@ if options.batch_size
     ts = ts.cycle(options.epochs)
   end
 
-  trainer = CooCoo::Trainer.from_name(options.trainer)
-  
   nex = options.examples * options.rotations
   nex = "all" if nex == 0
-  puts("Training #{nex} examples in #{options.batch_size} sized batches at a rate of #{options.learning_rate} with #{trainer.name}.")
+  puts("Training #{nex} examples in #{trainer_options.batch_size} sized batches at a rate of #{trainer_options.learning_rate} with #{trainer.name}.")
 
-  trainer.train(net, ts, options.learning_rate, options.batch_size) do |stats|
+  trainer.train({ network: net,
+                  data: ts
+                }.merge(trainer_options.to_h)) do |stats|
     avg_err = stats.average_loss
-    cost = avg_err.magnitude
-    puts("Cost\t#{cost}\t#{avg_err}")
+    puts("Cost\t#{avg_err.magnitude}\t#{avg_err.average}")
 
     if options.model_path
       puts("Batch #{stats.batch} took #{stats.total_time} seconds")

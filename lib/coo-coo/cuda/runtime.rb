@@ -6,7 +6,7 @@ module CooCoo
     module Runtime
       extend ::FFI::Library
       if CooCoo::Platform.windows?
-	ffi_lib 'cudart64_90.dll'
+        ffi_lib 'cudart64_90.dll'
       else
         ffi_lib 'libcudart.so'
       end

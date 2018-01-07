@@ -122,15 +122,12 @@ options = OpenStruct.new
 options.model_path = nil
 options.epochs = nil
 options.data_path = DATA_FILE
-options.batch_size = 1000
 options.activation_function = CooCoo.default_activation
 options.hidden_size = 21
 options.num_layers = 2
 options.trainer = 'Stochastic'
-options.learning_rate = 0.3
-options.cost_function = CooCoo::CostFunctions::MeanSquare
 
-op = OptionParser.new do |o|
+op = CooCoo::OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
     options.model_path = Pathname.new(path)
   end
@@ -141,10 +138,6 @@ op = OptionParser.new do |o|
 
   o.on('-d', '--data PATH') do |path|
     options.data_path = Pathname.new(path)
-  end
-
-  o.on('-n', '--batch-size NUMBER') do |num|
-    options.batch_size = num.to_i
   end
 
   o.on('-f', '--activation FUNC') do |func|
@@ -163,21 +156,33 @@ op = OptionParser.new do |o|
     options.trainer = trainer
   end
 
-  o.on('--learning-rate NUMBER') do |num|
-    options.learning_rate = num.to_f
-  end
-  
-  o.on('--cost NAME') do |name|
-    options.cost_function = CooCoo::CostFunctions.from_name(name)
-  end
-
   o.on('--softmax') do
     options.softmax = true
     options.cost_function = CooCoo::CostFunctions.from_name('CrossEntropy')
   end
+
+  o.on('-h', '--help') do
+    puts(o)
+    if options.trainer
+      t = CooCoo::Trainer.from_name(options.trainer)
+      raise NameError.new("Unknown trainer #{options.trainer}") unless t
+      opts, _ = t.options
+      puts(opts)
+    end
+    exit
+  end
 end
 
 args = op.parse!(ARGV)
+
+trainer = nil
+trainer_options = nil
+if options.trainer
+  trainer = CooCoo::Trainer.from_name(options.trainer)
+  raise NameError.new("Unknown trainer #{options.trainer}") unless trainer
+  t_opts, trainer_options = trainer.options
+  argv = t_opts.parse!(args)
+end
 
 Random.srand(123)
 
@@ -214,11 +219,12 @@ end
 if options.epochs
   puts("Training for #{options.epochs} epochs")
   now = Time.now
-  trainer = CooCoo::Trainer.from_name(options.trainer)
   bar = CooCoo::ProgressBar.create(:total => options.epochs.to_i)
   errors = Array.new
   options.epochs.to_i.times do |epoch|
-    trainer.train(model, training_data.each_example, options.learning_rate, options.batch_size, options.cost_function) do |stats|
+    trainer.train({ network: model,
+                    data: training_data.each_example,
+                  }.merge(trainer_options.to_h)) do |stats|
       errors << stats.average_loss
     end
     cost = CooCoo::Sequence[errors].average
