@@ -225,8 +225,6 @@ if trainer_options.batch_size
   end
 
   nex = options.examples * options.rotations * options.num_translations
-  num_batches = nex / trainer_options.batch_size.to_f
-
   nex = "all" if nex == 0
   puts("Training #{nex} examples in #{trainer_options.batch_size} sized batches at a rate of #{trainer_options.learning_rate} with #{trainer.name}.")
 
@@ -234,10 +232,11 @@ if trainer_options.batch_size
                   data: ts
                 }.merge(trainer_options.to_h)) do |stats|
     avg_err = stats.average_loss
-    puts("Cost\t#{avg_err.magnitude}\t#{avg_err.average}")
+    puts("Cost\t#{avg_err.average}")
+    puts("  Magnitude\t#{avg_err.magnitude}}")
 
     if options.model_path
-      puts("Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds")
+      puts("Batch #{stats.batch} took #{stats.total_time} seconds")
       puts("Saving to #{options.model_path}")
       if options.binary_blob
         File.open(options.model_path, 'wb') do |f|
