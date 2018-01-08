@@ -72,6 +72,10 @@ opts = CooCoo::OptionParser.new do |o|
     options.test_cost = CooCoo::CostFunctions.from_name(name)
   end
 
+  o.on('--verbose') do
+    options.verbose = true
+  end
+
   o.on('-h', '--help') do
     puts(opts)
     if options.dataset
@@ -150,7 +154,7 @@ if options.trainer
     avg_err = stats.average_loss
     raise "Cost went to NAN" if avg_err.nan?
     status = []
-    status << "Cost\t#{avg_err.average}"
+    status << "Cost\t#{avg_err.average}\t#{options.verbose ? avg_err : nil}"
     status << "Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds"
     if options.model_path
       if options.binary_blob

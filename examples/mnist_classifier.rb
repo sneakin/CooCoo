@@ -61,8 +61,8 @@ opts = CooCoo::OptionParser.new do |o|
     options.binary_blob = true
   end
 
-  o.on('-t', '--train NUMBER') do |n|
-    options.batch_size = n.to_i
+  o.on('-t', '--train') do
+    options.train = true
   end
 
   o.on('-e', '--examples NUMBER') do |n|
@@ -207,7 +207,7 @@ end
 
 $stdout.flush
 
-if trainer_options.batch_size
+if options.train
   if options.model_path
     backup(options.model_path)
   end
@@ -232,8 +232,9 @@ if trainer_options.batch_size
                   data: ts
                 }.merge(trainer_options.to_h)) do |stats|
     avg_err = stats.average_loss
+    raise "Cost went to NAN" if avg_err.nan?
     puts("Cost\t#{avg_err.average}")
-    puts("  Magnitude\t#{avg_err.magnitude}}")
+    puts("  Magnitude\t#{avg_err.magnitude}")
 
     if options.model_path
       puts("Batch #{stats.batch} took #{stats.total_time} seconds")
