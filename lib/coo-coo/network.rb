@@ -109,11 +109,12 @@ module CooCoo
     def backprop(inputs, outputs, errors, hidden_state = nil)
       hidden_state ||= Hash.new
       d = @layers.reverse_each.each_with_index.inject([]) do |acc, (layer, i)|
-        input = if i < (@layers.size - 2)
+        input = if i < (@layers.size - 1)
                   outputs[@layers.size - i - 2]
                 else
                   prep_input(inputs) # TODO condition prep_input
                 end
+        #CooCoo.debug("#{self.class.name}.#{__method__}\t#{i} #{@layers.size - i - 1}\t#{input.size}\t#{outputs.size}")
         deltas, hidden_state = layer.backprop(input,
                                               outputs[@layers.size - i - 1],
                                               errors,
