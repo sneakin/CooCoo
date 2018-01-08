@@ -117,7 +117,8 @@ module CooCoo
       end
       
       def prep_input(arr)
-        (arr.minmax_normalize(true) - 0.5) * 2.0
+        (arr.minmax_normalize(true) * 2.0) - 1.0
+        #(arr.minmax_normalize(true) - 0.5) * 2.0
       end
 
       def prep_output_target(arr)
@@ -208,6 +209,7 @@ module CooCoo
     # Computes the Softmax function given a {Vector}:
     #   y_i = e ** x_i / sum(e ** x)
     # @see https://deepnotes.io/softmax-crossentropy
+    # @see https://becominghuman.ai/back-propagation-is-very-simple-who-made-it-complicated-97b794c97e5c
     class SoftMax < Identity
       ActivationFunctions.register(self)
 
@@ -217,12 +219,17 @@ module CooCoo
       end
 
       def derivative(x, y = nil)
-        # y ||= call(x)
+        y ||= call(x)
         # y - 1.0
 
         #x.exp * (x.exp.sum - x.exp) / (x.exp ** 2)
-        y ||= call(x)
-        y - y * y
+        #y - y * y
+        s = x.exp.sum
+        y * (s - x) / s
+      end
+
+      def prep_output_target(arr)
+        arr * 2.0 - 1.0
       end
     end
 
