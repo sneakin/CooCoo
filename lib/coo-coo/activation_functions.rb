@@ -220,16 +220,8 @@ module CooCoo
 
       def derivative(x, y = nil)
         y ||= call(x)
-        # y - 1.0
-
-        #x.exp * (x.exp.sum - x.exp) / (x.exp ** 2)
-        #y - y * y
         s = x.exp.sum
         y * (s - x) / s
-      end
-
-      def prep_output_target(arr)
-        arr * 2.0 - 1.0
       end
     end
 
