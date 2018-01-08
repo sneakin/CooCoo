@@ -26,7 +26,7 @@ module CooCoo
           end
 
           if block
-            block.call(BatchStats.new(self, i, batch_size, Time.now - t, total_errs))
+            block.call(BatchStats.new(self, i, batch.size, Time.now - t, total_errs))
           end
           
           t = Time.now

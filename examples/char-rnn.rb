@@ -151,7 +151,7 @@ if __FILE__ == $0
   options.model_path = "char-rnn.coo-coo_model"
   options.input_path = nil
   options.backprop_limit = nil
-  options.trainer = CooCoo::Trainer.from_name('Stochastic')
+  options.trainer = nil
   options.sequence_size = 4
   options.num_layers = 1
   options.hidden_size = nil
@@ -181,7 +181,7 @@ if __FILE__ == $0
       options.binary = true
     end
 
-    o.on('-r', '--recurrent-size NUMBER') do |size|
+    o.on('--recurrent-size NUMBER') do |size|
       options.recurrent_size = size.to_i
     end
 
@@ -284,6 +284,7 @@ if __FILE__ == $0
     puts("\rLoaded #{options.model_path}:")
   else
     puts("Creating new network")
+    puts("\tNumber of inputs: #{encoder.vector_size}")
     puts("\tNumber of layers: #{options.num_layers}")
     puts("\tHidden size: #{options.hidden_size}#{' with mix' if options.hidden_size != encoder.vector_size}")
     puts("\tRecurrent size: #{options.recurrent_size}")
@@ -303,7 +304,7 @@ if __FILE__ == $0
       end
 
       net.layer(rec.backend)
-      net.layer(CooCoo::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
+      #net.layer(CooCoo::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
     end
 
     if options.hidden_size != encoder.vector_size
@@ -323,13 +324,16 @@ if __FILE__ == $0
   puts("\tLayers: #{net.num_layers}")
 
   data = if options.input_path
+           puts("Reading #{options.input_path}")
            File.read(options.input_path)
          else
+           puts("Reading stdin...")
            $stdin.read
          end
   data = data.bytes
   puts("Read #{data.size} bytes")
 
+  puts("Splitting into #{options.sequence_size} byte sequences.")
   training_data = training_enumerator(data, options.sequence_size, encoder)
 
   if options.trainer
@@ -340,7 +344,7 @@ if __FILE__ == $0
     trainer.train({ network: net,
                     data: training_data.cycle(options.epochs),
                   }.merge(trainer_options.to_h)) do |stats|
-      cost = stats.average_loss
+      cost = stats.average_loss.average
       raise 'Cost went to NAN' if cost.nan?
       status = [ "Cost #{cost.average} #{options.verbose ? cost : ''}" ]
 
@@ -355,7 +359,9 @@ if __FILE__ == $0
       bar.log(status.join("\n"))
       bar.increment
     end
-  elsif options.generator
+  end
+  
+  if options.generator
     o, hidden_state = net.predict(encoder.encode_string(options.generator_init), {})
     data.each do |b|
       o, hidden_state = net.predict(encoder.encode_input(b), hidden_state)

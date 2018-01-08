@@ -151,7 +151,7 @@ if options.trainer
     raise "Cost went to NAN" if avg_err.nan?
     status = []
     status << "Cost\t#{avg_err.average}"
-    status << "Batch #{stats.batch} took #{stats.total_time} seconds"
+    status << "Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds"
     if options.model_path
       if options.binary_blob
         File.write_to(options.model_path) do |f|

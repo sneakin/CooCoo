@@ -7,6 +7,7 @@ require 'coo-coo'
 require 'coo-coo/image'
 require 'coo-coo/convolution'
 require 'coo-coo/neuron_layer'
+require 'coo-coo/subnet'
 
 def backup(path)
   if File.exists?(path)
@@ -32,6 +33,7 @@ options.hidden_layers = nil
 options.hidden_size = 128
 options.activation_function = CooCoo.default_activation
 options.trainer = 'Stochastic'
+options.softmax = false
 options.convolution = nil
 options.conv_step = 8
 options.stacked_convolution = false
@@ -115,6 +117,10 @@ opts = CooCoo::OptionParser.new do |o|
     options.trainer = name
   end
 
+  o.on('--softmax') do
+    options.softmax = true
+  end
+
   o.on('--convolution') do
     options.convolution = true
   end
@@ -184,8 +190,9 @@ else
   #net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 4), 4, 4, 2, 2))
   #net.layer(CooCoo::Layer.new(14 * 14, 10))
 
-  #net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 6, options.activation_function), 4, 4, 6, 1))
-  #net.layer(CooCoo::Layer.new(7 * 7 * 6, 10, options.activation_function))
+  if options.softmax
+    net.layer(CooCoo::LinearLayer.new(10, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))
+  end
 end
 
 puts("Net ready:")
@@ -217,7 +224,9 @@ if trainer_options.batch_size
     ts = ts.cycle(options.epochs)
   end
 
-  nex = options.examples * options.rotations
+  nex = options.examples * options.rotations * options.num_translations
+  num_batches = nex / trainer_options.batch_size.to_f
+
   nex = "all" if nex == 0
   puts("Training #{nex} examples in #{trainer_options.batch_size} sized batches at a rate of #{trainer_options.learning_rate} with #{trainer.name}.")
 
@@ -228,7 +237,7 @@ if trainer_options.batch_size
     puts("Cost\t#{avg_err.magnitude}\t#{avg_err.average}")
 
     if options.model_path
-      puts("Batch #{stats.batch} took #{stats.total_time} seconds")
+      puts("Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds")
       puts("Saving to #{options.model_path}")
       if options.binary_blob
         File.open(options.model_path, 'wb') do |f|
