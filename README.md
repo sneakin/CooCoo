@@ -5,6 +5,9 @@ Copyright &copy; 2017-2018 [Nolan Eakins](mailto:sneakin+at+semanticgap.com)
 
 THIS IS NOT PRODUCTION QUALITY. USE AT YOUR OWN RISK.
 
+[Home page](https://coocoo.network/)
+[GitHub](https://github.com/sneakin/CooCoo/)
+
 
 Description
 ----------
@@ -21,6 +24,7 @@ Dependencies
   * [MSYS2](http://www.msys2.org/)
 * [Ruby](https://www.ruby-lang.org/): install via your distribution package manager or MSYS2's `pacman -S ruby`
 * [Bundler](http://bundler.io/)
+* [Cairo](https://www.cairographics.org/rcairo/)
 
 
 Usage
