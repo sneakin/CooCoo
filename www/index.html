@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<html>
+  <head>
+    <title>CooCoo.network</title>
+    <style type="text/css">
+      body {
+        margin-bottom: 8em;
+      }
+      h1.title {
+      font-size: 5em;
+      margin-bottom: 0em;
+      }
+      .center {
+      text-align: center;
+      margin-left: auto;
+      margin-right: auto;
+      width: 60em;
+      }
+      .cursor {
+      background: black;
+      color: white;
+      display: inline;
+      }
+      .menu {
+      padding: 0;
+      list-style: none;
+      }
+      .menu LI {
+      margin: 1em 0em;
+      }
+    </style>
+    <script language="javascript">
+      function toggle_cursors()
+      {
+        var el = document.getElementsByClassName('cursor');
+        for(var i = 0; i < el.length; i++) {
+          if(el[i].style.background == 'white') {
+            el[i].style.background = 'black';
+          } else {
+            el[i].style.background = 'white';
+          }
+        }
+      }
+      
+      setInterval(function() {
+        toggle_cursors();
+      }, 1 / 120 * 1000);
+
+      setInterval(function() {
+        toggle_cursors();
+      }, 3000);
+
+      setInterval(function() {
+        toggle_cursors();
+      }, 5000);
+    </script>
+  </head>
+  <body>
+    <div class="center">
+      <h1 class="title">
+        CooCoo.network!!
+      </h1>
+      <div>
+        <img src="./images/screamer.png" alt="CooCoo" />
+      </div>
+      <pre>$ gem install coo-coo<div class="cursor">&nbsp;</div></pre>
+      <ul class="menu">
+        <li>
+          <a href="https://github.com/sneakin/CooCoo/blob/master/README.md">Read Me</a>
+        </li>
+        <li>
+          <a href="https://github.com/sneakin/CooCoo/">Get the source</a>
+        </li>
+      </ul>
+      <p>
+        Train an AI!
+      </p>
+    </div>
+  </body>
+</html>

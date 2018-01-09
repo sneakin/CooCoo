@@ -68,3 +68,14 @@ desc "Start a Pry session with everything loaded."
 task :pry => :compile do
   exec("bundle exec pry -Ilib -Iexamples -rcoo-coo/shell")
 end
+
+namespace :www do
+  desc "Upload the website"
+  task :upload do
+    user = ENV.fetch("COOCOO_USER")
+    sh("ssh #{user}@coocoo.network mkdir -p \\~/www/coocoo.network/public/images")
+    sh("scp www/index.html #{user}@coocoo.network:~/www/coocoo.network/public/index.html")
+    sh("scp www/images/screamer.png #{user}@coocoo.network:~/www/coocoo.network/public/images/screamer.png")
+  end
+end
+
