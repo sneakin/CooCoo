@@ -1,10 +1,12 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <html>
   <head>
     <title>CooCoo.network</title>
     <style type="text/css">
       body {
-        margin-bottom: 8em;
+      margin-bottom: 8em;
+      background: white;
+      color: black;
       }
       h1.title {
       font-size: 5em;
@@ -34,10 +36,10 @@
       {
         var el = document.getElementsByClassName('cursor');
         for(var i = 0; i < el.length; i++) {
-          if(el[i].style.background == 'white') {
-            el[i].style.background = 'black';
+          if(el[i].style.backgroundColor == 'white') {
+            el[i].style.backgroundColor = 'black';
           } else {
-            el[i].style.background = 'white';
+            el[i].style.backgroundColor = 'white';
           }
         }
       }
