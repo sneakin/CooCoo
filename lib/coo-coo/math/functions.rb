@@ -25,11 +25,13 @@ module CooCoo
         end
       end
 
-      def clamp(a, n)
-        if n >= 0
-          min(a, n)
+      def clamp(n, min, max)
+        if n < min
+          min
+        elsif n > max
+          max
         else
-          max(a, n)
+          n
         end
       end
     end
