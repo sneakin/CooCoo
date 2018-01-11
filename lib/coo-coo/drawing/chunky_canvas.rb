@@ -24,8 +24,17 @@ module CooCoo
       def stroke(points)
         last_x = points[0][0]
         last_y = points[0][1]
+        last_w = points[0][2] || 1.0
+        last_color = points[0][3]
 
-        points.each.drop(1).each do |(x, y, w)|
+        points.each.drop(1).each do |(x, y, w, color)|
+          w ||= 1.0
+          
+          if color
+            self.stroke_color = color
+            self.fill_color = color
+          end
+          
           if w <= 1.0
             line(last_x.to_i, last_y.to_i, x.to_i, y.to_i)
           else
@@ -35,14 +44,29 @@ module CooCoo
             steps = 4.0 if steps < 4.0
 
             (steps + 1).to_i.times do |n|
-              circle(Math.lerp(last_x, x, n / steps.to_f).to_i, Math.lerp(last_y, y, n / steps.to_f).to_i, (w/2.0).ceil.to_i)
+              t = n / steps.to_f
+              if color
+                self.stroke_color = lerp_color(last_color, color, t)
+                self.fill_color = lerp_color(last_color, color, t)
+              end
+              
+              circle(Math.lerp(last_x, x, t).to_i,
+                     Math.lerp(last_y, y, t).to_i,
+                     (Math.lerp(last_w, w, t)/2.0).ceil.to_i)
             end
           end
           
-          last_x, last_y = x, y
+          last_x = x
+          last_y = y
+          last_w = w
+          last_color = color
         end
 
         self
+      end
+
+      def lerp_color(a, b, t)
+        ChunkyPNG::Color.interpolate_quick(a, b, (t * 256).to_i)
       end
 
       def rect(x, y, w, h)
