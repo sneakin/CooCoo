@@ -66,6 +66,15 @@ module MNist
       s
     end
 
+    def each_pixel(&block)
+      return to_enum(__method__) unless block_given?
+      28.times do |y|
+        28.times do |x|
+          yield(pixel(x, y))
+        end
+      end
+    end
+    
     private
     PixelValues = ' -+X#'
 

@@ -8,6 +8,8 @@ require 'coo-coo/image'
 require 'coo-coo/convolution'
 require 'coo-coo/neuron_layer'
 require 'coo-coo/subnet'
+require 'coo-coo/drawing/sixel'
+require 'colorize'
 
 def backup(path)
   if File.exists?(path)
@@ -52,6 +54,10 @@ opts = CooCoo::OptionParser.new do |o|
     exit
   end
 
+  o.on('--sixel') do
+    options.sixel = true
+  end
+
   o.on('-m', '--model PATH') do |path|
     options.model_path = Pathname.new(path)
     options.binary_blob = File.extname(options.model_path) == '.bin'
@@ -61,16 +67,13 @@ opts = CooCoo::OptionParser.new do |o|
     options.binary_blob = true
   end
 
-  o.on('-t', '--train') do
+  o.on('-t', '--train NUMBER', 'train for number of epochs') do |n|
     options.train = true
+    options.epochs = n.to_i
   end
 
   o.on('-e', '--examples NUMBER') do |n|
     options.examples = n.to_i
-  end
-
-  o.on('--epochs NUMBER') do |n|
-    options.epochs = n.to_i
   end
 
   o.on('-p', '--predict NUMBER') do |n|
@@ -252,6 +255,9 @@ if options.train
   end
 end
 
+CHECKMARK = "\u2714"
+CROSSMARK = "\u2718"
+
 puts("Trying the training images")
 errors = Array.new(options.num_tests, 0)
 data = MNist::DataStream.new(options.test_labels_path, options.test_images_path)
@@ -265,8 +271,20 @@ data_t.
   output, hidden_state = net.predict(CooCoo::Vector[example.pixels, data.width * data.height, 0] / 256.0, Hash.new, true)
   max_outputs = output.each_with_index.sort.reverse
   max_output = max_outputs.first[1]
-  errors[i] = 1.0 if example.label != max_output
-  puts("#{i}\tExpecting: #{example.label}\n\tAngle: #{example.angle * 180.0 / Math::PI}\n\tOffset: #{example.offset_x} #{example.offset_y}\n\tGot: #{max_output}\t#{max_output == example.label}\n\tOutputs: #{output}\n\tBest guesses: #{max_outputs.first(3).inspect}")
+  passed = example.label == max_output
+  color = passed ? :green : :red
+  mark = passed ? CHECKMARK : CROSSMARK
+  errors[i] = 1.0 unless passed
+  sixel = if options.sixel
+            " for " + CooCoo::Drawing::Sixel.to_string do |s|
+      16.times { |i| c = i / 16.0 * 100; s.set_color(i, c, c, c) }
+      s.from_array(CooCoo::Vector[example.each_pixel.collect.to_a] * 16.0 / 256.0, 28, 28)
+    end
+          else
+            "\n"
+          end
+
+  puts("#{mark.send(color)} #{i.to_s.send(color)}\tExpecting: #{example.label}#{sixel}\tAngle: #{example.angle * 180.0 / Math::PI}\n\tOffset: #{example.offset_x} #{example.offset_y}\n\tGot: #{max_output}\t#{max_output == example.label}\n\tOutputs: #{output}\n\tBest guesses: #{max_outputs.first(3).inspect}")
   if example.label != max_output
     puts("#{example.to_ascii}")
   end

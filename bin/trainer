@@ -3,6 +3,7 @@
 ROOT = File.dirname(File.dirname(__FILE__))
 $: << File.join(ROOT, 'lib') << File.join(ROOT, 'examples')
 
+require 'colorize'
 require 'coo-coo'
 
 def load_script_opts(path)
@@ -171,17 +172,27 @@ if options.trainer
   end
 end
 
+CHECKMARK = "\u2714".green
+CROSSMARK = "\u2718".red
+
 if options.num_tests
   puts("Running #{options.num_tests} tests starting from #{options.start_tests_at}:")
   e = training_set.each
   e = e.drop(options.start_tests_at) if options.start_tests_at > 0
+  passes = 0
   e.first(options.num_tests).
     each_with_index do |(target, pixels), i|
     out, hs = net.predict(pixels)
     loss = options.test_cost.call(target, out)
     target_max = target.each.with_index.max
-    puts("#{options.start_tests_at + i}\t#{loss.average}\t#{target_max}\t#{out[target_max[1]]}\t#{out.each.with_index.max}\t#{target}\t#{out}")
+    out_max = out.each.with_index.max
+    passed = target_max[1] == out_max[1]
+    passes += 1 if passed
+    puts("#{passed ? CHECKMARK : CROSSMARK} #{options.start_tests_at + i}\t#{loss.average}\t#{target_max}\t#{out[target_max[1]]}\t#{out_max}\t#{target}\t#{out}")
     $stdout.flush
     GC.start
   end
+
+  puts
+  puts("#{passes}/#{options.num_tests} #{passes / options.num_tests.to_f * 100.0}% passed")
 end

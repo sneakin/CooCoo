@@ -1,5 +1,6 @@
 require 'coo-coo'
 require 'ostruct'
+require 'coo-coo/drawing/sixel'
 require 'colorize'
 
 $use_color = true
@@ -15,7 +16,7 @@ def color_for_pixel(p)
 end
 
 def output_to_ascii(output)
-  output = output.minmax_normalize
+  output = output.minmax_normalize(true)
   
   s = ""
   w = Math.sqrt(output.size).to_i
@@ -31,6 +32,16 @@ def output_to_ascii(output)
     s += "\n"
   end
   s
+end
+
+def output_to_sixel(output)
+  output = output.minmax_normalize(true)
+  
+  CooCoo::Drawing::Sixel.to_string do |s|
+    16.times { |i| c = i / 16.0 * 100; s.set_color(i, c, c, c) }
+    w = Math.sqrt(output.size).to_i
+    s.from_array(output * 16, w, w)
+  end
 end
 
 def sgd(opts)
@@ -79,10 +90,11 @@ def sgd(opts)
   end
 end
 
-def backprop_digit(loops, rate, net, digit, initial_input = CooCoo::Vector.zeros(28 * 28), verbose = false, status_delay = 5.0)
+def backprop_digit(loops, rate, net, digit, initial_input = nil, verbose = false, status_delay = 5.0, to_ascii = true, to_sixel = false)
+  initial_input ||= CooCoo::Vector.zeros(net.num_inputs)
   input = initial_input
-  target = CooCoo::Vector.zeros(10)
-  target[digit % 10] = 1.0
+  target = CooCoo::Vector.zeros(net.num_outputs)
+  target[digit % net.num_outputs] = 1.0
   target = net.prep_output_target(target)
 
   sgd(epochs: loops, rate: rate, status_time: status_delay, verbose: verbose,
@@ -101,9 +113,12 @@ def backprop_digit(loops, rate, net, digit, initial_input = CooCoo::Vector.zeros
         input = input - deltas + last_deltas
       end,
       status: lambda do |opts|
-        puts("#{opts[:epoch]} #{digit} Input", output_to_ascii(input))
+        puts("#{opts[:epoch]} #{digit} Input")
+        puts(output_to_sixel(input)) if to_sixel
+        puts(output_to_ascii(input)) if to_ascii
         puts("Output: #{opts[:output][0].last[digit]}\t#{opts[:output][0].last}\n")
         puts("Cost: #{opts[:cost].magnitude}\t#{opts[:cost]}\n")
+        puts
       end)
 
   input
@@ -115,14 +130,24 @@ options.loops = 10
 options.rate = 0.5
 options.initial_input = CooCoo::Vector.zeros(28 * 28)
 options.status_delay = 5.0
+options.ascii = true
+options.sixel = false
 
 opts = CooCoo::OptionParser.new do |o|
-  o.on('--color BOOL') do |bool|
-    $use_color = bool =~ /(1|t(rue)?|f(false)?|y(es)?)/
-  end
-  
   o.on('--print-values BOOL') do |bool|
     options.print_values = bool =~ /(1|t(rue)?|f(false)?|y(es)?)/
+  end
+
+  o.on('--sixel', "toggles on the display of the dream as a Sixel graphic") do
+    options.sixel = !options.sixel
+  end
+
+  o.on('--ascii', "toggles off the display of the dream as ASCII") do
+    options.ascii = !options.ascii
+  end
+  
+  o.on('--color BOOL', 'toggles the use of color in the ASCII dream') do |bool|
+    $use_color = bool =~ /(1|t(rue)?|f(false)?|y(es)?)/
   end
   
   o.on('-m', '--model PATH') do |path|
@@ -167,8 +192,8 @@ argv = 10.times if argv.empty?
 
 argv.collect do |digit|
   digit = digit.to_i
-  $stdout.puts("Generating #{digit}")
-  input = backprop_digit(options.loops, options.rate, net, digit.to_i, options.initial_input, options.verbose, options.status_delay)
+  $stdout.puts("Generating #{digit}") if options.verbose
+  input = backprop_digit(options.loops, options.rate, net, digit.to_i, options.initial_input, options.verbose, options.status_delay, options.ascii, options.sixel)
   $stdout.flush
   [ digit, input ]
 end.each do |digit, input|
@@ -180,9 +205,10 @@ end.each do |digit, input|
   puts("#{digit}".colorize(color))
   puts('=' * 8)
   puts
-  puts(output_to_ascii(input))
+  puts(output_to_sixel(input)) if options.sixel
+  puts(output_to_ascii(input)) if options.ascii
   puts(input) if options.print_values
   puts
-  puts("#{status_char.colorize(color)} Output #{output[digit]} #{output.magnitude} #{output.inspect}")
+  puts("#{status_char.colorize(color)} Output #{output[digit]} #{output.magnitude} #{options.verbose ? output.inspect : ''}")
   puts
 end
