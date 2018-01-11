@@ -70,5 +70,22 @@ module CooCoo
         -target / x
       end
     end
+
+    # Combines a SoftMax activation with CrossEntropy. Due to math this
+    # is more optimal than having a SoftMax layer and doing CrossEntropy
+    # seperately.
+    #
+    # @see http://peterroelants.github.io/posts/neural_network_implementation_intermezzo02/
+    class SoftMaxCrossEntropy < CrossEntropy
+      CostFunctions.register(self, name)
+      
+      def self.call(target, x)
+        super(target, ActivationFunctions::ShiftedSoftMax.call(x))
+      end
+
+      def self.derivative(target, x)
+        x - target
+      end
+    end
   end
 end
