@@ -113,12 +113,11 @@ module CooCoo
       end
 
       def initial_bias(size)
-        CooCoo::Vector.ones(size)
+        CooCoo::Vector.zeros(size)
       end
       
       def prep_input(arr)
         (arr.minmax_normalize(true) * 2.0) - 1.0
-        #(arr.minmax_normalize(true) - 0.5) * 2.0
       end
 
       def prep_output_target(arr)
