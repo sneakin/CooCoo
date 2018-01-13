@@ -32,7 +32,7 @@ Usage
 
 ### Coming soon
 
-    $ gem install coo-coo
+    $ gem install CooCoo
 
 
 ### Install
