@@ -114,8 +114,8 @@ end
 def training_enumerator(data, sequence_size, encoder)
   Enumerator.new do |yielder|
     data.size.times do |i|
-      input = data[0, sequence_size].collect { |e| encoder.encode_input(e || 0) }
-      output = data[1, sequence_size].collect { |e| encoder.encode_input(e || 0) }
+      input = data[i, sequence_size].collect { |e| encoder.encode_input(e || 0) }
+      output = data[i + 1, sequence_size].collect { |e| encoder.encode_input(e || 0) }
       yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
     end
     # iters = sequence_size.times.collect { |i| data.each.drop(i) }
