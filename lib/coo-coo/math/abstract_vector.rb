@@ -94,14 +94,14 @@ module CooCoo
         set2d_with!(width, src, src_width, x, y)
       end
       
-      def add2d!(width, src, src_width, x, y)
+      def add_2d!(width, src, src_width, x, y)
         set2d_with!(width, src, src_width, x, y) do |v, other|
           v + other
         end
       end
 
-      def add2d(*args)
-        self.clone.add2d!(*args)
+      def add_2d(*args)
+        self.clone.add_2d!(*args)
       end
       
       def collect_equal?(n)

@@ -310,6 +310,14 @@ EOT
         self
       end
 
+      def add_2d!(width, src, src_width, x, y)
+        raise ArgumentError.new("src's size #{src.size} must be divisible by src_width #{src_width}") if src.respond_to?(:each) && src.size % src_width > 0
+
+        src = src.elements if src.kind_of?(self.class)
+        @elements.add_2d!(width, src, src_width, x, y, src_width, src.size / src_width)
+        self
+      end
+
       protected
       def elements
         @elements

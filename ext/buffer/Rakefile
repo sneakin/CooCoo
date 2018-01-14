@@ -1,7 +1,7 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'coo-coo', 'platform')
 
 NVCC = ENV.fetch("NVCC", "nvcc")
-NVCCFLAGS = Array.new
+NVCCFLAGS = []
 NVCCFLAGS << "-g" if ENV['DEBUG']
 
 if CooCoo::Platform.windows?

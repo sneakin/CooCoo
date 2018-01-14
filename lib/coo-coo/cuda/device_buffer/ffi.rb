@@ -8,6 +8,12 @@ module CooCoo
         extend ::FFI::Library
         ffi_lib Pathname.new(__FILE__).join('..', '..', '..', '..', '..', 'ext', 'buffer', "buffer.#{RbConfig::CONFIG['DLEXT']}").to_s
 
+        class Dim3 < ::FFI::Struct
+          layout(:x, :int,
+                 :y, :int,
+                 :z, :int)
+        end
+        
         def self.buffer_function(*args)
           if args.size == 3
             func, args, return_type = args
@@ -34,8 +40,10 @@ module CooCoo
         end
         
         buffer_function :block_size, [], :int
+        buffer_function :block_dim, [], Dim3.ptr
         buffer_function :set_block_size, [ :int ], :void
         buffer_function :max_grid_size, [], :int
+        buffer_function :max_grid_dim, [], Dim3.ptr
         buffer_function :set_max_grid_size, [ :int ], :void
 
         buffer_function :init, [ :int ], :int
@@ -61,6 +69,7 @@ module CooCoo
           :collect_eq, :collect_neq, :collect_lt, :collect_lte, :collect_gt, :collect_gte
         ].each do |binary_op|
           buffer_function binary_op, [ DeviceBuffer, DeviceBuffer ], DeviceBuffer.auto_ptr
+          buffer_function "#{binary_op}_2d", [ DeviceBuffer, :size_t, DeviceBuffer, :size_t, :size_t, :size_t, :size_t, :size_t ], :int
           buffer_function "#{binary_op}d", [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
         end
         buffer_function :eq, [ DeviceBuffer, DeviceBuffer ], :int

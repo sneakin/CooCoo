@@ -208,6 +208,12 @@ module CooCoo
             FFI.send(ffi_method.to_s + "d", self, other.to_f)
           end
         end
+
+        define_method("#{ffi_method}_2d!") do |width, other, other_width, x, y, w = nil, h = nil|
+          raise TypeError.new("other not a #{self.class}") unless other.kind_of?(self.class)
+          FFI.send("#{ffi_method}_2d", self, width, other, other_width, x, y, w || other_width, h || (other.size / other_width))
+          self
+        end
       end
 
       ffi_operator(:+, :add)

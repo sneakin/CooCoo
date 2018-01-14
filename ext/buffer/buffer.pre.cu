@@ -25,14 +25,21 @@ __device__ int grid(int ndims)
 }
 
 static int _initialized = -1;
-static int _block_size = 256;
-static int _max_grid_size = 1024;
+static int _block_size = 1024;
+static dim3 _block_dim(1024, 1024, 64);
+static int _max_grid_size = 2147483647;
+static dim3 _max_grid_dim(2147483647, 65535, 65535);
 
 //static int _threads_per_block = 1;
 
 PUBLIC int buffer_block_size()
 {
   return _block_size;
+}
+
+PUBLIC dim3 *buffer_block_dim()
+{
+  return &_block_dim;
 }
 
 PUBLIC void buffer_set_block_size(int bs)
@@ -43,6 +50,11 @@ PUBLIC void buffer_set_block_size(int bs)
 PUBLIC int buffer_max_grid_size()
 {
   return _max_grid_size;
+}
+
+PUBLIC dim3 *buffer_max_grid_dim()
+{
+  return &_max_grid_dim;
 }
 
 PUBLIC void buffer_set_max_grid_size(int gs)
@@ -65,7 +77,7 @@ PUBLIC long long buffer_num_allocated()
 }
 
 
-typedef void (*kernel_func_t)(int, double *, const double *, const double *, int, void *);
+typedef void (*kernel_func_t)(int len, double *out, const double *a, const double *b, int grid_offset, void *);
 
 Buffer launch_kerneln(kernel_func_t kernel, int length, const Buffer a, const Buffer b, void *data)
 {
@@ -127,6 +139,50 @@ Buffer launchd_kernel(kerneld_func_t kernel, const Buffer a, double b, size_t of
   return out;
 }
 
+typedef void (*kernel_2d_func_t)(double *a, size_t aw, size_t ah, const double *b, size_t bw, size_t bh, int x, int y, size_t w, size_t h, size_t grid_offset);
+
+cudaError_t launch_2d_kernel(kernel_2d_func_t kernel, Buffer a, size_t aw, const Buffer b, size_t bw, int x, int y, size_t w, size_t h, void *data)
+{
+  if((a != NULL && (a->length % aw) == 0)
+     && (b != NULL && (b->length % bw) == 0)
+     && x < aw && (x + (int)w) >= 0
+     && y < (a->length / aw) && (y + (int)h) >= 0) {
+    unsigned int i, j;
+
+    //dim3 bsize(_block_dim.x, _block_dim.y);
+    dim3 bsize(min((unsigned long)_block_dim.y, w),
+               min((unsigned long)_block_dim.y, h));
+    dim3 grid_size((w + bsize.x - 1) / bsize.x,
+                   (h + bsize.y - 1) / bsize.y);
+    
+    if(grid_size.x >= _max_grid_dim.x
+       || grid_size.y >= _max_grid_dim.y) {
+      dim3 max_grid(_max_grid_dim.x, _max_grid_dim.y);
+      
+      for(j = 0; j < (1 + grid_size.y / _max_grid_dim.y); j++) {
+        for(i = 0; i < (1 + grid_size.x / _max_grid_dim.x); i++) {
+          kernel<<< max_grid, bsize >>>(a->data, aw, a->length / aw,
+                                        b? b->data : NULL, b? bw : 0, b? b->length / bw : 0,
+                                        x, y,
+                                        w, h,
+                                        j * _max_grid_dim.y * aw + i * _max_grid_dim.x);
+        }
+      }
+    } else {
+      kernel<<< grid_size, bsize >>>(a->data, aw, a->length / aw,
+                                     b? b->data : NULL, b? bw : 0, b? b->length / bw : 0,
+                                     x, y,
+                                     w, h,
+                                     0);
+    }
+    
+    return cudaGetLastError();
+  } else {
+    return cudaErrorInvalidValue;
+  }
+}
+
+
 typedef void (*modkerneld_func_t)(int, double *, double, int);
 
 void launchd_modkernel(modkerneld_func_t kernel, const Buffer a, double b, size_t offset)
@@ -162,7 +218,9 @@ PUBLIC cudaError_t buffer_init(int device)
     err = cudaGetDeviceProperties(&props, device);
     if(err == 0) {
       _block_size = props.maxThreadsPerBlock;
+      _block_dim = dim3(props.maxThreadsDim[0], props.maxThreadsDim[1], props.maxThreadsDim[2]);
       _max_grid_size = props.maxGridSize[0];
+      _max_grid_dim = dim3(props.maxGridSize[0], props.maxGridSize[1], props.maxGridSize[2]);
       _initialized = device;
 
       return cudaSuccess;
@@ -449,8 +507,8 @@ PUBLIC cudaError_t buffer_set2dv(Buffer dest, size_t dest_width, const void *src
 typedef double (*ReduceOp)(double a, double b);
 typedef void (*ReduceKernel)(const double *, double *, size_t, size_t);
 
-#define REDUCE_KERNEL(NAME, OP, INITIAL)                                        \
-  double NAME ## _initial_value = INITIAL; \
+#define REDUCE_KERNEL(NAME, OP, INITIAL)                                \
+  double NAME ## _initial_value = INITIAL;                              \
   double NAME ## _op(double a, double b)                                \
   {                                                                     \
     return OP;                                                          \
@@ -458,26 +516,26 @@ typedef void (*ReduceKernel)(const double *, double *, size_t, size_t);
                                                                         \
   __global__ void NAME(const double *data, double *partial_sums, size_t length, size_t offset) \
   {                                                                     \
-  extern __shared__ double sdata[];                                     \
-  int i = offset + grid(1); \
-  int n; \
-  \
-  sdata[threadIdx.x] = (i < length)? data[i] : INITIAL;\
-  __syncthreads();\
-\
-  for(n = blockDim.x / 2; n > 0; n = n / 2) {\
-    if(threadIdx.x < n) {\
-      double a = sdata[threadIdx.x]; \
-      double b = sdata[threadIdx.x + n];        \
-      sdata[threadIdx.x] = OP;\
-    }\
-    __syncthreads();\
-  }\
-\
-  if(threadIdx.x == 0) {                        \
-    partial_sums[blockIdx.x] = sdata[0];        \
-  }                                             \
-}
+    extern __shared__ double sdata[];                                   \
+    int i = offset + grid(1);                                           \
+    int n;                                                              \
+                                                                        \
+    sdata[threadIdx.x] = (i < length)? data[i] : INITIAL;               \
+    __syncthreads();                                                    \
+                                                                        \
+    for(n = blockDim.x / 2; n > 0; n = n / 2) {                         \
+      if(threadIdx.x < n) {                                             \
+        double a = sdata[threadIdx.x];                                  \
+        double b = sdata[threadIdx.x + n];                              \
+        sdata[threadIdx.x] = OP;                                        \
+      }                                                                 \
+      __syncthreads();                                                  \
+    }                                                                   \
+                                                                        \
+    if(threadIdx.x == 0) {                                              \
+      partial_sums[blockIdx.x] = sdata[0];                              \
+    }                                                                   \
+  }
 
 double launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer b, double initial)
 {
@@ -545,57 +603,72 @@ PUBLIC double buffer_max(const Buffer b)
   return launch_reduce(buffer_max_kernel, b);
 }
 
-#define BINARY_OP(name, operation) \
-    __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double *b, int grid_offset, void *) \
+#define BINARY_OP(name, operation)                                      \
+  __device__ inline double buffer_ ## name ## _op(double a, double b)          \
+  {                                                                     \
+    return(operation);                                                  \
+  }                                                                     \
+                                                                        \
+  __global__ void buffer_ ## name ##_inner(int len, double *out, const double *a, const double *b, int grid_offset, void *) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
     if(i < len) {                                                       \
-      operation;                                                        \
+      out[i] = buffer_ ## name ## _op(a[i], b[i]);                      \
     }                                                                   \
   }                                                                     \
                                                                         \
-  PUBLIC Buffer buffer_##name(const Buffer a, const Buffer b)         \
+  PUBLIC Buffer buffer_ ## name(const Buffer a, const Buffer b)         \
   {                                                                     \
     return launch_kernel(buffer_ ## name ## _inner, a, b, NULL);        \
-  }
-
-BINARY_OP(add, { out[i] = a[i] + b[i]; });
-BINARY_OP(sub, { out[i] = a[i] - b[i]; });
-BINARY_OP(mul, { out[i] = a[i] * b[i]; });
-BINARY_OP(pow, { out[i] = pow(a[i], b[i]); });
-BINARY_OP(div, { out[i] = a[i] / b[i]; });
-BINARY_OP(collect_eq, { out[i] = a[i] == b[i]; });
-BINARY_OP(collect_neq, { out[i] = a[i] != b[i]; });
-BINARY_OP(collect_lt, { out[i] = a[i] < b[i]; });
-BINARY_OP(collect_lte, { out[i] = a[i] <= b[i]; });
-BINARY_OP(collect_gt, { out[i] = a[i] > b[i]; });
-BINARY_OP(collect_gte, { out[i] = a[i] >= b[i]; });
-
-#define SCALAR_OP(name, operation) \
+  }                                                                     \
+                                                                        \
+  __global__ void buffer_ ## name ## _2d_inner(double *a, size_t aw, size_t ah, const double *b, size_t bw, size_t bh, int x, int y, size_t w, size_t h, size_t grid_offset) \
+  {                                                                     \
+    int bx = blockIdx.x * blockDim.x + threadIdx.x;                     \
+    int by = blockIdx.y * blockDim.y + threadIdx.y;                     \
+    int ax = bx + x;                                                    \
+    int ay = by + y;                                                    \
+    if(bx >= 0 && bx < w                                                \
+       && ax >= 0 && ax < aw                                            \
+       && by >= 0 && by < h                                             \
+       && ay >= 0 && ax < ah) {                                         \
+      int ai = grid_offset + ay * aw + ax;                              \
+      int bi = grid_offset + by * bw + bx;                              \
+      a[ai] = buffer_ ## name ## _op(a[ai], b[bi]);                     \
+    }                                                                   \
+  }                                                                     \
+                                                                        \
+  PUBLIC cudaError_t buffer_ ## name ## _2d(Buffer a, size_t aw, const Buffer b, size_t bw, int x, int y, size_t w, size_t h) \
+  {                                                                     \
+    return launch_2d_kernel(buffer_ ## name ## _2d_inner, a, aw, b, bw, x, y, w, h, NULL); \
+  }                                                                     \
+                                                                        \
   __global__ void buffer_ ## name ## d_inner(int len, double *out, const double *a, const double b, int grid_offset) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
     if(i < len) {                                                       \
-      operation;                                                        \
+      out[i] = buffer_ ## name ## _op(a[i], b);                         \
     }                                                                   \
   }                                                                     \
                                                                         \
-  PUBLIC Buffer buffer_##name ## d(const Buffer a, double b)                   \
+  PUBLIC Buffer buffer_ ## name ## d(const Buffer a, double b)            \
   {                                                                     \
     return launchd_kernel(buffer_ ## name ## d_inner, a, b, 0);         \
   }
 
-SCALAR_OP(add, { out[i] = a[i] + b; });
-SCALAR_OP(sub, { out[i] = a[i] - b; });
-SCALAR_OP(mul, { out[i] = a[i] * b; });
-SCALAR_OP(pow, { out[i] = pow(a[i], b); });
-SCALAR_OP(div, { out[i] = a[i] / b; });
-SCALAR_OP(collect_eq, { out[i] = a[i] == b; });
-SCALAR_OP(collect_neq, { out[i] = a[i] != b; });
-SCALAR_OP(collect_lt, { out[i] = a[i] < b; });
-SCALAR_OP(collect_lte, { out[i] = a[i] <= b; });
-SCALAR_OP(collect_gt, { out[i] = a[i] > b; });
-SCALAR_OP(collect_gte, { out[i] = a[i] >= b; });
+BINARY_OP(add, a + b);
+BINARY_OP(sub, a - b);
+BINARY_OP(mul, a * b);
+BINARY_OP(pow, pow(a, b));
+BINARY_OP(div, a / b);
+BINARY_OP(collect_eq, a == b);
+BINARY_OP(collect_neq, a != b);
+BINARY_OP(collect_lt, a < b);
+BINARY_OP(collect_lte, a <= b);
+BINARY_OP(collect_gt, a > b);
+BINARY_OP(collect_gte, a >= b);
+
+#undef BINARY_OP
 
 PUBLIC int buffer_eq(const Buffer a, const Buffer b)
 {
@@ -652,6 +725,9 @@ FUNCTION_OP(acosh, { out[i] = acosh(a[i]); });
 FUNCTION_OP(atanh, { out[i] = atanh(a[i]); });
 FUNCTION_OP(collect_nan, { out[i] = isnan(a[i]); });
 FUNCTION_OP(collect_inf, { out[i] = isinf(a[i]); });
+
+#undef FUNCTION_OP
+
 
 __global__ void buffer_dot_inner(double *out, const double *a, const double *b, size_t aw, size_t ah, size_t bw, size_t bh)
 {

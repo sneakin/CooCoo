@@ -757,6 +757,24 @@ shared_examples "for an AbstractVector" do
     end
   end
 
+  describe '#add_2d' do
+    subject { described_class[16.times] }
+    let(:width) { 4 }
+
+    it { expect(subject.add_2d!(width, described_class.rand(4), 2, 1, 1)).
+      to be(subject)
+    }
+    
+    it "adds a vector as a 2d block" do
+      expect(subject.add_2d!(width, described_class[[700, 800, 900, 1000]], 2, 1, 1)).
+        to eq(described_class[[ 0, 1, 2, 3,
+                                4, 5 + 700, 6 + 800, 7,
+                                8, 9 + 900, 10 + 1000, 11,
+                                12, 13, 14, 15
+                              ]])
+    end
+  end
+
   describe '#minmax' do
     subject { described_class[32.times] - 16 }
     

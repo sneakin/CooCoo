@@ -86,7 +86,7 @@ module CooCoo
           area_output = deltas[grid_y][grid_x]
           gx = grid_x * horizontal_step
           gy = grid_y * vertical_step
-          out.add2d!(w, area_output, inner_width, gx, gy)
+          out.add_2d!(w, area_output, inner_width, gx, gy)
         end
 
         out
