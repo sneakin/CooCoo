@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    CooCoo (0.1.0)
+    CooCoo (0.2.1)
       cairo
       chunky_png
       colorize
@@ -18,16 +18,12 @@ GEM
     cairo (1.15.11)
       native-package-installer (>= 1.0.3)
       pkg-config (>= 1.2.2)
-    cairo (1.15.11-x64-mingw32)
-      native-package-installer (>= 1.0.3)
-      pkg-config (>= 1.2.2)
     chunky_png (1.3.8)
     coderay (1.1.2)
     colorize (0.8.1)
     diff-lcs (1.3)
     docile (1.1.5)
     ffi (1.9.18)
-    ffi (1.9.18-x64-mingw32)
     json (2.1.0)
     method_source (0.9.0)
     mini_portile2 (2.3.0)
@@ -35,8 +31,6 @@ GEM
     nmatrix (0.2.4)
       packable (~> 1.3, >= 1.3.5)
     nokogiri (1.8.1)
-      mini_portile2 (~> 2.3.0)
-    nokogiri (1.8.1-x64-mingw32)
       mini_portile2 (~> 2.3.0)
     packable (1.3.9)
       backports

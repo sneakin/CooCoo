@@ -43,7 +43,7 @@ namespace :spec do
   desc "Run the specs with HTML output."
   RSpec::Core::RakeTask.new(:html => :compile) do |t, args|
     t.pattern = "spec/**/*.spec"
-    t.rspec_opts = '-fhtml -o doc/spec.html'
+    t.rspec_opts = '-fhtml -o doc/spec.html -fprogress'
   end
 
   desc "Run the specs with code coverage."
