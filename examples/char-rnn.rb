@@ -111,11 +111,15 @@ class AsciiInputEncoder < InputEncoder
   end
 end
 
-def training_enumerator(data, sequence_size, encoder)
+def training_enumerator(data, sequence_size, encoder, drift = 1)
   Enumerator.new do |yielder|
     data.size.times do |i|
-      input = data[0, sequence_size].collect { |e| encoder.encode_input(e || 0) }
-      output = data[1, sequence_size].collect { |e| encoder.encode_input(e || 0) }
+      input = data[i, sequence_size].collect { |e| encoder.encode_input(e || 0) }
+      output = data[i + drift, sequence_size].collect { |e| encoder.encode_input(e || 0) }
+      if output.size < input.size
+        output += (input.size - output.size).times.collect { encoder.encode_input(0) }
+      end
+      
       yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
     end
     # iters = sequence_size.times.collect { |i| data.each.drop(i) }
@@ -153,6 +157,7 @@ if __FILE__ == $0
   options.backprop_limit = nil
   options.trainer = nil
   options.sequence_size = 4
+  options.drift = 1
   options.num_layers = 1
   options.hidden_size = nil
   options.num_recurrent_layers = 2
@@ -222,6 +227,10 @@ if __FILE__ == $0
       n = n.to_i
       raise ArgumentError.new("sequence-size must be > 0") if n <= 0
       options.sequence_size = n
+    end
+
+    o.on('--drift NUMBER') do |n|
+      options.drift = n.to_i
     end
 
     o.on('--layers NUMBER') do |n|
@@ -333,16 +342,17 @@ if __FILE__ == $0
   data = data.bytes
   puts("Read #{data.size} bytes")
 
-  puts("Splitting into #{options.sequence_size} byte sequences.")
-  training_data = training_enumerator(data, options.sequence_size, encoder)
-
   if options.trainer
+    puts("Splitting into #{options.sequence_size} byte sequences.")
+    training_data = training_enumerator(data, options.sequence_size, encoder, options.drift)
+    
     puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{trainer_options.batch_size} at a learning rate of #{trainer_options.learning_rate}...")
 
     trainer = options.trainer
     bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / trainer_options.batch_size.to_f).ceil)
     trainer.train({ network: net,
                     data: training_data.cycle(options.epochs),
+                    reset_state: options.sequence_size > 1,
                   }.merge(trainer_options.to_h)) do |stats|
       cost = stats.average_loss.average
       raise 'Cost went to NAN' if cost.nan?

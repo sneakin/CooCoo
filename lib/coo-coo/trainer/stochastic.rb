@@ -16,12 +16,14 @@ module CooCoo
         learning_rate = options.fetch(:learning_rate, 0.3)
         batch_size = options.fetch(:batch_size, 1024)
         cost_function = options.fetch(:cost_function, CostFunctions::MeanSquare)
+        reset_state = options.fetch(:reset_state, true)
         
         t = Time.now
+        hidden_state = Hash.new
         
         training_data.each_slice(batch_size).with_index do |batch, i|
           total_errs = batch.inject(nil) do |acc, (expecting, input)|
-            errs, hidden_state = learn(network, input, expecting, learning_rate, cost_function, Hash.new)
+            errs, hidden_state = learn(network, input, expecting, learning_rate, cost_function, reset_state ? Hash.new : hidden_state)
             errs + (acc || 0)
           end
 
