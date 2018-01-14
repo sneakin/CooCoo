@@ -15,7 +15,7 @@ class ExportScanner
     @typedefs = typedefs
   end
 
-  FunctionPrototype = Struct.new(:name, :return_type, :args, :definition)
+  FunctionPrototype = Struct.new(:name, :return_type, :return_pointer, :args, :definition)
   
   class Argument
     attr_accessor :const
@@ -42,12 +42,15 @@ class ExportScanner
   end
 
   def scan_function(f)
-    m = f.match(/(\w+)\s+(\w+)\s*\((.*)\)/)
+    m = f.match(/(\w+)\s+(\*?)\s*(\w+)\s*\((.*)\)/)
     if m
-      func = m[2]
-      args = parse_args(m[3])
+      func = m[3]
+      args = parse_args(m[4])
       ret = m[1].strip
-      FunctionPrototype.new(func, ret, args, f)
+      pointer = !m[2].empty?
+      FunctionPrototype.new(func, ret, pointer, args, f)
+    else
+      raise RuntimeError.new("Error scanning function #{f.inspect}")
     end
   end
 
@@ -112,12 +115,16 @@ extern "C" {
 EOT
   end
 
-  def ffi_type(a, pointer = nil)
+  def ffi_type(a, pointer = nil, unmanaged = nil)
     a = @typedefs[a] if @typedefs.has_key?(a)
     if FFI::TypeDefs[a.to_sym]
       ":" + FFI::TypeDefs.key(FFI::TypeDefs[a.to_sym]).to_s
     elsif pointer
-      "#{a}.auto_ptr"
+      if unmanaged
+        "#{a}.ptr"
+      else
+        "#{a}.auto_ptr"
+      end
     else
       a
     end
@@ -134,7 +141,7 @@ EOT
     end
 
     ret = f.return_type
-    ret = ffi_type(ret, true)
+    ret = ffi_type(ret, true, f.return_pointer)
 
     "    attach_function :#{func}, [ #{args.join(', ')} ], #{ret}"
   end
