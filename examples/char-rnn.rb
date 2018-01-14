@@ -119,16 +119,9 @@ def training_enumerator(data, sequence_size, encoder, drift = 1)
       if output.size < input.size
         output += (input.size - output.size).times.collect { encoder.encode_input(0) }
       end
-      
+
       yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
     end
-    # iters = sequence_size.times.collect { |i| data.each.drop(i) }
-    # iters[0].zip(*iters.drop(1)).
-    #   each_with_index do |values, i|
-    #   input = values[0, values.size - 1].collect { |e| encoder.encode_input(e || 0) }
-    #   output = values[1, values.size - 1].collect { |e| encoder.encode_input(e || 0) }
-    #   yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
-    # end
   end
 end
 

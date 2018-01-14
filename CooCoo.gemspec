@@ -9,12 +9,11 @@ Gem::Specification.new do |s|
   s.platform    = Gem::Platform::RUBY
   s.authors     = ["Nolan Eakins"]
   s.email       = ["sneakin+coocoo@semanticgap.com"]
-  s.homepage    = "https://github.com/sneakin/CooCoo"
+  s.homepage    = "https://CooCoo.network/"
   s.summary     = "Neural networks in Ruby and CUDA."
   s.license     = "GPL"
 
   if s.respond_to?(:metadata)
-    s.metadata['allowed_push_host'] = "TODO: Set to 'http://mygemserver.com'"
     s.metadata['yard.run'] = 'yri'
   else
     raise "RubyGems 2.0 or newer is required to protect against " \
