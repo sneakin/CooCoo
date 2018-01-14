@@ -70,21 +70,40 @@ module CooCoo
         self.class[samples]
       end
 
-      def set2d!(width, src, src_width, x, y)
+      def set2d_with!(width, src, src_width, x, y)
         raise ArgumentError.new("src's size needs to be a multiple of the width") if src.kind_of?(self.class) && src.size % src_width > 0
         
         src.each_slice(src_width).with_index do |row, i|
           index = (y+i) * width + x
-          next if index >= size
+          next if index < 0 || index >= size
           row.each_with_index do |p, px|
             break if (x + px) >= width
-            self[index.to_i + px] = p
+            next if (x + px) < 0
+            self[index.to_i + px] = if block_given?
+                                      yield(self[index.to_i + px], p)
+                                    else
+                                      p
+                                    end
           end
         end
 
         self
       end
 
+      def set2d!(width, src, src_width, x, y)
+        set2d_with!(width, src, src_width, x, y)
+      end
+      
+      def add2d!(width, src, src_width, x, y)
+        set2d_with!(width, src, src_width, x, y) do |v, other|
+          v + other
+        end
+      end
+
+      def add2d(*args)
+        self.clone.add2d!(*args)
+      end
+      
       def collect_equal?(n)
         if n.respond_to?(:each)
           self.class[each.zip(n).collect { |a, b| a == b ? 1.0 : 0.0 }]

@@ -1,3 +1,4 @@
+require 'coo-coo/sequence'
 require 'coo-coo/layer_factory'
 
 module CooCoo
@@ -64,14 +65,28 @@ module CooCoo
         internal_layer.neurons
       end
 
-      def flatten_areas(outputs, w, h, inner_width)
+      def flatten_areas(outputs, w, h, inner_width, inner_height)
         out = CooCoo::Vector.new(w * h)
         
         each_area do |grid_x, grid_y|
           area_output = outputs[grid_y][grid_x]
-          gx = grid_x * w / horizontal_span.to_f
-          gy = grid_y * h / vertical_span.to_f
+          gx = grid_x * inner_width #w / horizontal_span.to_f
+          gy = grid_y * inner_height #h / vertical_span.to_f
+          #puts("flatten #{out.size} #{grid_x} #{grid_y}\t#{gx} #{gy}\t#{inner_width} #{inner_height}")
           out.set2d!(w, area_output, inner_width, gx, gy)
+        end
+
+        out
+      end
+
+      def flatten_deltas(deltas, w, h, inner_width, inner_height)
+        out = CooCoo::Vector.new(w * h)
+        
+        each_area do |grid_x, grid_y|
+          area_output = deltas[grid_y][grid_x]
+          gx = grid_x * horizontal_step
+          gy = grid_y * vertical_step
+          out.add2d!(w, area_output, inner_width, gx, gy)
         end
 
         out
@@ -86,7 +101,7 @@ module CooCoo
           output
         end
         hidden_state[self] = hs
-        [ flatten_areas(outputs, horizontal_span * int_output_width, vertical_span * int_output_height, int_output_width), hidden_state ]
+        [ flatten_areas(outputs, horizontal_span * int_output_width, vertical_span * int_output_height, int_output_width, int_output_height), hidden_state ]
       end
 
       def backprop(input, output, errors, hidden_state)
@@ -102,9 +117,9 @@ module CooCoo
       end
 
       def transfer_error(deltas)
-        flatten_areas(each_area do |grid_x, grid_y|
-                        @internal_layer.transfer_error(deltas[grid_y][grid_x]).to_a
-                      end, width, height, input_width)
+        flatten_deltas(each_area do |grid_x, grid_y|
+                         @internal_layer.transfer_error(deltas[grid_y][grid_x])
+                       end, width, height, input_width, input_height)
       end
 
       def update_weights!(inputs, deltas)

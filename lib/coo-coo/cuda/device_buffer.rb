@@ -116,7 +116,7 @@ module CooCoo
           ow ||= w
           oh ||= h
           raise ArgumentError.new("width (#{w}) must match the other's height (#{oh})") if w != oh
-          raise ArgumentError.new("width * height != size") if size != w * h
+          raise ArgumentError.new("width (#{w}) * height (#{h}) != size (#{size})") if size != w * h
           raise ArgumentError.new("other's width * height != other's size (#{ow} * #{oh} != #{other.size})") if other.size != ow * oh
           raise ArgumentError.new("other is null") if other.null?
           raise ArgumentError.new("self is null") if null?

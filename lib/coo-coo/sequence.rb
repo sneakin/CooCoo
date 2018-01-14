@@ -31,6 +31,10 @@ module CooCoo
       @elements
     end
 
+    def pack(*args)
+      @elements.pack(*args)
+    end
+
     def to_s
       values = each.collect do |e|
         e.to_s

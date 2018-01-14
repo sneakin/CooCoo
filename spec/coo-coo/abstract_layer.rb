@@ -63,7 +63,15 @@ shared_examples 'for an abstract layer' do
     end
   end
   
-  describe '#transfer_error'
+  describe '#transfer_error' do
+    let(:forward) { subject.forward(input, {}) }
+    let(:cost) { expected_output - forward[0] }
+    let(:backprop) { subject.backprop(input, forward[0], cost, forward[1]) }
+    let(:xfer) { subject.transfer_error(backprop[0]) }
+
+    it { expect(xfer.size).to eq(subject.num_inputs) }
+  end
+  
   describe '#update_weights!'
   describe '#adjust_weights!'
 

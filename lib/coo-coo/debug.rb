@@ -1,3 +1,5 @@
+require 'pry'
+
 module CooCoo
   def self.debug(msg, *args)
     $stderr.puts(msg)

@@ -69,6 +69,10 @@ module CooCoo
         self.class.new(self.size).set(@elements)
       end
 
+      def dup
+        clone
+      end
+
       def append(other)
         b = self.class.new(size + other.size)
         b[0, size] = self
@@ -300,7 +304,7 @@ EOT
 
       def set2d!(width, src, src_width, x, y)
         raise ArgumentError.new("src's size #{src.size} must be divisible by src_width #{src_width}") if src.respond_to?(:each) && src.size % src_width > 0
-        
+
         src = src.elements if src.kind_of?(self.class)
         @elements.set2d!(width, src, src_width, x, y)
         self

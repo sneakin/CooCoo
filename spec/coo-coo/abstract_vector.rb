@@ -204,13 +204,20 @@ shared_examples "for an AbstractVector" do
     end
   end
 
-  describe '#clone' do
-    subject { described_class[16.times.each] }
+  [ :clone, :dup ].each do |meth|
+    describe "\##{meth}" do
+      let(:meth) { meth }
+      subject { described_class[16.times.each] }
 
-    it { expect(subject.clone).to be_kind_of(described_class) }
-    it { expect(subject.clone).to eq(subject) }
-    it { expect(subject.clone.size).to eq(subject.size) }
-    it { expect(subject.clone.object_id).to_not be(subject.object_id) }
+      def do_it
+        subject.send(meth)
+      end
+
+      it { expect(do_it).to be_kind_of(described_class) }
+      it { expect(do_it).to eq(subject) }
+      it { expect(do_it.size).to eq(subject.size) }
+      it { expect(do_it.object_id).to_not be(subject.object_id) }
+    end
   end
   
   describe '#[]' do
