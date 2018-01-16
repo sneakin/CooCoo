@@ -69,7 +69,7 @@ class File
     
     self
   rescue
-    File.delete(tmp)
+    File.delete(tmp) if File.exists?(tmp)
     raise
   end
 end

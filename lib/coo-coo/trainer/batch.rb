@@ -38,8 +38,10 @@ module CooCoo
             errors = cost_function.derivative(target, final_output)
             new_deltas, hidden_state = network.backprop(input, output, errors, hidden_state)
             new_deltas = network.weight_deltas(input, output, new_deltas * learning_rate)
-
-            [ new_deltas, cost_function.call(target, final_output) ]
+            cost = cost_function.call(target, final_output)
+            cost = cost.average if cost.kind_of?(Sequence)
+            
+            [ new_deltas, cost ]
           end
 
           deltas, total_errors = deltas_errors.transpose

@@ -32,6 +32,7 @@ module CooCoo
           last_delta = 0.0
           total_errs = batch.inject(nil) do |acc, (expecting, input)|
             errs, hidden_state, last_delta = learn(network, input, expecting, learning_rate, last_delta, momentum, cost_function, Hash.new)
+            errs = errs.average if errs.kind_of?(Sequence)
             errs + (acc || 0)
           end
 

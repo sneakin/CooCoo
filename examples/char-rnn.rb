@@ -111,11 +111,23 @@ class AsciiInputEncoder < InputEncoder
   end
 end
 
+def training_by_line_enumerator(data, encoder, drift = 1)
+  Enumerator.new do |yielder|
+    data.split("\n").each do |line|
+      line = line.bytes
+      input = line.collect { |e| encoder.encode_input(e) } + [ encoder.encode_input("\n".bytes[0]) ]
+      output = input[drift, input.size - drift] + drift.times.collect { encoder.encode_input(0) }
+      yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
+    end
+  end
+end
+
 def training_enumerator(data, sequence_size, encoder, drift = 1)
   Enumerator.new do |yielder|
     data.size.times do |i|
-      input = data[i, sequence_size].collect { |e| encoder.encode_input(e || 0) }
-      output = data[i + drift, sequence_size].collect { |e| encoder.encode_input(e || 0) }
+      d = data[i, sequence_size + drift].collect { |e| encoder.encode_input(e || 0) }
+      input = d[0, sequence_size]
+      output = d[drift, sequence_size]
       if output.size < input.size
         output += (input.size - output.size).times.collect { encoder.encode_input(0) }
       end
@@ -149,7 +161,9 @@ if __FILE__ == $0
   options.input_path = nil
   options.backprop_limit = nil
   options.trainer = nil
+  options.cost_function = CooCoo::CostFunctions::MeanSquare
   options.sequence_size = 4
+  options.by_line = false
   options.drift = 1
   options.num_layers = 1
   options.hidden_size = nil
@@ -220,6 +234,10 @@ if __FILE__ == $0
       n = n.to_i
       raise ArgumentError.new("sequence-size must be > 0") if n <= 0
       options.sequence_size = n
+    end
+
+    o.on('--by-line', 'toggle whether to adjust sequence sizes to each line of input') do
+      options.by_line = !options.by_line
     end
 
     o.on('--drift NUMBER') do |n|
@@ -332,12 +350,16 @@ if __FILE__ == $0
            puts("Reading stdin...")
            $stdin.read
          end
-  data = data.bytes
   puts("Read #{data.size} bytes")
 
   if options.trainer
-    puts("Splitting into #{options.sequence_size} byte sequences.")
-    training_data = training_enumerator(data, options.sequence_size, encoder, options.drift)
+    training_data = if options.by_line
+                      puts("Splitting input into lines.")
+                      training_by_line_enumerator(data, encoder, options.drift)
+                    else
+                      puts("Splitting input into #{options.sequence_size} byte sequences.")
+                      training_enumerator(data, options.sequence_size, encoder, options.drift)
+                    end
     
     puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{trainer_options.batch_size} at a learning rate of #{trainer_options.learning_rate}...")
 
@@ -345,9 +367,9 @@ if __FILE__ == $0
     bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / trainer_options.batch_size.to_f).ceil)
     trainer.train({ network: net,
                     data: training_data.cycle(options.epochs),
-                    reset_state: options.sequence_size > 1,
+                    reset_state: options.by_line || options.sequence_size > 1,
                   }.merge(trainer_options.to_h)) do |stats|
-      cost = stats.average_loss.average
+      cost = stats.average_loss
       raise 'Cost went to NAN' if cost.nan?
       status = [ "Cost #{cost.average} #{options.verbose ? cost : ''}" ]
 
@@ -366,7 +388,7 @@ if __FILE__ == $0
   
   if options.generator
     o, hidden_state = net.predict(encoder.encode_string(options.generator_init), {})
-    data.each do |b|
+    data.each_byte do |b|
       o, hidden_state = net.predict(encoder.encode_input(b), hidden_state)
     end
     options.generator_amount.to_i.times do |n|
@@ -381,28 +403,21 @@ if __FILE__ == $0
   else
     puts("Predicting:")
     hidden_state = nil
-    s = data.size.times.collect do |i|
-      input = data[i, options.sequence_size].collect { |e| encoder.encode_input(e || 0) }
+
+    training_data = if options.by_line
+                      training_by_line_enumerator(data, encoder, options.drift)
+                    else
+                      training_enumerator(data, options.sequence_size, encoder, options.drift)
+                    end
+
+    s = training_data.collect do |target, input|
       output, hidden_state = net.predict(input, hidden_state)
-      output.collect { |b| encoder.decode_output(b) }
+      [ output.collect { |b| encoder.decode_output(b) }, input, options.cost_function.call(target, output) ]
     end
 
-    s.each_with_index do |c, i|
-      input = data[i, options.sequence_size]
-      puts("#{i} #{input.inspect} -> #{c.inspect}\t#{encoder.decode_sequence(input)} -> #{encoder.decode_sequence(c)}")
+    s.each_with_index do |(c, input, cost), i|
+      input = input.collect { |b| encoder.decode_output(b) }
+      puts("#{i}\t#{cost.average.average}\t#{encoder.decode_sequence(input).inspect} -> #{encoder.decode_sequence(c).inspect}\t#{input} -> #{c}")
     end
-
-    puts(encoder.decode_sequence(s.collect(&:first)))
-    puts(encoder.decode_sequence(s.collect(&:last)))
-
-    hidden_state = nil
-    c = data[rand(data.size)]
-    s = data.size.times.collect do |i|
-      o, hidden_state = net.predict(encoder.encode_input(c), hidden_state)
-      c = encoder.decode_output(o)
-    end
-
-    puts(s.inspect)
-    puts(encoder.decode_sequence(s))
   end
 end

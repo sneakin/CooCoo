@@ -83,7 +83,9 @@ module CooCoo
     end
 
     def backprop(inputs, outputs, errors, hidden_state = nil)
-      errors = Sequence.new(outputs.size) { errors / outputs.size.to_f } unless errors.kind_of?(Sequence)
+      unless errors.kind_of?(Sequence)
+        errors = Sequence.new(outputs.size) { errors }
+      end
       
       o = outputs.zip(inputs, errors).reverse.collect do |output, input, err|
         output, hidden_state = @network.backprop(input, output, err, hidden_state)

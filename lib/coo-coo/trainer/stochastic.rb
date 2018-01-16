@@ -24,6 +24,7 @@ module CooCoo
         training_data.each_slice(batch_size).with_index do |batch, i|
           total_errs = batch.inject(nil) do |acc, (expecting, input)|
             errs, hidden_state = learn(network, input, expecting, learning_rate, cost_function, reset_state ? Hash.new : hidden_state)
+            errs = errs.average if errs.kind_of?(Sequence)
             errs + (acc || 0)
           end
 
