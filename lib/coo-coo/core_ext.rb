@@ -44,6 +44,17 @@ class Array
   def zero
     self.class.new(size, 0.0)
   end
+
+  def rand
+    self[Random.rand(size)]
+  end
+end
+
+class Hash
+  def rand
+    k = keys[Random.rand(size)]
+    [ self[k], k ]
+  end
 end
 
 class File

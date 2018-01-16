@@ -5,6 +5,15 @@ module CooCoo
   module Drawing
     class Canvas
       attr_accessor :fill_color, :stroke_color
+      attr_reader :width, :height
+
+      def initialize(width, height)
+        @width = width
+        @height = height
+
+        self.fill_color = 'white'
+        self.stroke_color = 'black'
+      end
 
       def fill_color=(c)
         @fill_color = ChunkyPNG::Color.parse(c)

@@ -9,11 +9,16 @@ module CooCoo
       def initialize(img_or_width, height = nil)
         if height
           img = ChunkyPNG::Image.new(img_or_width, height)
+          width = img_or_width
         else
           img = img_or_width
+          width = img.width
+          height = img.height
         end
         
         @image = img
+
+        super(width, height)
       end
 
       def line(x1, y1, x2, y2)

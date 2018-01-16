@@ -236,6 +236,28 @@ module CooCoo
         def each_sample(&block)
           @samples.each(&block)
         end
+
+        def slope(sample_index)
+          before = @samples[sample_index - 1]
+          sample = @samples[sample_index]
+          after = @samples[sample_index + 1]
+
+          before_dx = 0.0
+          before_dy = 0.0
+          if before
+            before_dx = (sample.x - before.x)
+            before_dy = (sample.y - before.y)
+          end
+
+          after_dx = 0.0
+          after_dy = 0.0
+          if after
+            after_dx = (after.x - sample.x)
+            after_dy = (after.y - sample.y)
+          end
+
+          [ (before_dx + after_dx) / 2.0, (before_dy + after_dy) / 2.0 ]
+        end
         
         def translate(dx, dy)
           self.class.new(tool, color, samples.collect { |s| s.translate(dx, dy) })

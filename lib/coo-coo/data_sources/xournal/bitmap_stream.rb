@@ -13,8 +13,10 @@ module CooCoo
         attr_reader :example_width, :example_height
         attr_accessor :canvas_klass
         attr_accessor :pen_scale
-        attr_reader :use_color
         attr_accessor :shuffle
+        attr_reader :use_color
+        attr_accessor :random_colors
+        attr_accessor :velocity
         
         def initialize(options = Hash.new)
           @training_documents = Array.new
@@ -31,6 +33,8 @@ module CooCoo
           @canvas_klass = options.fetch(:canvas, Drawing::CairoCanvas)
           @use_color = options.fetch(:use_color, false)
           @shuffle = options.fetch(:shuffle, 16)
+          @random_colors = options.fetch(:random_colors, true)
+          @velocity = options.fetch(:velocity, false)
 
           options[:training_documents].each do |td|
             add_training_document(td)
@@ -88,15 +92,46 @@ module CooCoo
           @labels[output.each.with_index.max[1]]
         end
 
+        def random_color(last_color = @last_color, max_value = 256)
+          c = nil
+          begin
+            c = if @use_color
+                  ChunkyPNG::Color.rgb(rand(max_value), rand(max_value), rand(max_value))
+                else
+                  v = rand(max_value)
+                  ChunkyPNG::Color.rgb(v, v, v)
+                end
+          end until c != last_color
+
+          @last_color = c
+          c
+        end
+        
         def encode_strokes_to_canvas(strokes, canvas)
-          canvas.fill_color = 'white'
-          canvas.stroke_color = 'white'
+          fg = @random_colors ? random_color : 'black'
+          bg = @random_colors ? random_color(fg) : 'white'
+          canvas.fill_color = bg
+          canvas.stroke_color = bg
           canvas.rect(0, 0, @example_width, @example_height)
           ren = Renderer.new
 
           strokes.each do |stroke|
-            ren.render_stroke(canvas, stroke, 0, 0, 1, 1, @example_width, @example_height)
+            ren.render_stroke(canvas, stroke, 0, 0, 1, 1, @example_width, @example_height) do |i, x, y, w, c|
+              [ x, y, w, if @velocity
+                           color_xy(*stroke.slope(i))
+                         else
+                           fg
+                         end
+              ]
+            end
           end
+        end
+        
+        def color_xy(x, y)
+          xc = Math.clamp(128 + 128 * (x * 64), 0, 256)
+          yc = Math.clamp(128 + 128 * (y * 64), 0, 256)
+          CooCoo.debug("#{x} #{y} #{xc} #{yc}")
+          ChunkyPNG::Color.rgb(xc.to_i, 0, yc.to_i)
         end
         
         def encode_strokes(strokes, return_canvas = false)
@@ -186,6 +221,14 @@ if $0 != __FILE__
       n = n.to_i
       raise ArgumentError.new('data-shuffle must be > 0') if n <= 0
       @options.shuffle = n
+    end
+
+    o.on('--data-shuffle-colors', 'toggles if strokes are to be rendered with random colors on random backgrounds') do
+      @options.random_colors = !@options.random_colors
+    end
+
+    o.on('--data-color', 'toggles if examples are to be rendered in three color channels') do
+      @options.use_color = !@options.use_color
     end
   end
 

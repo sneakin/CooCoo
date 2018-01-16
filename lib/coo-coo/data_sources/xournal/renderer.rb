@@ -73,17 +73,24 @@ module CooCoo
           canvas.blit(src.raw_data, ((src.left - min_x) * zx), ((src.top - min_y) * zy), src.width * zx, src.height * zy)
         end
 
-        def render_stroke(canvas, stroke, min_x, min_y, max_x, max_y, zx, zy)
-          points = stroke.each_sample.inject([]) do |acc, sample|
+        def render_stroke(canvas, stroke, min_x, min_y, max_x, max_y, zx, zy, &block)
+          color = chunky_color(stroke.color) unless block_given?
+          points = stroke.each_sample.with_index.inject([]) do |acc, (sample, i)|
             #next unless sample.within?(min_x, min_y, max_x, max_y)
-            acc << [ (sample.x - min_x) * zx,
-                     (sample.y - min_y) * zy,
-                     sample.width * zx
-                   ]
+            x = (sample.x - min_x) * zx
+            y = (sample.y - min_y) * zy
+            w = sample.width * zx
+            data = if block_given?
+                     yield(i, x, y, w, color)
+                   else
+                     [ x, y, w, color ]
+                   end
+            color ||= data[3]
+            acc << data
           end
 
-          canvas.stroke_color = chunky_color(stroke.color)
-          canvas.fill_color = chunky_color(stroke.color)
+          canvas.stroke_color = color
+          canvas.fill_color = color
           canvas.stroke(points)
         end
 
