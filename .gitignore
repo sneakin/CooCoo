@@ -14,3 +14,7 @@ ext/buffer/*.cu
 !ext/buffer/*.pre.cu
 ext/buffer/*ffi.rb
 ext/buffer/*.h
+examples/t10k-images-idx3-ubyte
+examples/t10k-labels-idx1-ubyte
+examples/train-images-idx3-ubyte
+examples/train-labels-idx1-ubyte

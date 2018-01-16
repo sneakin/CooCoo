@@ -68,12 +68,10 @@ module CooCoo
       end
       
       def accumulate_deltas(deltas)
-        weight = 1.0 / deltas.size.to_f
-        
         acc = deltas[0]
         deltas[1, deltas.size].each do |step|
           step.each_with_index do |layer, i|
-            acc[i] += layer * weight
+            acc[i] += layer
           end
         end
 

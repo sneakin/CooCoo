@@ -19,12 +19,12 @@ module MNist
   Height = 28
 
   module Fetcher
-    def fetch_gzip_url(url)
+    def self.fetch_gzip_url(url)
       data = Net::HTTP.get(url)
       Zlib::GzipReader.new(StringIO.new(data)).read
     end
     
-    def fetch!
+    def self.fetch!
       MNIST_URIS.each do |uri|
         uri = URI.parse(uri)
         path = PATH.dirname.join(File.basename(uri.path).sub(".gz", ""))
