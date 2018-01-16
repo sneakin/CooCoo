@@ -358,7 +358,7 @@ if __FILE__ == $0
                       training_by_line_enumerator(data, encoder, options.drift)
                     else
                       puts("Splitting input into #{options.sequence_size} byte sequences.")
-                      training_enumerator(data, options.sequence_size, encoder, options.drift)
+                      training_enumerator(data.bytes, options.sequence_size, encoder, options.drift)
                     end
     
     puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{trainer_options.batch_size} at a learning rate of #{trainer_options.learning_rate}...")
@@ -407,7 +407,7 @@ if __FILE__ == $0
     training_data = if options.by_line
                       training_by_line_enumerator(data, encoder, options.drift)
                     else
-                      training_enumerator(data, options.sequence_size, encoder, options.drift)
+                      training_enumerator(data.bytes, options.sequence_size, encoder, options.drift)
                     end
 
     s = training_data.collect do |target, input|
