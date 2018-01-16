@@ -68,14 +68,12 @@ module CooCoo
       end
       
       def accumulate_deltas(deltas)
-        acc = deltas[0]
-        deltas[1, deltas.size].each do |step|
+        deltas[1, deltas.size].reduce(deltas[0].dup) do |acc, step|
           step.each_with_index do |layer, i|
             acc[i] += layer
+            acc
           end
         end
-
-        acc
       end
     end    
   end
