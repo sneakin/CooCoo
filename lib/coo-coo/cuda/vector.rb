@@ -57,8 +57,8 @@ module CooCoo
         self.zeros(size)
       end
 
-      def self.identity(w, h)
-        self[DeviceBuffer.identity(w, h)]
+      def self.identity(size)
+        self[DeviceBuffer.identity(size)]
       end
 
       def diagflat

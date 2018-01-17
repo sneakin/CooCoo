@@ -222,8 +222,8 @@ module CooCoo
       ffi_operator(:**, :pow)
       ffi_operator(:/, :div)
 
-      def self.identity(w, h)
-        FFI.buffer_identity(w, h)
+      def self.identity(size)
+        FFI.buffer_identity(size)
       end
 
       def diagflat

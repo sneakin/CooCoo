@@ -16,23 +16,23 @@ __device__ int grid(int ndims)
 {
   int ret = blockIdx.x * blockDim.x + threadIdx.x;
   if(ndims == 2) {
-    ret += threadIdx.y + blockIdx.y * blockDim.y * blockDim.x;
+    ret += (threadIdx.y + blockIdx.y * blockDim.y) * blockDim.x;
   } else if(ndims == 3) {
-    ret += threadIdx.z + blockIdx.z * blockDim.z * blockDim.y * blockDim.x;
+    ret += (threadIdx.z + blockIdx.z * blockDim.z) * blockDim.y * blockDim.x;
   }
 
   return ret;
 }
 
 static int _initialized = -1;
-static int _block_size = 1024;
+static size_t _block_size = 1024;
 static dim3 _block_dim(1024, 1024, 64);
-static int _max_grid_size = 2147483647;
+static size_t _max_grid_size = 2147483647;
 static dim3 _max_grid_dim(2147483647, 65535, 65535);
 
 //static int _threads_per_block = 1;
 
-PUBLIC int buffer_block_size()
+PUBLIC size_t buffer_block_size()
 {
   return _block_size;
 }
@@ -42,12 +42,12 @@ PUBLIC dim3 *buffer_block_dim()
   return &_block_dim;
 }
 
-PUBLIC void buffer_set_block_size(int bs)
+PUBLIC void buffer_set_block_size(size_t bs)
 {
   _block_size = bs;
 }
 
-PUBLIC int buffer_max_grid_size()
+PUBLIC size_t buffer_max_grid_size()
 {
   return _max_grid_size;
 }
@@ -57,11 +57,13 @@ PUBLIC dim3 *buffer_max_grid_dim()
   return &_max_grid_dim;
 }
 
-PUBLIC void buffer_set_max_grid_size(int gs)
+PUBLIC void buffer_set_max_grid_size(size_t gs)
 {
   _max_grid_size = gs;
 }
 
+static size_t _total_memory = 0;
+static size_t _total_bytes_free = 0;
 static size_t _total_bytes_allocated = 0;
 
 PUBLIC size_t buffer_total_bytes_allocated()
@@ -82,10 +84,10 @@ typedef void (*kernel_func_t)(int len, double *out, const double *a, const doubl
 Buffer launch_kerneln(kernel_func_t kernel, int length, const Buffer a, const Buffer b, void *data)
 {
   Buffer out;
-  int i;
+  size_t i;
 
   if(a != NULL) {
-    int grid_size = (length + _block_size - 1) / _block_size;
+    size_t grid_size = (length + _block_size - 1) / _block_size;
     
     out = buffer_new(length, 0.0);
     if(out == NULL) {
@@ -119,10 +121,10 @@ typedef void (*kerneld_func_t)(int, double *, const double *, double, int);
 Buffer launchd_kernel(kerneld_func_t kernel, const Buffer a, double b, size_t offset)
 {
   Buffer out;
-  int i;
+  size_t i;
 
   size_t length = a->length - offset;
-  int grid_size = (length + _block_size - 1) / _block_size;
+  size_t grid_size = (length + _block_size - 1) / _block_size;
 
   if(a == NULL) return NULL;
 
@@ -187,10 +189,9 @@ typedef void (*modkerneld_func_t)(int, double *, double, int);
 
 void launchd_modkernel(modkerneld_func_t kernel, const Buffer a, double b, size_t offset)
 {
-  int i;
-
+  size_t i;
   size_t length = a->length - offset;
-  int grid_size = (length + _block_size - 1) / _block_size;
+  size_t grid_size = (length + _block_size - 1) / _block_size;
 
   if(a == NULL) return;
 
@@ -221,6 +222,11 @@ PUBLIC cudaError_t buffer_init(int device)
       _block_dim = dim3(props.maxThreadsDim[0], props.maxThreadsDim[1], props.maxThreadsDim[2]);
       _max_grid_size = props.maxGridSize[0];
       _max_grid_dim = dim3(props.maxGridSize[0], props.maxGridSize[1], props.maxGridSize[2]);
+      err = cudaMemGetInfo(&_total_bytes_free, &_total_memory);
+      if(err != cudaSuccess) {
+        return err;
+      }
+
       _initialized = device;
 
       return cudaSuccess;
@@ -259,13 +265,15 @@ PUBLIC cudaError_t buffer_setd(Buffer b, double value, size_t offset, size_t len
 
 PUBLIC Buffer buffer_new(size_t length, double initial_value)
 {
-  Buffer ptr = (Buffer)malloc(sizeof(Buffer_s));;
-  if(buffer_init(0) != 0) {
+  size_t bytes = length * sizeof(double);
+    
+  if(buffer_init(0) != 0 || bytes >= _total_memory) {
     return NULL;
   }
-
+  
+  Buffer ptr = (Buffer)malloc(sizeof(Buffer_s));;
   if(ptr != NULL) {
-    if(cudaMalloc(&ptr->data, length * sizeof(double)) != cudaSuccess) {
+    if(cudaMalloc(&ptr->data, bytes) != cudaSuccess) {
       ptr->data = NULL;
       buffer_free(ptr);
       return NULL;
@@ -277,7 +285,8 @@ PUBLIC Buffer buffer_new(size_t length, double initial_value)
       return NULL;
     }
 
-    _total_bytes_allocated += length * sizeof(double);
+    _total_bytes_allocated += bytes;
+    _total_bytes_free -= bytes;
     _num_allocated++;
   }
       
@@ -292,7 +301,9 @@ PUBLIC cudaError_t buffer_free(Buffer buffer)
       if(err != cudaSuccess) {
         return err;
       }
-      _total_bytes_allocated -= buffer->length * sizeof(double);
+      size_t bytes = buffer->length * sizeof(double);
+      _total_bytes_allocated -= bytes;
+      _total_bytes_free += bytes;
       _num_allocated--;
     }
     free(buffer);
@@ -513,6 +524,10 @@ typedef void (*ReduceKernel)(const double *, double *, size_t, size_t);
   {                                                                     \
     return OP;                                                          \
   }                                                                     \
+  __device__ double NAME ## _op_device(double a, double b)              \
+  {                                                                     \
+    return OP;                                                          \
+  }                                                                     \
                                                                         \
   __global__ void NAME(const double *data, double *partial_sums, size_t length, size_t offset) \
   {                                                                     \
@@ -525,26 +540,24 @@ typedef void (*ReduceKernel)(const double *, double *, size_t, size_t);
                                                                         \
     for(n = blockDim.x / 2; n > 0; n = n / 2) {                         \
       if(threadIdx.x < n) {                                             \
-        double a = sdata[threadIdx.x];                                  \
-        double b = sdata[threadIdx.x + n];                              \
-        sdata[threadIdx.x] = OP;                                        \
+        sdata[threadIdx.x] = NAME ## _op_device(sdata[threadIdx.x], sdata[threadIdx.x + n]); \
       }                                                                 \
       __syncthreads();                                                  \
     }                                                                   \
                                                                         \
     if(threadIdx.x == 0) {                                              \
-      partial_sums[blockIdx.x] = sdata[0];                              \
+      partial_sums[blockIdx.x] = NAME ## _op_device(partial_sums[blockIdx.x], sdata[0]); \
     }                                                                   \
   }
 
 double launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer b, double initial)
 {
-  int i;
-  int grid_size = (b->length + _block_size - 1) / _block_size;
+  size_t i;
+  size_t grid_size = (b->length + _block_size - 1) / _block_size;
   Buffer partial_buffer;
   double *partial_sums;
   double out = initial;
-  int usable_grid = grid_size;
+  size_t usable_grid = grid_size;
 
   if(b == NULL || b->length == 0) {
     return NAN;
@@ -553,25 +566,24 @@ double launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer
   if(grid_size >= _max_grid_size) {
     usable_grid = _max_grid_size;
   }
-  
-  partial_buffer = buffer_new(_block_size, initial);
+
+  int num_partials = usable_grid;
+  partial_buffer = buffer_new(num_partials, initial);
   if(partial_buffer == NULL) return NAN;
-
-  for(i = 0; i < grid_size / usable_grid; i++) {
-    reduce_kernel<<< usable_grid, _block_size, _block_size * sizeof(double) >>>(b->data, partial_buffer->data, b->length, i * _block_size);
-  }
-
-  partial_sums = (double *)malloc(sizeof(double) * _block_size);
+  partial_sums = (double *)malloc(sizeof(double) * num_partials);
   if(partial_sums == NULL) {
     buffer_free(partial_buffer);
     return NAN;
   }
-  
-  buffer_get(partial_buffer, partial_sums, _block_size);
 
-  out = partial_sums[0];
-  for(i = 1; i < _block_size; i++) {
-    out = op(out, partial_sums[i]);
+  for(i = 0; i < grid_size / usable_grid; i++) {
+    reduce_kernel<<< usable_grid, _block_size, _block_size * sizeof(double) >>>(b->data, partial_buffer->data, b->length, i * usable_grid);
+
+    buffer_get(partial_buffer, partial_sums, num_partials);
+
+    for(i = 0; i < num_partials; i++) {
+      out = op(out, partial_sums[i]);
+    }
   }
 
   buffer_free(partial_buffer);
@@ -751,9 +763,8 @@ PUBLIC Buffer buffer_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, s
   } else {
     Buffer out = buffer_new(ah * bw, 0.0);
     if(out == NULL) return NULL;
-    
+
     dim3 dim(bw, ah);
-    
     buffer_dot_inner<<< dim, 1 >>>(out->data, a->data, b->data, aw, ah, bw, bh);
     
     return out;
@@ -772,32 +783,52 @@ __global__ void buffer_identity_inner(double *data, size_t w, size_t h)
 
 PUBLIC Buffer buffer_identity(size_t w, size_t h)
 {
-  Buffer i = buffer_new(w * h, 0.0);
-  dim3 dim(w, h);
-  buffer_identity_inner<<< dim, 1 >>>(i->data, w, h);
-  return i;
+
+__global__ void buffer_identity_inner(double *a, size_t size, size_t grid_offset)
+{
+  size_t col = blockIdx.x * blockDim.x + threadIdx.x + grid_offset;
+  size_t i = col * (size_t)size + col;
+
+  if(i < size*size) {
+    a[i] = 1.0;
+  }
+}
+
+PUBLIC Buffer buffer_identity(size_t size)
+{
+  Buffer out = buffer_new(size * size, 0.0);
+  if(out == NULL) {
+    return NULL;
+  }
+
+  size_t grid_size = (size + _block_size - 1) / _block_size;
+  size_t usable_grid = grid_size;
+  if(grid_size >= _max_grid_size) {
+    usable_grid = _max_grid_size;
+  }
+
+  for(size_t i = 0; i < grid_size / usable_grid; i++) {
+    buffer_identity_inner<<< usable_grid, _block_size >>>(out->data, size, i * usable_grid);
+  }
+  
+  return out;
 }
 
 __global__ void buffer_diagflat_inner(double *data, const double *a, size_t len)
 {
-  size_t row = blockIdx.y * blockDim.y + threadIdx.y;
   size_t col = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if(row >= len || col >= len) {
+  if(col >= len) {
     return;
   }
   
-  if(row == col) {
-    data[row * len + col] = a[row];
-  } else {
-    data[row * len + col] = 0.0;
-  }
+  data[col * len + col] = a[col];
 }
 
 PUBLIC Buffer buffer_diagflat(const Buffer a)
 {
   Buffer i = buffer_new(a->length * a->length, 0.0);
-  dim3 dim(a->length, a->length);
+  dim3 dim(a->length);
   buffer_diagflat_inner<<< dim, 1 >>>(i->data, a->data, a->length);
   return i;
 }

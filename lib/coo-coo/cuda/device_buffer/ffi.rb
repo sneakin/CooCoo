@@ -1,4 +1,5 @@
 require 'ffi'
+require 'coo-coo/consts'
 require 'coo-coo/cuda/device_buffer'
 
 module CooCoo
@@ -83,7 +84,7 @@ module CooCoo
         buffer_function :max, [ DeviceBuffer ], :double
           
         buffer_function :dot, [ DeviceBuffer, :size_t, :size_t, DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
-        buffer_function :identity, [ :size_t, :size_t ], DeviceBuffer.auto_ptr
+        buffer_function :identity, [ :size_t ], DeviceBuffer.auto_ptr
         buffer_function :diagflat, [ DeviceBuffer ], DeviceBuffer.auto_ptr
 
         [ :abs, :exp, :log, :log10, :log2, :sqrt,
@@ -103,14 +104,16 @@ module CooCoo
         
         def self.call_buffer(func, *args)
           retries = 0
-          r = send("buffer_#{func}", *args)
-          raise NullResultError.new if r.null?
-          r
-        rescue NullResultError
-          raise if retries > 1
-          retries += 1
-          CUDA.collect_garbage
-          retry
+          begin
+            r = send("buffer_#{func}", *args)
+            raise NullResultError.new if r.null?
+            r
+          rescue NullResultError
+            raise if retries > Constants.max_null_results
+            retries += 1
+            CUDA.collect_garbage
+            retry
+          end
         end
       end
     end

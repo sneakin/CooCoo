@@ -5,17 +5,7 @@ require 'coo-coo/cuda/vector'
 
 return unless CooCoo::CUDA.available?
 
-describe CooCoo::CUDA::Vector do
-  EPSILON = 0.000000001
-
-  include_examples 'for an AbstractVector'
-  
-  before do
-    CooCoo::CUDA::DeviceBuffer::FFI.buffer_set_block_size(128)
-    #puts(CooCoo::CUDA::DeviceBuffer::FFI.buffer_block_size)
-    #puts(CooCoo::CUDA::DeviceBuffer::FFI.buffer_max_grid_size)
-  end
-  
+shared_examples 'for a CUDA vector' do
   [ 1, 2, 17, 512, 1024, 2048, 4096, 4095, 4097, 4098, 4096 + 1024 ].each do |size|
     context 'vector of ones' do
       context "of length #{size}" do
@@ -54,6 +44,53 @@ describe CooCoo::CUDA::Vector do
             sum, seen = @v.sum
             expect(sum).to be_within(EPSILON).of(@v.each.sum)
           end
+        end
+      end
+    end
+  end
+end
+
+describe CooCoo::CUDA::Vector do
+  EPSILON = 0.000000001
+
+  include_examples 'for an AbstractVector'
+  
+  before do
+    #CooCoo::CUDA::DeviceBuffer::FFI.buffer_set_block_size(128)
+    #puts(CooCoo::CUDA::DeviceBuffer::FFI.buffer_block_size)
+    #puts(CooCoo::CUDA::DeviceBuffer::FFI.buffer_max_grid_size)
+  end
+
+  context 'vector larger than the memory' do
+    it { expect { described_class.new(CooCoo::CUDA::Runtime.total_global_mem / 8 + 1) }.to raise_error(CooCoo::CUDA::NullResultError) }
+  end
+
+  # 79
+  [ nil, 256, 128, 80 ].each do |grid_size|
+    context "with a grid size of #{grid_size}" do
+      before do
+        @grid = CooCoo::CUDA::DeviceBuffer::FFI.buffer_max_grid_size
+        CooCoo::CUDA::DeviceBuffer::FFI.buffer_set_max_grid_size(grid_size) if grid_size
+      end
+
+      after do
+        CooCoo::CUDA::DeviceBuffer::FFI.buffer_set_max_grid_size(@grid)
+      end
+
+      # Anything not a power of 2 will fail.
+      # 72 73 96
+      [ nil, 256, 128, 64 ].each do |block_size|
+        context "with a block of #{block_size}" do
+          before do
+            @bsize = CooCoo::CUDA::DeviceBuffer::FFI.buffer_block_size
+            CooCoo::CUDA::DeviceBuffer::FFI.buffer_set_block_size(block_size) if block_size
+          end
+
+          after do
+            CooCoo::CUDA::DeviceBuffer::FFI.buffer_set_block_size(@bsize)
+          end
+
+          include_examples 'for a CUDA vector'
         end
       end
     end

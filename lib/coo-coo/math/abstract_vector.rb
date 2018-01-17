@@ -16,6 +16,12 @@ module CooCoo
         new(length, 1.0)
       end
 
+      def self.identity(size)
+        new(size * size) do |i|
+          (i % size) == (i / size) ? 1.0 : 0.0
+        end
+      end
+
       def zero
         self.class.zeros(size)
       end
