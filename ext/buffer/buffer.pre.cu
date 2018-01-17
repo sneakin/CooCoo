@@ -771,19 +771,6 @@ PUBLIC Buffer buffer_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, s
   }
 }
 
-__global__ void buffer_identity_inner(double *data, size_t w, size_t h)
-{
-  size_t row = blockIdx.y * blockDim.y + threadIdx.y;
-  size_t col = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if(row < h && col < w) {
-    data[row * w + col] = (double)(row == col);
-  }
-}
-
-PUBLIC Buffer buffer_identity(size_t w, size_t h)
-{
-
 __global__ void buffer_identity_inner(double *a, size_t size, size_t grid_offset)
 {
   size_t col = blockIdx.x * blockDim.x + threadIdx.x + grid_offset;
