@@ -1,8 +1,8 @@
 *~
 \#*#
 *.bak
-*.neural[-_]model
-*.coocoo[-_]model
+*.*model*
+*.*bin*
 *.o
 *.so
 *.exe
