@@ -84,10 +84,8 @@ module CooCoo
         buffer_function :max, [ DeviceBuffer ], :double
           
         buffer_function :dot, [ DeviceBuffer, :size_t, :size_t, DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
-        buffer_function :conv_dot_vector_box2d, [ DeviceBuffer, :size_t, :size_t, DeviceBuffer, :size_t, :size_t, :size_t, :size_t, :size_t, :size_t ], DeviceBuffer.auto_ptr
         buffer_function :identity, [ :size_t ], DeviceBuffer.auto_ptr
         buffer_function :diagflat, [ DeviceBuffer ], DeviceBuffer.auto_ptr
-        buffer_function :maxpool, [ DeviceBuffer, :size_t, :size_t, :size_t, :size_t ], DeviceBuffer.auto_ptr
 
         [ :abs, :exp, :log, :log10, :log2, :sqrt,
           :sin, :asin, :cos, :acos, :tan, :atan,
