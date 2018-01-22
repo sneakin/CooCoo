@@ -361,10 +361,10 @@ if __FILE__ == $0
                       training_enumerator(data.bytes, options.sequence_size, encoder, options.drift)
                     end
     
-    puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{trainer_options.batch_size} at a learning rate of #{trainer_options.learning_rate}...")
+    puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{trainer_options.batch_size} at a learning rate of #{trainer_options.learning_rate} using #{options.trainer} with #{options.cost_function}.")
 
     trainer = options.trainer
-    bar = CooCoo::ProgressBar.create(:total => (options.epochs * data.size / trainer_options.batch_size.to_f).ceil)
+    bar = CooCoo::ProgressBar.create(:total => (options.epochs * training_data.count / trainer_options.batch_size.to_f).ceil)
     trainer.train({ network: net,
                     data: training_data.cycle(options.epochs),
                     reset_state: options.by_line || options.sequence_size > 1,
