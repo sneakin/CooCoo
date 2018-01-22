@@ -6,11 +6,16 @@ module CooCoo
   module DataSources
     module Xournal
       class Renderer
-        def initialize()
+        def initialize(with_cairo = false)
+          @with_cairo = with_cairo
         end
 
         def render(*args)
-          render_to_chunky(*args)
+          if @with_cairo
+            render_to_cairo(*args)
+          else
+            render_to_chunky(*args)
+          end
         end
 
         def render_to_canvas(canvas, document, page_num, x = 0, y = 0, w = nil, h = nil, zx = 1.0, zy = 1.0)
@@ -55,7 +60,7 @@ module CooCoo
         def render_background(canvas, bg, min_x, min_y, max_x, max_y, zx, zy)
           color = chunky_color(bg.color || :white)
           canvas.stroke_color = canvas.fill_color = color
-          canvas.rect(0, 0, ((max_x - min_x) * zx).to_i, ((max_y - min_y) * zy).to_i)
+          canvas.rect(0, 0, ((max_x - min_x) * zx).ceil, ((max_y - min_y) * zy).ceil)
         end
 
         def render_layer(canvas, layer, min_x, min_y, max_x, max_y, zx, zy)

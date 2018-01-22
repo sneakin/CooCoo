@@ -37,8 +37,43 @@ module CooCoo
           self
         end
 
-        def each_page(&block)
-          @pages.each(&block)
+        def each_page(options = {}, &block)
+          first_page = options.fetch(:first_page, 0)
+          @pages[first_page, @pages.size - first_page].each(&block)
+        end
+
+        def each_layer(options = {}, &block)
+          return to_enum(__method__, options) unless block_given?
+
+          each_page(first_page: options.fetch(:first_page, 0)).with_index do |page, page_num|
+            page.each_layer.with_index do |layer, n|
+              block.call(layer, page_num, n)
+            end
+          end
+        end
+
+        def each_stroke(options = {}, &block)
+          return to_enum(__method__, options) unless block_given?
+          
+          each_layer(options) do |layer, page, layer_num|
+            e = layer.each_stroke.with_index
+            if options.fetch(:sort, false)
+              e = e.sort { |a, b|
+                amin, amax = a.minmax
+                bmin, bmax = b.minmax
+                amin <=> bmin
+              }
+            end
+            e.each do |stroke, stroke_index|
+              block.call(stroke, stroke_index, page, layer_num)
+            end
+          end
+        end
+
+        def num_strokes
+          each_layer.reduce(0) do |acc, (layer, page, n)|
+            acc + layer.num_strokes
+          end
         end
 
         def size
@@ -142,6 +177,18 @@ module CooCoo
           @children = Array.new
         end
 
+        def size
+          @children.size
+        end
+
+        def num_strokes
+          @children.select { |c| c.kind_of?(Stroke) }.size
+        end
+
+        def num_texts
+          @children.select { |c| c.kind_of?(Text) }.size
+        end
+        
         def each(&block)
           @children.each(&block)
         end

@@ -33,7 +33,8 @@ module CooCoo
           @canvas_klass = options.fetch(:canvas, Drawing::CairoCanvas)
           @use_color = options.fetch(:use_color, false)
           @shuffle = options.fetch(:shuffle, 16)
-          @random_colors = options.fetch(:random_colors, true)
+          @random_colors = options.fetch(:random_colors, false)
+          @random_invert = options.fetch(:random_invert, false)
           @velocity = options.fetch(:velocity, false)
 
           options[:training_documents].each do |td|
@@ -110,6 +111,7 @@ module CooCoo
         def encode_strokes_to_canvas(strokes, canvas)
           fg = @random_colors ? random_color : 'black'
           bg = @random_colors ? random_color(fg) : 'white'
+          fg, bg = bg, fg if @random_invert
           canvas.fill_color = bg
           canvas.stroke_color = bg
           canvas.rect(0, 0, @example_width, @example_height)
@@ -187,6 +189,8 @@ if $0 != __FILE__
   @options.width = 28
   @options.height = 28
   @options.shuffle = 128
+  @options.random_colors = false
+  @options.random_invert = false
   
   require 'coo-coo/option_parser'
 
@@ -225,6 +229,10 @@ if $0 != __FILE__
 
     o.on('--data-shuffle-colors', 'toggles if strokes are to be rendered with random colors on random backgrounds') do
       @options.random_colors = !@options.random_colors
+    end
+
+    o.on('--data-random-invert', 'toggles if foreground and background colors should randomly be inverted') do
+      @options.random_invert = !@options.random_invert
     end
 
     o.on('--data-color', 'toggles if examples are to be rendered in three color channels') do
