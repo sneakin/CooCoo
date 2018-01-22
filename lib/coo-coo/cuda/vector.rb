@@ -54,7 +54,7 @@ module CooCoo
       end
 
       def zeros
-        self.zeros(size)
+        self.class.zeros(size)
       end
 
       def self.identity(size)

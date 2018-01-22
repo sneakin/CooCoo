@@ -115,7 +115,7 @@ module CooCoo
     end
     
     def +(other)
-      v = if other.respond_to?(:each)
+      v = if other.respond_to?(:each) && !other.kind_of?(Vector)
             raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
             other.each.zip(each).collect do |oe, se|
           se + oe
@@ -130,7 +130,7 @@ module CooCoo
     end
 
     def -(other)
-      v = if other.respond_to?(:each)
+      v = if other.respond_to?(:each) && !other.kind_of?(Vector)
             raise ArgumentError.new("Size mismatch #{size} != #{other.size}") if size != other.size
             other.each.zip(each).collect do |oe, se|
           se - oe
@@ -153,7 +153,7 @@ module CooCoo
     end
     
     def *(other)
-      v = if other.respond_to?(:each)
+      v = if other.respond_to?(:each) && !other.kind_of?(Vector)
             raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
             other.each.zip(each).collect do |oe, se|
           se * oe
@@ -168,7 +168,7 @@ module CooCoo
     end
 
     def **(other)
-      v = if other.respond_to?(:each)
+      v = if other.respond_to?(:each) && !other.kind_of?(Vector)
             raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
             other.each.zip(each).collect do |oe, se|
           se ** oe
@@ -183,7 +183,7 @@ module CooCoo
     end
 
     def /(other)
-      v = if other.respond_to?(:each)
+      v = if other.respond_to?(:each) && !other.kind_of?(Vector)
             raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
             other.each.zip(each).collect do |oe, se|
           se / oe

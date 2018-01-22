@@ -82,6 +82,18 @@ module CooCoo
         dcost = cost_function.derivative(target, final_output)
         deltas, hidden_state = network.backprop(input, output, dcost, hidden_state)
 
+        if !last_m.kind_of?(Numeric) && input.kind_of?(Sequence)
+          if last_m.size < deltas.size
+            diff = deltas.size - last_m.size
+            zeros = diff.times.collect { last_m[0].collect(&:zeros) }
+            last_m = Sequence[zeros].append(last_m)
+            last_v = Sequence[zeros].append(last_v)
+          elsif last_m.size > deltas.size
+            last_m = last_m[-deltas.size, deltas.size]
+            last_v = last_v[-deltas.size, deltas.size]
+          end
+        end
+
         m = deltas * (1.0 - beta1) + last_m * beta1
         v = (deltas ** 2) * (1.0 - beta2) + last_v * beta2
         e = (1 + example_number.to_f) * delta_t
@@ -91,7 +103,7 @@ module CooCoo
         network.update_weights!(input, output, deltas)
 
         cost = cost_function.call(target, final_output)
-        cost = cost.average if cost.kind_of?(Sequence)
+        cost = cost.average if input.kind_of?(Sequence)
         return cost, hidden_state, m, v
       end
     end

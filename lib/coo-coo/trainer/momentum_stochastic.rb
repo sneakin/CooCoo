@@ -52,12 +52,20 @@ module CooCoo
         final_output = network.final_output(output)
         dcost = cost_function.derivative(target, final_output)
         deltas, hidden_state = network.backprop(input, output, dcost, hidden_state)
-        
+
+        if !last_deltas.kind_of?(Numeric) && input.kind_of?(Sequence)
+          if last_deltas.size < deltas.size
+            last_deltas = Sequenc[last_deltas[0].collect(&:zeros).to_a * (deltas.size - last_deltas.size)].append(last_deltas)
+          elsif last_deltas.size > deltas.size
+            last_deltas = last_deltas[-deltas.size, deltas.size]
+          end
+        end
+
         deltas = deltas * rate - last_deltas * momentum
         network.update_weights!(input, output, deltas)
         
         cost = cost_function.call(target, final_output)
-        cost = cost.average if cost.kind_of?(Sequence)
+        cost = cost.average if input.kind_of?(Sequence)
         return cost, hidden_state, deltas
       end
     end
