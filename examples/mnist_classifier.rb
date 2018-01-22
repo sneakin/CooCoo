@@ -133,6 +133,10 @@ opts = CooCoo::OptionParser.new do |o|
     raise ArgumentError.new("The convolution step must be >0.") if n <= 0
     options.conv_step = n
   end
+
+  o.on('--stacked-convolutions') do
+    options.stacked_convolutions = true
+  end
 end
 
 argv = opts.parse!(ARGV)
@@ -165,33 +169,52 @@ if options.model_path && File.exists?(options.model_path)
 else
   area = data.width * data.height
 
-  if options.convolution
-    l = CooCoo::Convolution::BoxLayer.new(data.width, data.height, options.conv_step, options.conv_step, CooCoo::Layer.new(16, 4, options.activation_function), 4, 4, 2, 2)
-    net.layer(l)
-    area = l.size
-  end
-
-  # net.layer(CooCoo::Layer.new(area, 50, options.activation_function))
-  # net.layer(CooCoo::Layer.new(50, 20, , options.activation_function))
-  # net.layer(CooCoo::Layer.new(20, 10, options.activation_function))
-
-  #net.layer(CooCoo::Layer.new(area, 10, options.activation_function))
-
-  if options.hidden_layers
-    net.layer(CooCoo::Layer.new(area, options.hidden_size, options.activation_function))
-    if options.hidden_layers > 2
-      (options.hidden_layers - 2).times do
-        net.layer(CooCoo::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
+  if options.stacked_convolutions
+    lw = data.width
+    lh = data.height
+    layer = nil
+    if options.hidden_layers > 1
+      subnet = CooCoo::Network.new
+      (options.hidden_layers - 1).times do
+        subnet.layer(CooCoo::Layer.new(16 * 16, 16 * 16, options.activation_function))
       end
+      subnet.layer(CooCoo::Layer.new(16 * 16, 16, options.activation_function))
+      layer = CooCoo::Subnet.new(subnet)
+    else
+      layer = CooCoo::Layer.new(16 * 16, 16, options.activation_function)
     end
-    net.layer(CooCoo::Layer.new(options.hidden_size, 10, options.activation_function))
+    while lw > 4 && lh > 4
+      clayer = CooCoo::Convolution::BoxLayer.new(lw, lh, options.conv_step, options.conv_step, layer, 16, 16, 4, 4)
+      net.layer(clayer)
+      #net.layer(CooCoo::MaxPool::Box.new(lw / 2 * 4, lh / 2 * 4, 8, 8, 4, 4))
+      #lw = lw * 2 * 10
+      #lh = lh * 2 * 10
+      lw = clayer.output_width
+      lh = clayer.output_height
+    end
+    
+    net.layer(CooCoo::Layer.new(lw * lh, 10, options.activation_function))
   else
-    net.layer(CooCoo::Layer.new(area, area / 4, options.activation_function))
-    net.layer(CooCoo::Layer.new(area / 4, 10, options.activation_function))
+    area = data.width * data.height
+
+    if options.convolution
+      l = CooCoo::Convolution::BoxLayer.new(data.width, data.height, options.conv_step, options.conv_step, CooCoo::Layer.new(16, 4, options.activation_function), 4, 4, 2, 2)
+      net.layer(l)
+      area = l.size
+    end
+
+    if (options.hidden_layers || 0) > 0
+      net.layer(CooCoo::Layer.new(area, options.hidden_size, options.activation_function))
+      if options.hidden_layers > 2
+        (options.hidden_layers - 2).times do
+          net.layer(CooCoo::Layer.new(options.hidden_size, options.hidden_size, options.activation_function))
+        end
+      end
+      net.layer(CooCoo::Layer.new(options.hidden_size, 10, options.activation_function))
+    else
+      net.layer(CooCoo::Layer.new(area, 10, options.activation_function))
+    end
   end
-  
-  #net.layer(CooCoo::Convolution::BoxLayer.new(7, 7, CooCoo::Layer.new(16, 4), 4, 4, 2, 2))
-  #net.layer(CooCoo::Layer.new(14 * 14, 10))
 
   if options.softmax
     net.layer(CooCoo::LinearLayer.new(10, CooCoo::ActivationFunctions::ShiftedSoftMax.instance))

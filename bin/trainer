@@ -53,7 +53,7 @@ opts = CooCoo::OptionParser.new do |o|
     options.binary_blob = true
   end
 
-  o.on('-e', '--train NUMBER') do |n|
+  o.on('-e', '--train NUMBER', '--epochs NUMBER') do |n|
     options.epochs = n.to_i
   end
 

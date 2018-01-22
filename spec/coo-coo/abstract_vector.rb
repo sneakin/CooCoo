@@ -403,6 +403,24 @@ shared_examples "for an AbstractVector" do
     end
   end
 
+  describe '#maxpool', maxpool: true do
+    subject { described_class[64.times] }
+
+    { [4, 4] => [27, 31, 59, 63],
+      [8, 8] => [63],
+      [1, 1] => nil,
+      [1, 8] => [56, 57, 58, 59, 60, 61, 62, 63],
+      [8, 1] => [7, 15, 23, 31, 39, 47, 55, 63],
+      [6, 6] => [45, 47, 61, 63]
+    }.each do |pw, ph|
+      it "returns #{ph || 'copy of subject'} for #{pw} sized pools" do
+        expect(subject.maxpool(8, 8, *pw)).to eq(ph ? described_class[ph] : subject)
+      end
+    end
+    
+    it { expect(subject.maxpool(8, 8, 4, 4)).to eq([27, 31, 59, 63]) }
+  end
+
   [ :abs, :sqrt, :log, :log10, :log2, :floor, :ceil, :round ].each do |func|
     describe "\##{func}" do
       subject { described_class[16.times.each].send(func) }
@@ -525,6 +543,23 @@ shared_examples "for an AbstractVector" do
       it { expect { subject.dot(4, 4, 3, 4, 1) }.to raise_error(ArgumentError) }
       it { expect { subject.dot(4, 4, 3, 1, 1) }.to raise_error(ArgumentError) }
     end
+  end
+
+  describe '#conv_dot_vector_box2d' do
+    let(:aw) { 2 }
+    let(:ah) { 3 }
+    let(:a) { described_class[(aw * ah).times] }
+    let(:bw) { 6 }
+    let(:bh) { 4 }
+    let(:b) { described_class[(bw * bh).times] }
+    let(:conv_w) { 4 }
+    let(:conv_h) { 2 }
+    let(:step_x) { 2 }
+    let(:step_y) { 1 }
+    
+    subject { a.conv_dot_vector_box2d(aw, ah, b, bw, bh, conv_w, conv_h, step_x, step_y) }
+
+    it { expect(subject.size).to be((ah * conv_w) * (bw / step_x) * (bh / step_y)) }
   end
   
   describe '#==' do

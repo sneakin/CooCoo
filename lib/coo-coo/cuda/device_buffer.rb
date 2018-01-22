@@ -111,6 +111,14 @@ module CooCoo
         FFI.buffer_sum(self)
       end
 
+      def maxpool(width, height, pool_width, pool_height)
+        raise ArgumentError.new("width * height exceed buffer size") if width * height > size
+        raise ArgumentError.new("pool width must be > 0") if pool_width <= 0
+        raise ArgumentError.new("pool height must be > 0") if pool_height <= 0
+        
+        FFI.maxpool(self, width, height, pool_width, pool_height)
+      end
+
       def dot(w, h, other, ow = nil, oh = nil)
         if other.kind_of?(self.class)
           ow ||= w
@@ -126,6 +134,12 @@ module CooCoo
           b, a = coerce(other)
           dot(w, h, b, ow, oh)
         end
+      end
+
+      def conv_dot_vector_box2d(w, h, other, ow, oh, conv_w, conv_h, step_x, step_y)
+        raise TypeError.new("#{other.class} needs to be #{self.class}") unless other.kind_of?(self.class)
+
+        FFI.conv_dot_vector_box2d(self, w, h, other, ow, oh, conv_w, conv_h, step_x, step_y)
       end
 
       def slice_2d(width, height, x, y, out_width, out_height, initial = 0.0)

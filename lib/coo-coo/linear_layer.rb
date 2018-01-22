@@ -23,6 +23,7 @@ module CooCoo
     end
 
     def backprop(input, output, errors, hidden_state)
+      #CooCoo.debug("#{self.class.name}::#{__method__}\t#{input.size}\t#{output.size}")
       [ errors * @activation_function.derivative(input, output), hidden_state ]
     end
 
