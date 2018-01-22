@@ -84,10 +84,8 @@ module CooCoo
 
         if !last_m.kind_of?(Numeric) && input.kind_of?(Sequence)
           if last_m.size < deltas.size
-            diff = deltas.size - last_m.size
-            zeros = diff.times.collect { last_m[0].collect(&:zeros) }
-            last_m = Sequence[zeros].append(last_m)
-            last_v = Sequence[zeros].append(last_v)
+            last_m = Sequence[[ last_m.average ] * deltas.size]
+            last_v = Sequence[[ last_v.average ] * deltas.size]
           elsif last_m.size > deltas.size
             last_m = last_m[-deltas.size, deltas.size]
             last_v = last_v[-deltas.size, deltas.size]

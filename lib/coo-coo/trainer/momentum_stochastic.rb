@@ -55,7 +55,7 @@ module CooCoo
 
         if !last_deltas.kind_of?(Numeric) && input.kind_of?(Sequence)
           if last_deltas.size < deltas.size
-            last_deltas = Sequenc[last_deltas[0].collect(&:zeros).to_a * (deltas.size - last_deltas.size)].append(last_deltas)
+            last_deltas = Sequence[[ last_deltas.average ] * deltas.size]
           elsif last_deltas.size > deltas.size
             last_deltas = last_deltas[-deltas.size, deltas.size]
           end
