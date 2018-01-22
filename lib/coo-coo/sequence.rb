@@ -167,6 +167,21 @@ module CooCoo
       self.class[v]
     end
 
+    def **(other)
+      v = if other.respond_to?(:each)
+            raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
+            other.each.zip(each).collect do |oe, se|
+          se ** oe
+        end
+          else
+            each.collect do |e|
+          e ** other
+        end
+          end
+
+      self.class[v]
+    end
+
     def /(other)
       v = if other.respond_to?(:each)
             raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size

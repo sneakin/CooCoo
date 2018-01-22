@@ -26,13 +26,15 @@ module CooCoo
         learning_rate = options.fetch(:learning_rate, 0.3)
         batch_size = options.fetch(:batch_size, 1024)
         cost_function = options.fetch(:cost_function, CostFunctions::MeanSquare)
+        reset_state = options.fetch(:reset_state, true)
         processes = options.fetch(:processes, Parallel.processor_count)
 
         t = Time.now
+        hidden_state = Hash.new
         
         training_data.each_slice(batch_size).with_index do |batch, i|
           deltas_errors = in_parallel(processes, batch) do |(expecting, input)|
-            output, hidden_state = network.forward(input, Hash.new)
+            output, hidden_state = network.forward(input, reset_state ? Hash.new : hidden_state)
             target = network.prep_output_target(expecting)
             final_output = network.final_output(output)
             errors = cost_function.derivative(target, final_output)

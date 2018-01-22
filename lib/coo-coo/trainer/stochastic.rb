@@ -24,7 +24,6 @@ module CooCoo
         training_data.each_slice(batch_size).with_index do |batch, i|
           total_errs = batch.inject(nil) do |acc, (expecting, input)|
             errs, hidden_state = learn(network, input, expecting, learning_rate, cost_function, reset_state ? Hash.new : hidden_state)
-            errs = errs.average if errs.kind_of?(Sequence)
             errs + (acc || 0)
           end
 
@@ -38,12 +37,17 @@ module CooCoo
 
       def learn(network, input, expecting, rate, cost_function = CostFunctions::MeanSquare, hidden_state)
         output, hidden_state = network.forward(input, hidden_state)
+        
         target = network.prep_output_target(expecting)
         final_output = network.final_output(output)
         errors = cost_function.derivative(target, final_output)
         deltas, hidden_state = network.backprop(input, output, errors, hidden_state)
+        
         network.update_weights!(input, output, deltas * rate)
-        return cost_function.call(target, final_output), hidden_state
+        
+        cost = cost_function.call(target, final_output)
+        cost = cost.average if cost.kind_of?(Sequence)
+        return cost, hidden_state
       end
     end
   end

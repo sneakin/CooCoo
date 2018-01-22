@@ -4,6 +4,7 @@ require 'coo-coo/debug'
 require 'coo-coo/trainer/stochastic'
 require 'coo-coo/trainer/momentum_stochastic'
 require 'coo-coo/trainer/batch'
+require 'coo-coo/trainer/adam'
 
 module CooCoo
   module Trainer
