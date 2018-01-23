@@ -43,6 +43,8 @@ class LittleInputEncoder < InputEncoder
   N0 = '0'.bytes[0]
   N9 = '9'.bytes[0]
   SPACE = ' '.bytes[0]
+  PERIOD = '.'.bytes[0]
+  NEWLINE = "\n".bytes[0]
 
   def vector_size
     39
@@ -55,6 +57,10 @@ class LittleInputEncoder < InputEncoder
       return (b - LA) + 2
     elsif b >= N0 && b <= N9
       return (b - N0) + 26 + 2
+    elsif b == PERIOD
+      return 10 + 26 + 2
+    elsif b == NEWLINE
+      return 2
     elsif b == SPACE
       return 1
     else
@@ -65,10 +71,75 @@ class LittleInputEncoder < InputEncoder
   def decode_byte(i)
     if i <= 1
       return SPACE
+    elsif i <= 2
+      return NEWLINE
     elsif i <= 27
       return LA + (i - 2)
     elsif i <= 37
       return N0 + (i - 28)
+    elsif i <= 38
+      return PERIOD
+    else
+      return SPACE
+    end
+  end
+
+  def encode_input(b)
+    v = CooCoo::Vector.zeros(vector_size)
+    v[encode_byte(b)] = 1.0
+    v
+  end
+
+  def decode_output(v)
+    v, i = v.each_with_index.max
+    decode_byte(i)
+  end
+end
+
+class MediumInputEncoder < InputEncoder
+  UA = 'A'.bytes[0]
+  UZ = 'Z'.bytes[0]
+  LA = 'a'.bytes[0]
+  LZ = 'z'.bytes[0]
+  N0 = '0'.bytes[0]
+  N9 = '9'.bytes[0]
+  SPACE = ' '.bytes[0]
+  PUNCTUATION = "\n.?!+-*/=".bytes
+
+  def vector_size
+    26 + 26 + 10 + 1 + PUNCTUATION.size
+  end
+  
+  def encode_byte(b)
+    if b >= UA && b <= UZ
+      return ((b - UA) + 26 + 1)
+    elsif b >= LA && b <= LZ
+      return (b - LA) + 1
+    elsif b >= N0 && b <= N9
+      return (b - N0) + 26 + 26 + 1
+    elsif b == SPACE
+      return 1
+    else
+      i = PUNCTUATION.find_index(b)
+      if i
+        return i + 10 + 26 + 26 + 1
+      else
+        return 0
+      end
+    end
+  end
+
+  def decode_byte(i)
+    if i <= 1
+      return SPACE
+    elsif i < 27
+      return LA + (i - 1)
+    elsif i < 1 + 26 + 26
+      return UA + (i - 26 - 1)
+    elsif i < 1 + 26 + 26 + 10
+      return N0 + (i - 26 - 26 - 1)
+    elsif i < 1 + 26 + 26 + 10 + PUNCTUATION.size
+      return PUNCTUATION[i - (1 + 26 + 26 + 10 + PUNCTUATION.size)]
     else
       return SPACE
     end
@@ -181,8 +252,13 @@ if __FILE__ == $0
       options.verbose = true
     end
 
-    o.on('--little') do |v|
-      options.encoder = LittleInputEncoder.new
+    o.on('--encoder NAME') do |v|
+      case v
+      when 'little' then options.encoder = LittleInputEncoder.new
+      when 'medium' then options.encoder = MediumInputEncoder.new
+      when 'ascii' then options.encoder = AsciiInputEncoder.new
+      else raise ArgumentError.new("#{v} is not little, medium, or ascii")
+      end
     end
 
     o.on('-m', '--model PATH') do |path|
