@@ -24,11 +24,12 @@ module CooCoo
         def initialize(io = $stdout, stringer = Stringer.new, &block)
           @io = io
           @stringer = stringer
-          with_sixel(&block)
+          with_sixel(&block) if block
         end
 
         def method_missing(mid, *args, &block)
           @io.write(@stringer.send(mid, *args, &block))
+          self
         end
 
         def with_sixel(&block)
