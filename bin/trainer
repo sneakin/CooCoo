@@ -143,7 +143,7 @@ end
 $stdout.flush
 
 if options.trainer
-  num_batches = options.epochs.to_i * training_set.size / trainer_options.batch_size
+  num_batches = (options.epochs * training_set.size / trainer_options.batch_size.to_f).ceil
   
   puts("Training in #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name} using #{trainer_options.cost_function.name}.")
 
