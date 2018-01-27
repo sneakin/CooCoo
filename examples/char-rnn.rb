@@ -185,8 +185,7 @@ end
 def training_by_line_enumerator(data, encoder, drift = 1)
   Enumerator.new do |yielder|
     data.split("\n").each do |line|
-      line = line.bytes
-      input = line.collect { |e| encoder.encode_input(e) } + [ encoder.encode_input("\n".bytes[0]) ]
+      input = encoder.encode_string(line + "\n")
       output = input[drift, input.size - drift] + drift.times.collect { encoder.encode_input(0) }
       yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
     end
@@ -208,6 +207,16 @@ def training_enumerator(data, sequence_size, encoder, drift = 1)
   end
 end
 
+def dialogue_training_enumerator(data, encoder)
+  Enumerator.new do |yielder|
+    data.split("\n").each_slice(2) do |a, b|
+      input = encoder.encode_string(a + " " * b.length)
+      output = encoder.encode_string(" " * a.length + b)
+      yielder << [ CooCoo::Sequence[output], CooCoo::Sequence[input] ]
+    end
+  end
+end
+
 if __FILE__ == $0
   def sample_top(arr, range)
     c = arr.each.with_index.sort[-range, range.abs].collect(&:last)
@@ -220,7 +229,7 @@ if __FILE__ == $0
     pick = picks[rand(picks.size) * temperature]
     (pick && pick[1]) || 0
   end
-  
+
   require 'ostruct'
 
   options = OpenStruct.new
@@ -234,7 +243,7 @@ if __FILE__ == $0
   options.trainer = nil
   options.cost_function = CooCoo::CostFunctions::MeanSquare
   options.sequence_size = 4
-  options.by_line = false
+  options.train_by = 'sequence'
   options.drift = 1
   options.num_layers = 1
   options.hidden_size = nil
@@ -312,8 +321,8 @@ if __FILE__ == $0
       options.sequence_size = n
     end
 
-    o.on('--by-line', 'toggle whether to adjust sequence sizes to each line of input') do
-      options.by_line = !options.by_line
+    o.on('--by METHOD', 'train by sequence, line, or dialogue (1st line -> 2nd line)') do |m|
+      options.train_by = m
     end
 
     o.on('--drift NUMBER') do |n|
@@ -429,12 +438,17 @@ if __FILE__ == $0
   puts("Read #{data.size} bytes")
 
   if options.trainer
-    training_data = if options.by_line
+    training_data = case options.train_by
+                    when 'line'
                       puts("Splitting input into lines.")
                       training_by_line_enumerator(data, encoder, options.drift)
-                    else
+                    when 'sequence'
                       puts("Splitting input into #{options.sequence_size} byte sequences.")
                       training_enumerator(data.bytes, options.sequence_size, encoder, options.drift)
+                    when 'dialogue'
+                      puts("Splitting into dialogue pairs.")
+                      dialogue_training_enumerator(data, encoder)
+                    else raise ArgumentError.new("Unknown training method: #{options.train_by}")
                     end
     
     puts("Training on #{data.size} bytes from #{options.input_path || "stdin"} in #{options.epochs} epochs in batches of #{trainer_options.batch_size} at a learning rate of #{trainer_options.learning_rate} using #{options.trainer} with #{options.cost_function}.")
