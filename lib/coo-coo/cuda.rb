@@ -14,11 +14,11 @@ begin
       
       def self.collect_garbage(size = nil)
         free, total = memory_info
-        if size == nil || (3 * size + free) >= total
+        if size == nil || (3 * size) >= free
           GC.start
           new_free, total = memory_info
           diff = free - new_free
-          if size && (size + new_free) >= total
+          if size && size >= new_free
             raise NoMemoryError.new(size)
           end
         end
