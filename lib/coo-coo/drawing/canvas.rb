@@ -15,6 +15,14 @@ module CooCoo
         self.stroke_color = 'black'
       end
 
+      def self.from_file(path)
+        raise NotImplementError.new
+      end
+
+      def self.from_vector(v, width, channels = 3)
+        raise NotImplementedError.new
+      end
+      
       def fill_color=(c)
         @fill_color = ChunkyPNG::Color.parse(c)
       end
@@ -49,6 +57,36 @@ module CooCoo
 
       def text(txt, x, y, font, size, style = nil)
         self
+      end
+
+      def resample(new_width, new_height, options = Hash.new)
+        options = { maintain_aspect: true, background: 0, pad: false }.merge(options)
+        maintain_aspect = options.fetch(:maintain_aspect)
+        background = options.fetch(:background)
+        pad = options.fetch(:pad)
+        
+        w = new_width
+        h = new_height
+
+        if maintain_aspect
+          if width > height && pad || (width < height) && !pad
+            h = (new_height * height / width.to_f).to_i
+          else
+            w = (new_width * width / height.to_f).to_i
+          end
+        end
+
+        if w == width && h = height
+          self.dup
+        else
+          x = new_width / 2.0 - w / 2.0
+          y = new_height / 2.0 - h / 2.0
+          canvas = self.class.new(new_width, new_height)
+          canvas.fill_color = 0xff
+          canvas.
+            rect(0, 0, new_width, new_height).
+            blit(self, x.to_i, y.to_i, w, h)
+        end
       end
 
       protected

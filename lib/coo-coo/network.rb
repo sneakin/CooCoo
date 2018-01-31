@@ -44,6 +44,20 @@ module CooCoo
       self
     end
 
+    def split(layer_index)
+      n1 = self.class.new()
+      @layers[0, layer_index].each do |l|
+        n1.layer(l)
+      end
+
+      n2 = self.class.new()
+      @layers[layer_index, @layers.size - layer_index].each do |l|
+        n2.layer(l)
+      end
+
+      [ n1, n2 ]
+    end
+
     def activation_function
       unless @activation_function
         layer = @layers.find { |l| l.activation_function }
