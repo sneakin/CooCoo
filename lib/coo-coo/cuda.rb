@@ -5,7 +5,9 @@ begin
   module CooCoo
     module CUDA
       def self.available?
-        ENV["COOCOO_USE_CUDA"] != "0"# && Runtime.device_count > 0
+        ENV["COOCOO_USE_CUDA"] != "0" && Runtime.device_count > 0
+      rescue
+        false
       end
 
       def self.memory_info
