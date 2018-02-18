@@ -2,8 +2,12 @@ require 'coo-coo/core_ext'
 require 'coo-coo/math/abstract_vector'
 require 'coo-coo/math/functions'
 require 'coo-coo/math/interpolation'
-require 'coo-coo/cuda'
-require 'coo-coo/cuda/vector'
+
+begin
+  require 'coo-coo/cuda'
+  require 'coo-coo/cuda/vector'
+rescue LoadError
+end
 
 module CooCoo
   module Ruby

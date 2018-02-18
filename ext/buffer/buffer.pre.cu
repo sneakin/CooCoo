@@ -152,8 +152,8 @@ cudaError_t launch_2d_kernel(kernel_2d_func_t kernel, Buffer a, size_t aw, const
     unsigned int i, j;
 
     //dim3 bsize(_block_dim.x, _block_dim.y);
-    dim3 bsize(min((unsigned long)_block_dim.y, w),
-               min((unsigned long)_block_dim.y, h));
+    dim3 bsize(min((unsigned long)_block_dim.y, (unsigned long)w),
+               min((unsigned long)_block_dim.y, (unsigned long)h)); // TODO may have a 4G limit
     dim3 grid_size((w + bsize.x - 1) / bsize.x,
                    (h + bsize.y - 1) / bsize.y);
     

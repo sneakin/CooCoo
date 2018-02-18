@@ -1,6 +1,10 @@
 require 'coo-coo/math/abstract_vector'
-require 'coo-coo/cuda/device_buffer'
 require 'coo-coo/core_ext'
+
+begin
+  require 'coo-coo/cuda/device_buffer'
+rescue LoadError
+end
 
 module CooCoo
   module CUDA
