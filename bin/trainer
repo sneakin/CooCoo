@@ -145,7 +145,7 @@ $stdout.flush
 if options.trainer
   num_batches = (options.epochs * training_set.size / trainer_options.batch_size.to_f).ceil
   
-  puts("Training in #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name} using #{trainer_options.cost_function.name}.")
+  puts("Training #{training_set.size} examples in #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name} using #{trainer_options.cost_function.name}.")
 
   bar = CooCoo::ProgressBar.create(:total => num_batches)
   
@@ -188,7 +188,7 @@ if options.num_tests
     out_max = out.each.with_index.max
     passed = target_max[1] == out_max[1]
     passes += 1 if passed
-    puts("#{passed ? CHECKMARK : CROSSMARK} #{options.start_tests_at + i}\t#{loss.average}\t#{target_max}\t#{out[target_max[1]]}\t#{out_max}\t#{target}\t#{out}")
+    puts("#{passed ? CHECKMARK : CROSSMARK} #{options.start_tests_at + i}\t#{loss.average}\t#{target_max}\t#{out[target_max[1]]}\t#{out_max}\t#{options.verbose ? target : nil}\t#{options.verbose ? out : nil}")
     $stdout.flush
     GC.start
   end

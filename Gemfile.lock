@@ -1,8 +1,7 @@
 PATH
   remote: .
   specs:
-    CooCoo (0.2.1)
-      cairo
+    CooCoo-x64-mingw32 (0.2.1)
       chunky_png
       colorize
       ffi
@@ -14,34 +13,26 @@ PATH
 GEM
   remote: http://rubygems.org/
   specs:
-    backports (3.11.0)
-    cairo (1.15.11)
-      native-package-installer (>= 1.0.3)
-      pkg-config (>= 1.2.2)
-    cairo (1.15.11-x64-mingw32)
-      native-package-installer (>= 1.0.3)
-      pkg-config (>= 1.2.2)
-    chunky_png (1.3.8)
+    backports (3.11.1)
+    chunky_png (1.3.10)
     coderay (1.1.2)
     colorize (0.8.1)
     diff-lcs (1.3)
     docile (1.1.5)
-    ffi (1.9.18)
-    ffi (1.9.18-x64-mingw32)
+    ffi (1.9.21)
+    ffi (1.9.21-x64-mingw32)
     json (2.1.0)
     method_source (0.9.0)
     mini_portile2 (2.3.0)
-    native-package-installer (1.0.6)
     nmatrix (0.2.4)
       packable (~> 1.3, >= 1.3.5)
-    nokogiri (1.8.1)
+    nokogiri (1.8.2)
       mini_portile2 (~> 2.3.0)
-    nokogiri (1.8.1-x64-mingw32)
+    nokogiri (1.8.2-x64-mingw32)
       mini_portile2 (~> 2.3.0)
     packable (1.3.9)
       backports
     parallel (1.12.1)
-    pkg-config (1.2.9)
     pry (0.11.3)
       coderay (~> 1.1.0)
       method_source (~> 0.9.0)
@@ -58,7 +49,7 @@ GEM
     rspec-mocks (3.7.0)
       diff-lcs (>= 1.2.0, < 2.0)
       rspec-support (~> 3.7.0)
-    rspec-support (3.7.0)
+    rspec-support (3.7.1)
     ruby-progressbar (1.9.0)
     simplecov (0.15.1)
       docile (~> 1.1.0)
@@ -74,7 +65,7 @@ PLATFORMS
   x64-mingw32
 
 DEPENDENCIES
-  CooCoo!
+  CooCoo-x64-mingw32!
   bundler (~> 1.14)
   coderay
   pry (~> 0.11.3)
@@ -85,4 +76,4 @@ DEPENDENCIES
   yard-rspec
 
 BUNDLED WITH
-   1.15.4
+   1.16.1

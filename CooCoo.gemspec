@@ -41,7 +41,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'nokogiri'
   s.add_dependency 'ruby-progressbar'
   s.add_dependency 'chunky_png'
-  s.add_dependency 'cairo'
+  s.add_dependency 'cairo' unless RUBY_PLATFORM =~ /mingw/
   s.add_dependency 'colorize'
   s.add_dependency 'ffi'
 end

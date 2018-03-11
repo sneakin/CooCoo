@@ -1,5 +1,4 @@
 require 'chunky_png'
-require 'cairo'
 require 'coo-coo/drawing'
 
 module CooCoo

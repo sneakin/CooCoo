@@ -1,89 +1,6 @@
 require 'coo-coo'
 require 'chunky_png'
-
-class ImageStream
-  attr_reader :images
-  
-  def initialize(*images)
-    @images = images.collect { |i| load_image(i) }
-  end
-
-  def load_image(path)
-    png = ChunkyPNG::Image.from_file(path)
-    pixels = CooCoo::Vector.new(png.width * png.height * 3)
-    png.pixels.each_slice(png.width).with_index do |row, i|
-      pixels[i * png.width * 3, png.width * 3] = row.
-        collect { |p| [ ChunkyPNG::Color.r(p),
-                        ChunkyPNG::Color.g(p),
-                        ChunkyPNG::Color.b(p)
-                      ] }.
-        flatten
-    end
-    
-    [ path, png.width, png.height, pixels / 256.0 ]
-  end
-
-  def size
-    @images.size
-  end
-
-  def channels
-    3
-  end
-  
-  def each(&block)
-    return to_enum(__method__) unless block_given?
-
-    @images.each do |img|
-      yield(*img)
-    end
-  end
-end
-
-class ImageSlicer
-  attr_reader :slice_width
-  attr_reader :slice_height
-  
-  def initialize(num_slices, slice_width, slice_height, image_stream, chitters = 0)
-    @num_slices = num_slices
-    @slice_width = slice_width
-    @slice_height = slice_height
-    @chitters = chitters
-    @stream = image_stream
-  end
-
-  def size
-    @num_slices * @stream.size * @chitters
-  end
-
-  def channels
-    @stream.channels
-  end
-
-  def each(&block)
-    return to_enum(__method__) unless block_given?
-
-    @num_slices.times do |n|
-      @stream.each.with_index do |(path, width, height, pixels), i|
-        xr = rand(width)
-        yr = rand(height)
-        half_w = @slice_width / 2
-        half_h = @slice_height / 2
-        @chitters.times do |chitter|
-          x = xr
-          x += rand(@slice_width) - half_w if @chitters > 1
-          x = width - @slice_width if x + @slice_width > width
-          y = yr
-          y += rand(@slice_height) - half_h if @chitters > 1
-          y = height - @slice_height if y + @slice_height > height
-
-          slice = pixels.slice_2d(width * channels, height, x, y, @slice_width * channels, @slice_height)
-          yield(path, slice, x, y)
-        end
-      end
-    end
-  end
-end
+require 'coo-coo/data_sources/images'
 
 class TrainingSet
   attr_reader :slicer, :batch_size
@@ -186,12 +103,13 @@ if $0 != __FILE__
   end
 
   def training_set()
-    stream = ImageStream.new(*@options.images)
-    slicer = ImageSlicer.new(@options.cycles,
-                             @options.slice_width,
-                             @options.slice_height,
-                             stream,
-                             @options.chitters)
+    raw_stream = CooCoo::DataSources::Images::RawStream.new(*@options.images)
+    stream = CooCoo::DataSources::Images::Stream.new(raw_stream)
+    slicer = CooCoo::DataSources::Images::Slicer.new(@options.cycles,
+                                                     @options.slice_width,
+                                                     @options.slice_height,
+                                                     stream,
+                                                     @options.chitters)
     training_set = TrainingSet.new(slicer, @options.num_slices.to_i)
 
     training_set

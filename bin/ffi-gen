@@ -33,7 +33,11 @@ class ExportScanner
       end
     end
   end
-
+  
+  def cc
+    ENV['NVCC'] || 'nvcc'
+  end
+  
   def parse_args(arg_str)
     args = arg_str.split(',').collect(&:strip)
     arg_types = args.collect do |a|
@@ -55,8 +59,8 @@ class ExportScanner
   end
 
   def scan_for_functions(path)
-    `nvcc -E -DIN_PUBLIC=1 -D#{NEEDLE}=#{NEEDLE} #{NVCCFLAGS.join(' ')} #{path} | grep -e '#{NEEDLE}'`.
-      split("\n").
+    `#{cc} -E -DIN_PUBLIC=1 -D#{NEEDLE}=#{NEEDLE} #{NVCCFLAGS.join(' ')} #{path} | grep -e '#{NEEDLE}'`.
+      split(/[;\n}]/).
       collect { |f| m = f.match(/(#{NEEDLE}.*[)]([^;]|$))/); m && m[1] }.
       reject(&:nil?).
       collect { |f| scan_function(f[0, f.index(')') + 1]) }

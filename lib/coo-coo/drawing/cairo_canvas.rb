@@ -22,6 +22,16 @@ module CooCoo
         super(width, height)
       end
 
+      def self.from_vector(v, width, channels = 3)
+        pixels = v.each.each_slice(channels).collect { |a,b,c,d| [ a, b || 0, c || 0, d || 0 ] }.flatten.pack('C*')
+        surface = Cairo::ImageSurface.new(pixels, Cairo::FORMAT_RGB24, width, v.size / width, Cairo::Format.stride_for_width(Cairo::FORMAT_RGB24, width))
+        self.new(surface)
+      end
+
+      def self.from_file(path)
+        self.new(Cairo::ImageSurface.from_png(path))
+      end
+
       def flush
         @surface.flush
         self
@@ -71,7 +81,12 @@ module CooCoo
       end
 
       def blit(img, x, y, w, h)
-        surface = Cairo::ImageSurface.from_png(StringIO.new(img))
+        surface = case img
+                  when String then Cairo::ImageSurface.from_png(StringIO.new(img))
+                  when Cairo::ImageSurface then img
+                  when self.class then img.surface
+                  else raise TypeError.new("Invalid type #{img.class}")
+                  end
         zx = w / surface.width.to_f
         zy = h / surface.height.to_f
         @context.set_source(surface, x / zx, y / zy)
@@ -103,6 +118,14 @@ module CooCoo
         chunky_to_vector(ChunkyPNG::Image.from_blob(to_blob), grayscale)
       end
 
+      def dup
+        self.class.new(Cairo::ImageSurface.new(@surface.data,
+                                               @surface.format,
+                                               @surface.width,
+                                               @surface.height,
+                                               @surface.stride))
+      end
+      
       protected
       def set_color(c)
         @context.set_source_rgba(*ChunkyPNG::Color.

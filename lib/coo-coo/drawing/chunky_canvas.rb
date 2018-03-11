@@ -21,6 +21,25 @@ module CooCoo
         super(width, height)
       end
 
+      def self.from_vector(v, width, channels = 3)
+        span = width * channels
+        img = ChunkyPNG::Image.new(width, v.size / span)
+
+        v.each.each_slice(span).with_index do |row, i|
+          img.pixels[i * width, width] = row.each_slice(channels).collect { |p| ChunkyPNG::Color.rgb(*p.collect(&:to_i)) || 0 }
+        end
+
+        self.new(img)
+      end
+
+      def self.from_file(path)
+        self.new(ChunkyPNG::Image.from_file(path))
+      end
+
+      def dup
+        self.new(@image.dup)
+      end
+
       def line(x1, y1, x2, y2)
         @image.line(x1, y1, x2, y2, stroke_color)
         self
@@ -85,10 +104,33 @@ module CooCoo
       end
 
       def blit(other, x, y, w, h)
-        img = ChunkyPNG::Image.from_blob(other)
+        img = case other
+              when String then ChunkyPNG::Image.from_blob(other)
+              when ChunkyPNG::Image then other
+              when self.class then other.image
+              else TypeError.new("Unsupported type #{other.class}")
+              end
+
         if w != img.width || h != img.height
-          img.resample_bilinear!(w.to_i, h.to_i)
+          img = img.resample_bilinear(w.to_i, h.to_i)
         end
+
+        if x < 0
+          img = img.crop(-x, 0, width, h.to_i)
+          w = width
+          x = 0
+        elsif (x+w) > width
+          img = img.crop(0, 0, width - x, h.to_i)
+          w = width - x
+        end
+
+        if y < 0
+          img = img.crop(0, -y, w.to_i, height)
+          y = 0
+        elsif (y+h) > height
+          img = img.crop(0, 0, w.to_i, height - y)
+        end
+
         @image.compose!(img, x.to_i, y.to_i)
         self
       end
