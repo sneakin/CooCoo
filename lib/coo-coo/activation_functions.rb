@@ -61,7 +61,7 @@ module CooCoo
       # @return [Vector] of weights that are randomly distributed
       # between -1.0 and 1.0.
       def initial_weights(num_inputs, size)
-        (CooCoo::Vector.rand(num_inputs * size) * 2.0 - 1.0) / num_inputs.to_f.sqrt
+        (CooCoo::Vector.rand(num_inputs * size) * 2.0 - 1.0) #* (2.0 / (num_inputs * size).to_f).sqrt
       end
 
       # Initial bias for a {Layer}.
@@ -152,7 +152,7 @@ module CooCoo
       end
 
       def initial_weights(num_inputs, size)
-        CooCoo::Vector.rand(num_inputs * size) * (2.0 / (num_inputs * size).to_f).sqrt
+        (CooCoo::Vector.rand(num_inputs * size) * 2.0 - 1.0) * (2.0 / (num_inputs * size).to_f).sqrt
       end
     end
 
@@ -195,7 +195,7 @@ module CooCoo
       end
 
       def initial_weights(num_inputs, size)
-        CooCoo::Vector.rand(num_inputs * size) * (2.0 / (num_inputs * size).to_f).sqrt
+        (CooCoo::Vector.rand(num_inputs * size) * 2.0 - 1.0) * (2.0 / (num_inputs * size).to_f).sqrt
       end
 
       def ==(other)

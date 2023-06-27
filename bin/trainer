@@ -34,6 +34,8 @@ options.trainer = nil
 options.num_tests = 20
 options.start_tests_at = 0
 options.test_cost = CooCoo::CostFunctions::MeanSquare
+options.classifying = false
+options.passing = 1e-8
 
 opts = CooCoo::OptionParser.new do |o|
   o.on('-d', '--dataset PATH') do |path|
@@ -71,6 +73,14 @@ opts = CooCoo::OptionParser.new do |o|
 
   o.on('--test-cost NAME') do |name|
     options.test_cost = CooCoo::CostFunctions.from_name(name)
+  end
+
+  o.on('--classifying') do
+    options.classifying = !options.classifying
+  end
+
+  o.on('--passing FLOAT') do |v|
+    options.passing = v.to_f
   end
 
   o.on('--verbose') do
@@ -184,11 +194,17 @@ if options.num_tests
     each_with_index do |(target, pixels), i|
     out, hs = net.predict(pixels)
     loss = options.test_cost.call(target, out)
+    avg_loss = loss.average
     target_max = target.each.with_index.max
     out_max = out.each.with_index.max
-    passed = target_max[1] == out_max[1]
+    passed = if options.classifying
+               target_max[0] == out_max[0]
+             else
+               avg_loss < options.passing
+             end
+    
     passes += 1 if passed
-    puts("#{passed ? CHECKMARK : CROSSMARK} #{options.start_tests_at + i}\t#{loss.average}\t#{target_max}\t#{out[target_max[1]]}\t#{out_max}\t#{options.verbose ? target : nil}\t#{options.verbose ? out : nil}")
+    puts("#{passed ? CHECKMARK : CROSSMARK} #{options.start_tests_at + i}\t#{avg_loss}\t#{target_max}\t#{out[target_max[1]]}\t#{out_max}\t#{options.verbose ? target : nil}\t#{options.verbose ? out : nil}")
     $stdout.flush
     GC.start
   end
