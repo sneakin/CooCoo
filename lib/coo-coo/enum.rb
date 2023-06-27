@@ -1,5 +1,3 @@
-require 'coo-coo/core_ext'
-
 class Enumerator
   define_once(:zero) do
     Array.new(size, self.first.zero)

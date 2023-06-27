@@ -1,4 +1,5 @@
-require 'nokogiri'
+require 'rexml/document'
+require 'rexml/xpath'
 require 'zlib'
 require 'chunky_png'
 require 'base64'
@@ -37,11 +38,11 @@ module CooCoo
 
         # Loads a {Document} from XML in a String.
         def self.from_xml(data)
-          xml = Nokogiri::XML(data)
-          root = xml.xpath('//xournal')[0]
+          xml = REXML::Document.new(data)
+          root = REXML::XPath.first(xml, '//xournal')
           raise ParseError.new("XML root is not 'xournal'") unless root
-          title_el = root.xpath("title")
-          title = title_el[0].text if title_el.size > 0
+          title_el = REXML::XPath.first(root, "title")
+          title = title_el.text if title_el
           
           self.
             new(Document.new(title, root['version'])).
@@ -49,7 +50,7 @@ module CooCoo
         end
 
         def from_xml(xml)
-          xml.xpath("//page").each do |page|
+          REXML::XPath.each(xml, "//page") do |page|
             @doc.add_page(load_page(page))
           end
 
@@ -67,11 +68,11 @@ module CooCoo
         def load_page(xml)
           w = xml['width'].to_f
           h = xml['height'].to_f
-          bg_xml = xml.xpath('background')
-          bg = load_background(bg_xml[0]) if bg_xml[0]
+          bg_xml = REXML::XPath.first(xml, 'background')
+          bg = load_background(bg_xml) if bg_xml
           page = Page.new(w, h, bg)
           
-          xml.xpath('layer').each do |layer|
+          REXML::XPath.each(xml, 'layer') do |layer|
             page.add_layer(load_layer(layer))
           end
 
@@ -90,7 +91,7 @@ module CooCoo
         def load_layer(xml)
           layer = Layer.new
 
-          xml.children.select(&:element?).each do |elem|
+          xml.children.select { |e| REXML::Element === e }.each do |elem|
             case elem.name
             when 'stroke' then layer.add_stroke(load_stroke(elem))
             when 'text' then layer.add_text(load_text(elem))

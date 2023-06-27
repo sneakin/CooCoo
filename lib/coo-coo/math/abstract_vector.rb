@@ -1,3 +1,4 @@
+
 module CooCoo
   module Math
     class AbstractVector
@@ -26,6 +27,10 @@ module CooCoo
         self.class.zeros(size)
       end
 
+      def average
+        sum / size
+      end
+      
       def max
         minmax[1]
       end

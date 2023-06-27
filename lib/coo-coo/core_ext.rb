@@ -84,3 +84,5 @@ class File
     raise
   end
 end
+
+require_relative 'enum'

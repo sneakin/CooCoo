@@ -7,7 +7,6 @@ require 'coo-coo'
 require 'coo-coo/image'
 require 'coo-coo/convolution'
 require 'coo-coo/neuron_layer'
-require 'coo-coo/subnet'
 require 'coo-coo/drawing/sixel'
 require 'colorize'
 
@@ -173,7 +172,7 @@ else
     lw = data.width
     lh = data.height
     layer = nil
-    if options.hidden_layers > 1
+    if false #options.hidden_layers > 1
       subnet = CooCoo::Network.new
       (options.hidden_layers - 1).times do
         subnet.layer(CooCoo::Layer.new(16 * 16, 16 * 16, options.activation_function))

@@ -1,3 +1,5 @@
+require 'builder'
+
 module CooCoo
   module DataSources
     module Xournal
@@ -29,14 +31,13 @@ module CooCoo
         end
 
         def to_xml(doc)
-          Nokogiri::XML::Builder.new(encoding: 'UTF-8') do |xml|
-            xml.xournal(version: doc.version) do
-              xml.title(doc.title)
-              doc.pages.each do |p|
-                page_to_xml(p, xml)
-              end
+          xml = Builder::XmlMarkup.new(encoding: 'UTF-8')
+          xml.xournal(version: doc.version) do
+            xml.title(doc.title)
+            doc.pages.each do |p|
+              page_to_xml(p, xml)
             end
-          end.to_xml
+          end
         end
 
         protected
@@ -91,7 +92,7 @@ module CooCoo
         end
 
         def text_to_xml(text, xml)
-          xml.text_(text.text, x: text.x, y: text.y, size: text.size, color: text.color, font: text.font)
+          xml.text(text.text, x: text.x, y: text.y, size: text.size, color: text.color, font: text.font)
         end
       end
     end
