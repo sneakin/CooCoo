@@ -40,6 +40,12 @@ RSpec::Core::RakeTask.new(:spec => :compile) do |t, args|
 end
 
 namespace :spec do
+  desc "Run the specs with rspec doc output."
+  RSpec::Core::RakeTask.new(:doc => :compile) do |t, args|
+    t.pattern = "spec/**/*.spec"
+    t.rspec_opts = '-fdoc'
+  end
+
   desc "Run the specs with HTML output."
   RSpec::Core::RakeTask.new(:html => :compile) do |t, args|
     t.pattern = "spec/**/*.spec"
