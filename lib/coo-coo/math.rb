@@ -103,8 +103,6 @@ module CooCoo
 
       def each_slice(n, &block)
         if block
-          num_slices = (size / n.to_f).ceil.to_i
-          
           @elements.each_slice(n).with_index do |slice, i|
             block.call(self.class[slice, n])
           end
@@ -150,8 +148,8 @@ module CooCoo
       
       def dot(width, height, other, owidth = nil, oheight = nil)
         if other.kind_of?(self.class) || other.respond_to?(:[])
-          owidth ||= width
-          oheight ||= height
+          owidth ||= height
+          oheight ||= width
 
           if width * height != size
             raise ArgumentError.new("width & height, #{width}x#{height} don't match our size: #{size}")
@@ -176,40 +174,10 @@ module CooCoo
         end
       end
 
-      def +(other)
-        v = if other.respond_to?(:each)
-              raise ArgumentError.new("Size mismatch") if size != other.size
-              other.each.zip(each).collect do |oe, se|
-            se + oe
-          end
-            else
-              each.collect do |e|
-            e + other
-          end
-            end
-        
-        self.class[v]
-      end
-
       def -@
         self * -1.0
       end
       
-      def -(other)
-        v = if other.respond_to?(:each)
-              raise ArgumentError.new("Size mismatch: #{size} != #{other.size}") if size != other.size
-              other.each.zip(each).collect do |oe, se|
-            se - oe
-          end
-            else
-              each.collect do |e|
-            e - other
-          end
-            end
-        
-        self.class[v]
-      end
-
       def size
         @elements.size
       end
@@ -217,51 +185,26 @@ module CooCoo
       def length
         @elements.size
       end
-      
-      def *(other)
-        v = if other.respond_to?(:each)
-              raise ArgumentError.new("Size mismatch") if size != other.size
-              other.each.zip(each).collect do |oe, se|
-            se * oe
-          end
-            else
-              each.collect do |e|
-            e * other
-          end
-            end
 
+      def self.binop op
+        class_eval <<-EOT
+      def #{op}(other)
+        v = case other
+            when Numeric then each.collect { |e| e #{op} other }
+            else
+              raise ArgumentError.new("Size mismatch: \#{size} != \#{other.size}") if other.respond_to?(:size) && size != other.size
+              each.with_index.collect { |e, n| e #{op} other[n] }
+            end
         self.class[v]
       end
+EOT
+      end      
 
-      def **(other)
-        v = if other.respond_to?(:each)
-              raise ArgumentError.new("Size mismatch") if size != other.size
-              other.each.zip(each).collect do |oe, se|
-            se ** oe
-          end
-            else
-              each.collect do |e|
-            e ** other
-          end
-            end
-
-        self.class[v]
-      end
-
-      def /(other)
-        v = if other.respond_to?(:each)
-              raise ArgumentError.new("Size mismatch") if size != other.size
-              other.each.zip(each).collect do |oe, se|
-            se / oe
-          end
-            else
-              each.collect do |e|
-            e / other
-          end
-            end
-
-        self.class[v]
-      end
+      binop :*
+      binop :+
+      binop :-
+      binop :/
+      binop :**
 
       def ==(other)
         other && size == other.size && each.zip(other.each).all? do |a, b|
@@ -476,9 +419,9 @@ module CooCoo
         self / magnitude
       end
       
-      def dot(width, height, other, owidth, oheight)
-        owidth ||= width
-        oheight ||= height
+      def dot(width, height, other, owidth = nil, oheight = nil)
+        owidth ||= height
+        oheight ||= width
         
         if other.kind_of?(self.class)
           raise ArgumentError.new("invalid size") if other.size != owidth * oheight
@@ -487,20 +430,9 @@ module CooCoo
           product = @elements.reshape([ height, width ]).
             dot(other.elements.reshape([ oheight, owidth ]))
           
-          self.class[product.
-                     reshape([1, height * owidth ])]
+          self.class[product.reshape([1, height * owidth ])]
         else
           self.dot(width, height, self.class[other], owidth, oheight)
-        end
-      end
-
-      def +(other)
-        if other.kind_of?(self.class)
-          self.class[@elements + other.elements]
-        elsif other.kind_of?(Numeric)
-          self.class[@elements + other]
-        else
-          self + self.class[other]
         end
       end
 
@@ -508,16 +440,6 @@ module CooCoo
         self * -1.0
       end
       
-      def -(other)
-        if other.kind_of?(self.class)
-          self.class[@elements - other.elements]
-        elsif other.kind_of?(Numeric)
-          self.class[@elements - other]
-        else
-          self - self.class[other]
-        end
-      end
-
       def size
         length
       end
@@ -525,36 +447,26 @@ module CooCoo
       def length
         @elements.shape[1]
       end
-      
-      def *(other)
-        if other.kind_of?(self.class)
-          self.class[@elements * other.elements]
-        elsif other.kind_of?(Numeric)
-          self.class[@elements * other]
-        else
-          self * self.class[other]
-        end
-      end
 
-      def **(other)
-        if other.kind_of?(self.class)
-          self.class[@elements ** other.elements]
-        elsif other.kind_of?(Numeric)
-          self.class[@elements ** other]
-        else
-          self ** self.class[other]
-        end
+      def self.binop op
+        class_eval <<-EOT
+def #{op}(other)
+  if other.kind_of?(self.class)
+    self.class[@elements #{op} other.elements]
+  elsif other.kind_of?(Numeric)
+    self.class[@elements #{op} other]
+  else
+    self #{op} self.class[other]
+  end
+end
+EOT
       end
-      
-      def /(other)
-        if other.kind_of?(self.class)
-          self.class[@elements / other.elements]
-        elsif other.kind_of?(Numeric)
-          self.class[@elements / other]
-        else
-          self / self.class[other]
-        end
-      end
+            
+      binop :+
+      binop :-
+      binop :*
+      binop :/
+      binop :**
 
       def ==(other)
         if other.kind_of?(self.class)
