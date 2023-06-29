@@ -604,8 +604,9 @@ module CooCoo
 
   if ENV["COOCOO_USE_CUDA"] != "0" && CooCoo::CUDA.available?
     Vector = CUDA::Vector
+  elsif ENV["COOCOO_USE_NMATRIX"] == '1'
+    Vector = NMatrix::Vector
   else
     Vector = Ruby::Vector
-    #Vector = NMatrix::Vector
   end
 end
