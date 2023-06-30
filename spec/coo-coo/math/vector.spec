@@ -6,6 +6,8 @@ describe CooCoo::Ruby::Vector do
   include_examples "for an AbstractVector"
 end
 
-describe CooCoo::NMatrix::Vector do
-  include_examples "for an AbstractVector"
+if ENV['COOCOO_USE_NMATRIX'] != '0'
+  describe CooCoo::NMatrix::Vector do
+    include_examples "for an AbstractVector"
+  end
 end
