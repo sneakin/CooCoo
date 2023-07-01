@@ -30,6 +30,7 @@ options.epochs = 1000
 options.dataset = nil
 options.model_path = nil
 options.prototype = nil
+options.save_every = 1
 options.trainer = nil
 options.num_tests = 20
 options.start_tests_at = 0
@@ -53,6 +54,10 @@ opts = CooCoo::OptionParser.new do |o|
 
   o.on('--binary') do
     options.binary_blob = true
+  end
+  
+  o.on('--save-every INTEGER') do |n|
+    options.save_every = n.to_i
   end
 
   o.on('-e', '--train NUMBER', '--epochs NUMBER') do |n|
@@ -167,7 +172,7 @@ if options.trainer
     status = []
     status << "Cost\t#{avg_err.average}\t#{options.verbose ? avg_err : nil}"
     status << "Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds"
-    if options.model_path
+    if options.model_path && options.save_every > 0 && stats.batch % options.save_every == 0
       if options.binary_blob
         File.write_to(options.model_path) do |f|
           f.write(Marshal.dump(net))

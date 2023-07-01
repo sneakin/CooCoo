@@ -33,9 +33,12 @@ options.translate_dy = 0
 options.hidden_layers = nil
 options.hidden_size = 128
 options.activation_function = CooCoo.default_activation
+options.save_every = 8
 options.trainer = 'Stochastic'
 options.softmax = false
 options.convolution = nil
+options.conv_span = 16
+options.conv_hidden_out = 4
 options.conv_step = 8
 options.stacked_convolution = false
 options.test_images_path = MNist::TEST_IMAGES_PATH
@@ -66,6 +69,10 @@ opts = CooCoo::OptionParser.new do |o|
     options.binary_blob = true
   end
 
+  o.on('--save-every INTEGER') do |n|
+    options.save_every = n.to_i
+  end
+  
   o.on('-t', '--train NUMBER', 'train for number of epochs') do |n|
     options.train = true
     options.epochs = n.to_i
@@ -133,6 +140,14 @@ opts = CooCoo::OptionParser.new do |o|
     options.conv_step = n
   end
 
+  o.on('--convolution-span INTEGER') do |n|
+    options.conv_span = n.to_i
+  end
+  
+  o.on('--convolution-hidden-out INTEGER') do |n|
+    options.conv_hidden_out = n.to_i
+  end
+  
   o.on('--stacked-convolutions') do
     options.stacked_convolutions = true
   end
@@ -169,21 +184,23 @@ else
   area = data.width * data.height
 
   if options.stacked_convolutions
+    span = options.conv_span || 16
+    oun_w = options.conv_hidden_out || 4
     lw = data.width
     lh = data.height
     layer = nil
     if false #options.hidden_layers > 1
       subnet = CooCoo::Network.new
       (options.hidden_layers - 1).times do
-        subnet.layer(CooCoo::Layer.new(16 * 16, 16 * 16, options.activation_function))
+        subnet.layer(CooCoo::Layer.new(span*span, span*span, options.activation_function))
       end
-      subnet.layer(CooCoo::Layer.new(16 * 16, 16, options.activation_function))
+      subnet.layer(CooCoo::Layer.new(span*span, span, options.activation_function))
       layer = CooCoo::Subnet.new(subnet)
     else
-      layer = CooCoo::Layer.new(16 * 16, 16, options.activation_function)
+      layer = CooCoo::Layer.new(span*span, span, options.activation_function)
     end
-    while lw > 4 && lh > 4
-      clayer = CooCoo::Convolution::BoxLayer.new(lw, lh, options.conv_step, options.conv_step, layer, 16, 16, 4, 4)
+    while lw > out_w && lh > out_w
+      clayer = CooCoo::Convolution::BoxLayer.new(lw, lh, options.conv_step, options.conv_step, layer, span, span, out_w, out_w)
       net.layer(clayer)
       #net.layer(CooCoo::MaxPool::Box.new(lw / 2 * 4, lh / 2 * 4, 8, 8, 4, 4))
       #lw = lw * 2 * 10
@@ -197,7 +214,7 @@ else
     area = data.width * data.height
 
     if options.convolution
-      l = CooCoo::Convolution::BoxLayer.new(data.width, data.height, options.conv_step, options.conv_step, CooCoo::Layer.new(16, 4, options.activation_function), 4, 4, 2, 2)
+      l = CooCoo::Convolution::BoxLayer.new(data.width, data.height, options.conv_step, options.conv_step, CooCoo::Layer.new(options.conv_span**2, options.conv_hidden_out**2, options.activation_function), options.conv_span, options.conv_span, options.conv_hidden_out, options.conv_hidden_out)
       net.layer(l)
       area = l.size
     end
@@ -237,7 +254,7 @@ if options.train
     backup(options.model_path)
   end
 
-  data_r = MNist::DataStream::Rotator.new(data, options.rotations, max_rad, false)
+  data_r = options.rotations <= 1 ? data : MNist::DataStream::Rotator.new(data, options.rotations, max_rad, false)
   data_t = MNist::DataStream::Translator.new(data_r, options.num_translations, options.translate_dx, options.translate_dy, false)
   training_set = MNist::TrainingSet.new(data_t).each
 
@@ -263,13 +280,15 @@ if options.train
 
     if options.model_path
       puts("Batch #{stats.batch} took #{stats.total_time} seconds")
-      puts("Saving to #{options.model_path}")
-      if options.binary_blob
-        File.open(options.model_path, 'wb') do |f|
-          f.write(Marshal.dump(net))
+      if options.save_every > 0 && stats.batch % options.save_every == 0
+        puts("Saving to #{options.model_path}")
+        if options.binary_blob
+          File.open(options.model_path, 'wb') do |f|
+            f.write(Marshal.dump(net))
+          end
+        else
+          net.save(options.model_path)
         end
-      else
-        net.save(options.model_path)
       end
     end
 
@@ -283,10 +302,10 @@ CROSSMARK = "\u2718"
 puts("Trying the training images")
 errors = Array.new(options.num_tests, 0)
 data = MNist::DataStream.new(options.test_labels_path, options.test_images_path)
-data_r = MNist::DataStream::Rotator.new(data.each.
-                                          drop(options.start_tests_at).
-                                          first(options.num_tests),
-                                        1, max_rad, true)
+data_s = data.each.
+           drop(options.start_tests_at).
+           first(options.num_tests)
+data_r = options.rotations <= 1 ? data_s : MNist::DataStream::Rotator.new(data_s, 1, max_rad, true)
 data_t = MNist::DataStream::Translator.new(data_r, 1, options.translate_dx, options.translate_dy, true)
 data_t.
   each_with_index do |example, i|
