@@ -3,6 +3,9 @@ require 'net/http'
 require 'zlib'
 require 'coo-coo/image'
 
+# todo read directly from gzipped files
+# todo usable by the bin/trainer?
+
 module MNist
   PATH = Pathname.new(__FILE__)
   MNIST_URIS = [ "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz",
@@ -303,6 +306,22 @@ module MNist
       @stream = data_stream
     end
 
+    def name
+      File.dirname(__FILE__)
+    end
+    
+    def input_size
+      Width*Height
+    end
+    
+    def output_size
+      10
+    end
+    
+    def size
+      @stream.size
+    end
+    
     def each(&block)
       return to_enum(__method__) unless block
 
@@ -313,7 +332,7 @@ module MNist
         a = Array.new(10, 0.0)
         a[example.label] = 1.0
         m = [ CooCoo::Vector[a],
-              CooCoo::Vector[example.pixels] / 256.0
+              CooCoo::Vector[example.pixels] / 255.0
         ]
         #$stderr.puts("#{m[0]}\t#{m[1]}")
         block.call(m)
@@ -321,6 +340,7 @@ module MNist
     end
   end
 
+  # todo necessary?
   class DataSet
     attr_reader :examples
 
@@ -362,4 +382,56 @@ if __FILE__ == $0
   end
 
   puts("#{data.size} total #{data.width}x#{data.height} images")
+elsif $0 =~ /trainer$/
+  require 'pathname'
+  require 'ostruct'
+
+  @options = OpenStruct.new
+  @options.images_path = MNist::TRAIN_IMAGES_PATH
+  @options.labels_path = MNist::TRAIN_LABELS_PATH
+  @options.translations = 1
+  @options.translation_amount = 0
+  @options.rotations = 1
+  @options.rotation_amount = 0
+  
+  @opts = CooCoo::OptionParser.new do |o|
+    o.banner = "The MNist data set"
+    
+    o.on('--images-path PATH') do |path|
+      @options.images_path = path
+    end
+
+    o.on('--labels-path PATH') do |path|
+      @options.labels_path = path
+    end
+
+    o.on('--translations INTEGER') do |n|
+      @options.translations = n.to_i
+    end
+
+    o.on('--translation-amount DEGREE') do |n|
+      @options.translation_amount = n.to_i
+    end
+
+    o.on('--rotations INTEGER') do |n|
+      @options.rotations = n.to_i
+    end
+
+    o.on('--rotation-amount DEGREE') do |n|
+      @options.rotation_amount = n.to_i
+    end
+  end
+
+  def training_set()
+    data = MNist::DataStream.new(@options.labels_path, @options.images_path)
+    if @options.rotations > 0 && @options.rotation_amount > 0
+      data = MNist::DataStream::Rotator.new(data.each, @options.rotations, @options.rotation_amount / 180.0 * Math::PI, false)
+    end
+    if @options.translations > 0 && @options.translation_amount > 0
+      data = MNist::DataStream::Translator.new(data, options.translations, options.translation_amount, options.translation_amount, false)
+    end
+    MNist::TrainingSet.new(data)
+  end
+
+  [ method(:training_set), @opts ]
 end

@@ -76,6 +76,8 @@ module CooCoo
     end
 
     class TransformedImage
+      attr_writer :width, :height
+
       def initialize(image, transform, filter = nil)
         @image = image
         @transform = transform
@@ -83,11 +85,11 @@ module CooCoo
       end
 
       def width
-        @image.width
+        @width ||= @image.width
       end
-
+      
       def height
-        @image.height
+        @height ||= @image.height
       end
 
       def bpp
@@ -107,7 +109,7 @@ module CooCoo
         height.times.collect do |y|
           width.times.collect do |x|
             self[x, y]
-          end.flatten
+          end
         end
       end
       

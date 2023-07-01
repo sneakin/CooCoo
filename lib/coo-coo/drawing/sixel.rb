@@ -3,6 +3,28 @@ require 'stringio'
 module CooCoo
   module Drawing
     module Sixel
+      def self.gray_bytes a, width, height, num_grays = 16
+       to_string do |s|
+          s.use_gray_palette(num_grays)
+          s.from_array(CooCoo::Vector[a] * num_grays / 255.0, width, height)
+        end
+      end
+
+      # todo try an Image filter            
+      def self.gray_image img, num_grays = 16
+        pixels = img.to_a.flatten(1)
+        pixels = if img.bpp > 1
+          CooCoo::Vector[pixels.collect(&:sum)] / img.bpp
+        else
+          CooCoo::Vector[pixels]
+        end
+        pixels = pixels / 255.0 * num_grays
+        to_string do |s|
+          s.use_gray_palette(num_grays)
+          s.from_array(pixels, img.width, img.height)
+        end
+      end
+            
       def self.from_array(a, width, height = nil)
         s = Stringer.new
         s.begin_sixel + s.from_array(a, width, height) + s.newline + s.finish_sixel
@@ -109,6 +131,10 @@ module CooCoo
           "\##{c}"
         end
         
+        def use_gray_palette num_grays = 16
+          num_grays.times.collect { |i| c = i * 100 / num_grays; set_color(i, c, c, c) }.join
+        end
+        
         def start_sixel
           "\ePq"
         end
@@ -139,6 +165,7 @@ end
 
 if __FILE__ == $0
   require 'coo-coo/math'
+  require 'coo-coo/image'
   
   HI = <<-EOT
 \ePq
@@ -210,6 +237,10 @@ EOT
     s.newline
     s.from_array(CooCoo::Vector.rand(28 * 28, 4), 28)
   end
+
+  i = CooCoo::Image::Base.new(64, 64, 1)  
+  64.times { |y| 64.times { |x| i[x, y] = (x*y)/(64*64.0) * 255 } }
+  puts(CooCoo::Drawing::Sixel.gray_image(i, 8))
   
   puts("Good bye.")
 end

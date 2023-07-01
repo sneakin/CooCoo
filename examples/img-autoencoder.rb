@@ -32,7 +32,7 @@ class TrainingSet
   end
 end
 
-if $0 != __FILE__
+if $0 =~ /trainer$/
   require 'pathname'
   require 'ostruct'
 
@@ -74,7 +74,7 @@ if $0 != __FILE__
   end
 
   [ method(:training_set), @opts ]
-else
+elsif $0 == __FILE__
   include CooCoo
 
   options = OpenStruct.new

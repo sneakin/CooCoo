@@ -1,7 +1,7 @@
 #!/bin/env ruby
 
 require 'fileutils'
-require 'mnist'
+require_relative 'mnist'
 require 'ostruct'
 require 'coo-coo'
 require 'coo-coo/image'
@@ -298,10 +298,7 @@ data_t.
   mark = passed ? CHECKMARK : CROSSMARK
   errors[i] = 1.0 unless passed
   sixel = if options.sixel
-            " for " + CooCoo::Drawing::Sixel.to_string do |s|
-      16.times { |i| c = i / 16.0 * 100; s.set_color(i, c, c, c) }
-      s.from_array(CooCoo::Vector[example.each_pixel.collect.to_a] * 16.0 / 256.0, 28, 28)
-    end
+            " for " + CooCoo::Drawing::Sixel.from_graybytes(example.each_pixel.collect.to_a)
           else
             "\n"
           end
