@@ -121,8 +121,8 @@ module CooCoo
 
       def dot(w, h, other, ow = nil, oh = nil)
         if other.kind_of?(self.class)
-          ow ||= w
-          oh ||= h
+          ow ||= h
+          oh ||= w
           raise ArgumentError.new("width (#{w}) must match the other's height (#{oh})") if w != oh
           raise ArgumentError.new("width (#{w}) * height (#{h}) != size (#{size})") if size != w * h
           raise ArgumentError.new("other's width * height != other's size (#{ow} * #{oh} != #{other.size})") if other.size != ow * oh
