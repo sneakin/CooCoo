@@ -1,40 +1,34 @@
 require 'pathname'
 require 'net/http'
 require 'zlib'
-require 'coo-coo/image'
 
 # todo read directly from gzipped files
 # todo usable by the bin/trainer?
 
 module MNist
   PATH = Pathname.new(__FILE__)
+  ROOT = PATH.dirname.join('mnist')
   MNIST_URIS = [ "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz",
                  "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz",
                  "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz",
                  "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz"
                ]
-  TRAIN_LABELS_PATH = PATH.dirname.join('train-labels-idx1-ubyte')
-  TRAIN_IMAGES_PATH = PATH.dirname.join('train-images-idx3-ubyte')
-  TEST_LABELS_PATH = PATH.dirname.join('t10k-labels-idx1-ubyte')
-  TEST_IMAGES_PATH = PATH.dirname.join('t10k-images-idx3-ubyte')
+  TRAIN_LABELS_PATH = ROOT.join('train-labels-idx1-ubyte.gz')
+  TRAIN_IMAGES_PATH = ROOT.join('train-images-idx3-ubyte.gz')
+  TEST_LABELS_PATH = ROOT.join('t10k-labels-idx1-ubyte.gz')
+  TEST_IMAGES_PATH = ROOT.join('t10k-images-idx3-ubyte.gz')
 
   Width = 28
   Height = 28
 
   module Fetcher
-    def self.fetch_gzip_url(url)
-      data = Net::HTTP.get(url)
-      Zlib::GzipReader.new(StringIO.new(data)).read
-    end
-    
     def self.fetch!
+      ROOT.mkdir unless ROOT.exist?
       MNIST_URIS.each do |uri|
         uri = URI.parse(uri)
-        path = PATH.dirname.join(File.basename(uri.path).sub(".gz", ""))
-        data = fetch_gzip_url(uri)
-        File.open(path, "w") do |f|
-          f.write(data)
-        end
+        path = ROOT.join(File.basename(uri.path)) #.sub(".gz", ""))
+        next if path.exist?
+        CooCoo::Utils::HTTP.download(uri, to: path)
       end
     end
   end
@@ -112,7 +106,7 @@ module MNist
     private
     
     def open_labels(path)
-      f = File.open(path, "rb")
+      f = CooCoo::Utils.open_filez(path)
       magic, number = f.read(4 * 2).unpack('NN')
       raise RuntimeError.new("Invalid magic number #{magic} in #{path}") if magic != 0x801
       
@@ -129,7 +123,7 @@ module MNist
     end
 
     def open_images(path)
-      f = File.open(path, "rb")
+      f = CooCoo::Utils.open_filez(path)
       magic, num_images, height, width = f.read(4 * 4).unpack('NNNN')
       raise RuntimeError.new("Invalid magic number #{magic} in #{path}") if magic != 0x803
 
@@ -150,13 +144,13 @@ module MNist
     def initialize(labels_path = TRAIN_LABELS_PATH, images_path = TRAIN_IMAGES_PATH)
       if (labels_path == TRAIN_LABELS_PATH && images_path == TRAIN_IMAGES_PATH) ||
          (labels_path == TEST_LABELS_PATH && images_path == TEST_IMAGES_PATH)
-        if !File.exists?(labels_path) || !File.exists?(images_path)
+        if !File.exist?(labels_path) || !File.exist?(images_path)
           Fetcher.fetch!
         end
       end
 
-      raise ArgumentError.new("File does not exist: #{labels_path}") unless File.exists?(labels_path)
-      raise ArgumentError.new("File does not exist: #{images_path}") unless File.exists?(images_path)
+      raise ArgumentError.new("File does not exist: #{labels_path}") unless File.exist?(labels_path)
+      raise ArgumentError.new("File does not exist: #{images_path}") unless File.exist?(images_path)
       
       @labels_path = labels_path
       @images_path = images_path
@@ -196,7 +190,7 @@ module MNist
     end
 
     def read_dimensions
-      File.open(@images_path, "rb") do |f|
+      CooCoo::Utils.open_filez(@images_path) do |f|
         magic, num_images, height, width = f.read(4 * 4).unpack('NNNN')
         raise RuntimeError.new("Invalid magic number #{magic} in #{path}") if magic != 0x803
 
@@ -206,7 +200,7 @@ module MNist
     end
     
     def read_size
-      File.open(@labels_path, "rb") do |f|
+      CooCoo::Utils.open_filez(@labels_path) do |f|
         magic, number = f.read(4 * 2).unpack('NN')
         raise RuntimeError.new("Invalid magic number #{magic} in #{@labels_path}") if magic != 0x801
 
