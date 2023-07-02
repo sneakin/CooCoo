@@ -103,39 +103,79 @@ module CooCoo
         self
       end
 
-      def blit(other, x, y, w, h)
-        img = case other
-              when String then ChunkyPNG::Image.from_blob(other)
-              when ChunkyPNG::Image then other
-              when self.class then other.image
-              else TypeError.new("Unsupported type #{other.class}")
-              end
-
-        if w != img.width || h != img.height
-          img = img.resample_bilinear(w.to_i, h.to_i)
+      def promote_data other
+        case other
+        when String then ChunkyPNG::Image.from_blob(other)
+        when ChunkyPNG::Image then other
+        when self.class then other.image
+        else TypeError.new("Unsupported type #{other.class}")
         end
+      end
+            
+      def blit(img, x, y, w, h)
+        return if x >= width || (x+w) < 0 || y >= height || (y+h) < 0
+        img = promote_data(img)
+        x = x.round
+        y = y.round
+        w = w.round
+        h = h.round
+        
+        # Scale the image
+        if w != img.width || h != img.height
+          img = img.resample_bilinear(w, h)
+        end
+
+        # The image may be positioned or stretched outside of the canvas.
+        # Chunky does not like images that go beyond the bounds, and it'l
+        # wrap anythig positioned off page.
+        # So the image needs to be cropped to fit onto the canvas.
+        #
+        # +----+      +--------+     +-------+
+        # |    |      |        |     |       |
+        # | +--+--+ +-+--------+--+  |   +---+---+
+        # +-|--+  | | +--------+  |  +---+---+   |
+        #   |     | |             |      |       |
+        #   +-----+ +-------------+      +-------+
+        #
+        # Gravity) Cropped to; Drawn to
+        # SE) (0, 0, width - x, height - y); (x, y, width - x, height - y)
+        # S) (-x, 0, width, height - y); (0, y, width, height - y)
+        # NW) (-x, -y, w + x, h + y); (0, 0, w + x, h + y)
+        cx = 0
+        cy = 0
+        cw = w
+        ch = h
 
         if x < 0
-          img = img.crop(-x, 0, width, h.to_i)
-          w = width
+          cx = -x
+          cw = w - cx
           x = 0
-        elsif (x+w) > width
-          img = img.crop(0, 0, width - x, h.to_i)
-          w = width - x
+        end
+        if (x+w) >= width
+          cw = width - x
+        end
+        
+        if y < 0
+          cy = -y
+          ch = h - cy
+          y = 0
+        end
+        if (y+h) >= height
+          ch = height - y
         end
 
-        if y < 0
-          img = img.crop(0, -y, w.to_i, height)
-          y = 0
-        elsif (y+h) > height
-          img = img.crop(0, 0, w.to_i, height - y)
+        if cx != 0 || cy != 0 || cw != w || ch != h
+          img = img.crop(cx, cy, cw, ch)
         end
 
         @image.compose!(img, x.to_i, y.to_i)
         self
+      rescue
+        binding.pry
       end
 
       def text(txt, x, y, font, font_size, font_style = nil)
+        $stderr.puts("Warning: #{self.class.name}\#text is not implemented.")
         self
       end
 

@@ -128,7 +128,7 @@ module CooCoo
           widths = xml['width'].split.collect(&:to_f)
 
           width = nil
-          xml.children.to_s.
+          xml.text.
             split.
             collect(&:to_f).
             each_slice(2).

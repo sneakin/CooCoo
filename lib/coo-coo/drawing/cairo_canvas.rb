@@ -18,6 +18,7 @@ module CooCoo
         
         @surface = surface
         @context = Cairo::Context.new(@surface)
+        @context.antialias = 1
 
         super(width, height)
       end
@@ -67,15 +68,15 @@ module CooCoo
       end
 
       def rect(x, y, w, h)
-        @context.rectangle(x, y, w, h)
         set_color(fill_color)
+        @context.rectangle(x, y, w, h)
         @context.fill
         self
       end
 
       def circle(x, y, r)
-        @context.circle(x, y, r)
         set_color(fill_color)
+        @context.circle(x, y, r)
         @context.fill
         self
       end
@@ -89,19 +90,28 @@ module CooCoo
                   end
         zx = w / surface.width.to_f
         zy = h / surface.height.to_f
-        @context.set_source(surface, x / zx, y / zy)
-        @context.scale(zx, zy)
-        @context.paint
 
+        @context.save
+        @context.rectangle(x, y, w, h)
+        @context.translate(x, y)
+        @context.scale(zx, zy)
+        @context.set_source(surface, 0, 0)
+        @context.fill
+        @context.restore
+        
         self
       end
 
       def text(txt, x, y, font, font_size, style = Cairo::FONT_SLANT_NORMAL)
-        @context.move_to(x, y + font_size)
         set_color(fill_color)
         @context.select_font_face(font, style)
         @context.font_size = font_size
-        @context.show_text(txt)
+        ty = y + font_size
+        txt.split("\n").each do |line|
+          @context.move_to(x, ty)
+          @context.show_text(line)
+          ty = ty + font_size
+        end
         self
       end
 
@@ -128,9 +138,8 @@ module CooCoo
       
       protected
       def set_color(c)
-        @context.set_source_rgba(*ChunkyPNG::Color.
-                                 to_truecolor_alpha_bytes(fill_color).
-                                 collect { |c| c / 256.0 })
+        rgba = Vector[ChunkyPNG::Color.to_truecolor_alpha_bytes(c)] / 255.0
+        @context.set_source_rgba(*rgba)
       end
     end
   end

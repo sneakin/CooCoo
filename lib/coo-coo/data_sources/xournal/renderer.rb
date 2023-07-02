@@ -56,6 +56,7 @@ module CooCoo
           end
         end
 
+        # todo render background @style: lined, grid, none?
         def render_background(canvas, bg, min_x, min_y, max_x, max_y, zx, zy)
           color = chunky_color(bg.color || :white)
           canvas.stroke_color = canvas.fill_color = color
@@ -74,13 +75,14 @@ module CooCoo
         end
 
         def render_image(canvas, src, min_x, min_y, zx, zy)
-          canvas.blit(src.raw_data, ((src.left - min_x) * zx), ((src.top - min_y) * zy), src.width * zx, src.height * zy)
+          canvas.blit(src.raw_data, ((src.left - min_x) * zx), ((src.top - min_y) * zy), (src.right - src.left) * zx, (src.bottom - src.top) * zy)
         end
 
         def render_stroke(canvas, stroke, min_x, min_y, max_x, max_y, zx, zy, &block)
           color = chunky_color(stroke.color) unless block_given?
           points = stroke.each_sample.with_index.inject([]) do |acc, (sample, i)|
-            #next unless sample.within?(min_x, min_y, max_x, max_y)
+            #next acc unless sample.within?(min_x, min_y, max_x, max_y) # stroke could just pass though
+            next acc if [ sample.x, sample.y ].any? { |v| [ 0.0, nil ].include?(v) }
             x = (sample.x - min_x) * zx
             y = (sample.y - min_y) * zy
             w = sample.width * zx
