@@ -1,0 +1,125 @@
+#!/usr/bin/env -S bundle exec ruby
+
+require 'optparse'
+require 'ostruct'
+require 'coo-coo/data_sources/xournal'
+
+def usage args
+  puts("Usage: #{$0} command [options...]")
+end
+
+def xournal_info args
+  # render full pages to an image
+  args.each do |path|
+    doc = CooCoo::DataSources::Xournal.from_file(path)
+    puts(path,
+         "Title: %s" % [ doc.title ],
+         "Size: %i bytes" % [ File.stat(path).size ],
+         "Pages: %i" % [ doc.pages.size ],
+         doc.inspect)
+    puts
+  end
+end
+
+def render_pages args
+  # render full pages to an image
+  options = OpenStruct.new
+  options.width = nil
+  options.height = nil
+  options.output_pattern = 'page-${page}.png'
+  options.use_cairo = nil
+  options.zoom = 1.0
+  options.min = [ 0, 0 ]
+  
+  args = OptionParser.new do |o|
+    o.on('-w', '--width INTEGER', Integer) do |n|
+      options.width = n.to_i
+    end
+
+    o.on('-h', '--height INTEGER', Integer) do |n|
+      options.height = n.to_i
+    end
+
+    o.on('-x', '--min-x INTEGER', Integer) do |n|
+      options.min[0] = n.to_i
+    end
+
+    o.on('-y', '--min-y INTEGER', Integer) do |n|
+      options.min[1] = n.to_i
+    end
+
+    o.on('-o', '--output STRING', 'Filename to write renderings. Replaces $page with the page number.') do |s|
+      options.output_pattern = s
+    end
+    
+    o.on('--use-cairo') do
+      options.use_cairo = true
+    end
+    
+    o.on('--zoom FLOAT', Float) do |n|
+      options.zoom = n
+    end
+  end.parse!(args)
+
+  renderer = CooCoo::DataSources::Xournal::Renderer.new(options.use_cairo)
+
+  args.each do |path|
+    file, *pages = path.split(',')
+    doc = CooCoo::DataSources::Xournal.from_file(file)
+    pages = if pages.empty?
+      (0...doc.pages.size)
+    else
+      pages.collect(&:to_i)
+    end
+    
+    puts(file)
+    pages.each do |page|
+      # todo scale the output to width X height; and/or full geometry options
+      out_path = options.output_pattern.gsub(/(\$[{]?page[}]?)/, "%.4i" % [ page ])
+      $stderr.puts("  page %i -> %s" % [ page, out_path ])
+      img = renderer.render(doc, page, *options.min, options.width, options.height, options.zoom, options.zoom)
+      if options.use_cairo
+        img.write_to_png(out_path)
+      else
+        img.save(out_path)
+      end
+    end
+  end
+end
+
+def render_strokes args
+  # render strokes in individual images
+end
+
+def scan_xournal args
+  # use a neural network to classifier a Xournal stroke by stroke.
+end
+
+def prep_xournal args
+  # annotate a xournal for learning: each stroke needs a label for training
+end
+
+def learn_journal args
+  # use a prepped xournal to learn what strokes mean
+end
+
+if $0 == __FILE__
+  Commands = {
+    help: :usage,
+    info: :xournal_info,
+    pages: :render_pages,
+    strokes: :render_strokes,
+    scan: :scan_xournal,
+    prep: :prep_xournal,
+    learn: :learn_xournal
+  }
+  args = ARGV[1..-1]
+  cmd_name = ARGV[0] || 'help'
+  cmd = cmd_name ? Commands.fetch(cmd_name.to_sym, nil) : nil
+  if cmd
+    send(cmd, args)
+  else
+    puts("Unknown command: #{cmd_name.inspect}")
+    puts("Try #{Commands.keys.join(', ')}")
+  end
+end
