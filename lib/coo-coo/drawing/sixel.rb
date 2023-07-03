@@ -75,30 +75,37 @@ module CooCoo
         end
         
         def from_array(a, width, height = nil)
-          height ||= (a.size / width.to_f).ceil
           max_color = a.max.ceil
-          
-          (height / 6.0).ceil.times.collect do |y|
+
+          # A sixel encodes 6 vertical pixels per byte for a single color.
+          # To use all the colors each line needs sixels for each color.
+          # todo CUDA reduction?
+
+          # Rotate the pixels so column access is a slice.
+          cols = a.each_slice(width).to_a.transpose
+          # Group the pixels into sixel groups for each line.
+          six_pixels = cols.collect do |col|
+            col.each_slice(6).to_a
+          end
+          # Then scan each line for each color converting into sixels for that color
+          # and join into a final string.
+          lines = six_pixels.transpose
+          return lines.collect do |line|
             (max_color + 1).times.collect do |c|
-              #next if c == 0
-              in_color(c) + width.times.collect do |x|
-                sixel_line(c, *6.times.collect { |i|
-                             a[(y*6+i) * width + x] rescue @background
-                           })
-              end.join
+              in_color(c) + line.collect { |s| sixel_line(c, s, @background) }.pack('C*')
             end.join(cr)
           end.join(newline)
         end
 
-        def sixel_line(c, *pixels)
-          line = 6.times.inject(0) { |acc, i|
-            if pixels[i].to_i == c
+        def sixel_line(c, pixels, bg = 0)
+          6.times.reduce(0) do |acc, i|
+            pix = (pixels[i] || bg).to_i
+            if pix == c
               (acc | (1 << i))
             else
               acc
             end
-          }
-          [ 63 + line ].pack('c')
+          end + 63
         end
 
         def move_to(x, y)
@@ -193,16 +200,16 @@ EOT
   puts(stringer.begin_sixel)
   puts("\#0;2;100;0;0\#1;2;0;100;0\#2;2;0;0;100")
   16.times {
-    $stdout.write(stringer.sixel_line(1, 1, 1, 0, 0, 1, 1))
+    $stdout.write(stringer.sixel_line(1, [1, 1, 0, 0, 1, 1], 0))
   }
   puts
-  puts(stringer.sixel_line(1, 0, 0, 1, 1, 0, 0))
-  puts(stringer.sixel_line(1, 0, 0, 1, 1, 0, 0))
-  puts(stringer.sixel_line(2, 1, 1, 2, 2, 1, 1))
-  puts(stringer.sixel_line(2, 1, 1, 2, 2, 1, 1))
-  puts(stringer.sixel_line(1, 1, 1, 1, 1, 1, 1))
-  puts(stringer.sixel_line(1, 1, 1, 1, 1, 1, 1))
-  puts(stringer.sixel_line(1, 1, 1, 1, 1, 1, 1))
+  puts(stringer.sixel_line(1, [ 0, 0, 1, 1 ], 0))
+  puts(stringer.sixel_line(1, [ 0, 0, 1, 1, 0, 0 ], 0))
+  puts(stringer.sixel_line(2, [ 1, 1, 2, 2, 1, 1 ], 0))
+  puts(stringer.sixel_line(2, [ 1, 1, 2, 2, 1, 1 ], 0))
+  puts(stringer.sixel_line(1, [ 1, 1, 1, 1, 1, 1 ], 0))
+  puts(stringer.sixel_line(1, [ 1, 1, 1, 1, 1, 1 ], 0))
+  puts(stringer.sixel_line(1, [ 1, 1, 1, 1, 1, 1 ], 0))
   puts(stringer.finish_sixel)
 
   puts("And the big one:")
@@ -242,7 +249,9 @@ EOT
 
   i = CooCoo::Image::Base.new(64, 64, 1)  
   64.times { |y| 64.times { |x| i[x, y] = (x*y)/(64*64.0) * 255 } }
-  puts(CooCoo::Drawing::Sixel.gray_image(i, 8))
+  [ 8, 16, 64, 255, 256, 1024 ].each do |num_colors|
+    puts(num_colors, CooCoo::Drawing::Sixel.gray_image(i, num_colors))
+  end
   
   puts("Good bye.")
 end

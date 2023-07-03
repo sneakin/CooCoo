@@ -49,6 +49,8 @@ module CooCoo
       def to_a
         @elements
       end
+      
+      alias to_ary to_a
 
       def to_s
         values = each.collect do |e|
@@ -316,6 +318,8 @@ EOT
       def to_a
         @elements.to_a
       end
+
+      alias to_ary to_a
 
       def to_s
         "[" + to_a.join(", ") + "]"

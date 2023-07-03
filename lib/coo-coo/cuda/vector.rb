@@ -104,6 +104,8 @@ module CooCoo
         @elements.to_a
       end
 
+      alias to_ary to_a
+
       def _dump(depth)
         @elements.to_a.pack('E*')
       end
