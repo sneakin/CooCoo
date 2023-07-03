@@ -113,6 +113,22 @@ module CooCoo
         def each_layer(&block)
           @layers.each(&block)
         end
+        
+        def num_layers
+          @layers.size
+        end
+        
+        def num_strokes
+          each_layer.collect(&:num_strokes).sum
+        end
+        
+        def num_images
+          each_layer.collect(&:num_images).sum
+        end
+
+        def num_texts
+          each_layer.collect(&:num_texts).sum
+        end
       end
 
       class Background
@@ -181,14 +197,6 @@ module CooCoo
           @children.size
         end
 
-        def num_strokes
-          @children.select { |c| c.kind_of?(Stroke) }.size
-        end
-
-        def num_texts
-          @children.select { |c| c.kind_of?(Text) }.size
-        end
-        
         def each(&block)
           @children.each(&block)
         end
@@ -212,6 +220,10 @@ module CooCoo
           @children.select { |c| c.kind_of?(Stroke) }
         end
         
+        def num_strokes
+          strokes.size
+        end
+
         def each_stroke(&block)
           strokes.each(&block)
         end
@@ -223,6 +235,10 @@ module CooCoo
 
         def text
           @children.select { |c| c.kind_of?(Text) }          
+        end
+        
+        def num_texts
+          text.size
         end
         
         def each_text(&block)
@@ -239,6 +255,10 @@ module CooCoo
         
         def each_image(&block)
           images.each(&block)
+        end
+        
+        def num_images
+          images.size
         end
       end
 

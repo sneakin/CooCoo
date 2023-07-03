@@ -37,7 +37,7 @@ module CooCoo
       end
 
       def dup
-        self.new(@image.dup)
+        self.class.new(@image.dup)
       end
 
       def line(x1, y1, x2, y2)
@@ -111,14 +111,20 @@ module CooCoo
         else TypeError.new("Unsupported type #{other.class}")
         end
       end
-            
-      def blit(img, x, y, w, h)
+
+      # todo sx and sy            
+      def blit(img, x, y, w, h, sx = 0, sy = 0)
         return if x >= width || (x+w) < 0 || y >= height || (y+h) < 0
         img = promote_data(img)
         x = x.round
         y = y.round
         w = w.round
         h = h.round
+        
+        #if sx != 0 || sy != 0
+        #  puts("blit %ix%i %ix%i" % [ sx, sy, img.width - sx, img.height - sy ])
+        #  img = img.crop(sx, sy, img.width - sx, img.height - sy)
+        #end
         
         # Scale the image
         if w != img.width || h != img.height
@@ -129,6 +135,8 @@ module CooCoo
         # Chunky does not like images that go beyond the bounds, and it'l
         # wrap anythig positioned off page.
         # So the image needs to be cropped to fit onto the canvas.
+        #
+        # A few cases:
         #
         # +----+      +--------+     +-------+
         # |    |      |        |     |       |
@@ -174,6 +182,24 @@ module CooCoo
         binding.pry
       end
 
+      def crop x, y, w, h, bg = 0xFF
+        # todo padding...done through the slow route of super only if needed (needs sx,sy in blit)?
+        $stderr.puts("crop0 %ix%i %ix%i %ix%i" % [ x, y, w, h, width, height ])
+
+        if x < 0
+          w += x
+          x = 0
+        end
+        if y < 0
+          h += y
+          y = 0
+        end
+        w = width-x if (x+w) >= width
+        h = height-y if (y+h) >= height
+        $stderr.puts("crop1 %ix%i %ix%i %ix%i" % [ x, y, w, h, width, height ])
+        self.class.new(@image.crop(x.to_i, y.to_i, w.to_i, h.to_i))
+      end
+      
       def text(txt, x, y, font, font_size, font_style = nil)
         $stderr.puts("Warning: #{self.class.name}\#text is not implemented.")
         self
@@ -181,6 +207,10 @@ module CooCoo
 
       def to_vector(grayscale = false)
         chunky_to_vector(@image, grayscale)
+      end
+      
+      def save_to_png path
+        @image.save(path)
       end
     end
   end

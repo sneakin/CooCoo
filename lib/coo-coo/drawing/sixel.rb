@@ -4,13 +4,15 @@ module CooCoo
   module Drawing
     module Sixel
       def self.gray_bytes a, width, height, num_grays = 16
-       to_string do |s|
+        pixels = CooCoo::Vector[a] * num_grays / 255.0
+        to_string do |s|
           s.use_gray_palette(num_grays)
-          s.from_array(CooCoo::Vector[a] * num_grays / 255.0, width, height)
+          s.from_array(pixels, width, height)
         end
       end
 
-      # todo try an Image filter            
+      # todo try an Image filter
+      # todo RGB images
       def self.gray_image img, num_grays = 16
         pixels = img.to_a.flatten(1)
         pixels = if img.bpp > 1
@@ -132,7 +134,7 @@ module CooCoo
         end
         
         def use_gray_palette num_grays = 16
-          num_grays.times.collect { |i| c = i * 100 / num_grays; set_color(i, c, c, c) }.join
+          (num_grays+1).times.collect { |i| c = i * 100 / num_grays; set_color(i, c, c, c) }.join
         end
         
         def start_sixel

@@ -12,13 +12,25 @@ def xournal_info args
   # render full pages to an image
   args.each do |path|
     doc = CooCoo::DataSources::Xournal.from_file(path)
-    puts(path,
+    puts(" Path: %s" % [ path ],
          "Title: %s" % [ doc.title ],
-         "Size: %i bytes" % [ File.stat(path).size ],
+         " Size: %i bytes" % [ File.stat(path).size ],
          "Pages: %i" % [ doc.pages.size ],
-         doc.inspect)
+         *doc.each_page.with_index.collect { |page, page_n|
+           "  %i: %ix%i, %i layers, %i strokes, %i texts, %i images" % [ page_n, page.width, page.height, page.num_layers, page.num_strokes, page.num_texts, page.num_images ]
+         })
     puts
   end
+end
+
+def sixelize_canvas canvas
+  term_size = CooCoo::Vector[[ENV.fetch('COLUMNS', 80), ENV.fetch('LINES', 24)]]
+  term_pixel_size = term_size * [ 8, 6 ]
+  w = [ canvas.width, term_pixel_size[0] ].min
+  h = canvas.height
+  canvas = canvas.resample(w, h, maintain_aspect: true, pad: true, background: 0xFFFFFFFF)
+  pixels = canvas.to_vector(true)
+  CooCoo::Drawing::Sixel.gray_bytes(pixels, w, h)
 end
 
 def render_pages args
@@ -27,7 +39,8 @@ def render_pages args
   options.width = nil
   options.height = nil
   options.output_pattern = 'page-${page}.png'
-  options.use_cairo = nil
+  options.use_cairo = false
+  options.use_sixel = false
   options.zoom = 1.0
   options.min = [ 0, 0 ]
   
@@ -38,6 +51,10 @@ def render_pages args
 
     o.on('-h', '--height INTEGER', Integer) do |n|
       options.height = n.to_i
+    end
+    
+    o.on('--zoom FLOAT', Float) do |n|
+      options.zoom = n
     end
 
     o.on('-x', '--min-x INTEGER', Integer) do |n|
@@ -55,9 +72,9 @@ def render_pages args
     o.on('--use-cairo') do
       options.use_cairo = true
     end
-    
-    o.on('--zoom FLOAT', Float) do |n|
-      options.zoom = n
+
+    o.on('--use-sixel') do
+      options.use_sixel = true
     end
   end.parse!(args)
 
@@ -73,22 +90,126 @@ def render_pages args
     end
     
     puts(file)
+    page_count = pages.size
     pages.each do |page|
       # todo scale the output to width X height; and/or full geometry options
-      out_path = options.output_pattern.gsub(/(\$[{]?page[}]?)/, "%.4i" % [ page ])
-      $stderr.puts("  page %i -> %s" % [ page, out_path ])
-      img = renderer.render(doc, page, *options.min, options.width, options.height, options.zoom, options.zoom)
-      if options.use_cairo
-        img.write_to_png(out_path)
+      out_path = options.output_pattern.fill_template(page: "%.4i" % [ page ])
+      if options.use_sixel
+        $stderr.puts("  page %i/%i" % [ page, page_count ])
       else
-        img.save(out_path)
+        $stderr.puts("  page %i/%i -> %s" % [ page, page_count, out_path ])
+      end
+      canvas = renderer.render(doc, page, *options.min, options.width, options.height, options.zoom, options.zoom)
+      if options.use_sixel
+        puts(sixelize_canvas(canvas))
+      else
+        canvas.save_to_png(out_path)
       end
     end
   end
 end
 
-def render_strokes args
-  # render strokes in individual images
+def crop_stroke page_rend, stroke, bg = nil
+  min, max = stroke.minmax
+  w = max[0] - min[0]
+  h = max[1] - min[1]
+  cx = min[0] + w/2
+  cy = min[1] + h/2
+  dia = [ w, h ].max
+  dia += dia
+  rad = dia / 2
+  nwx = cx - rad
+  nwy = cy - rad
+  puts("  %i %ix%i #{min.inspect} #{max.inspect}, %ix%i %i %ix%i" % [ stroke.size, w, h, cx, cy, dia, nwx, nwy ])
+
+  return nil if rad < 1
+  page_rend.crop(nwx, nwy, dia, dia, bg || 'white')
+end
+
+def render_features args
+  # render strokes and embedded images as individual images
+  options = OpenStruct.new
+  options.width = 28
+  options.height = 28
+  options.output_pattern = 'feature-${page}-${layer}-${stroke}.png'
+  options.use_cairo = nil
+  options.use_sixel = false
+  options.zoom = 1.0
+  options.min = [ 0, 0 ]
+  
+  args = OptionParser.new do |o|
+    o.on('-w', '--width INTEGER', Integer) do |n|
+      options.width = n.to_i
+    end
+
+    o.on('-h', '--height INTEGER', Integer) do |n|
+      options.height = n.to_i
+    end
+
+    o.on('--zoom FLOAT', Float) do |n|
+      options.zoom = n
+    end
+
+    o.on('-x', '--min-x INTEGER', Integer) do |n|
+      options.min[0] = n.to_i
+    end
+
+    o.on('-y', '--min-y INTEGER', Integer) do |n|
+      options.min[1] = n.to_i
+    end
+
+    o.on('-o', '--output STRING', 'Filename to write renderings. Replaces $page with the page number.') do |s|
+      options.output_pattern = s
+    end
+    
+    o.on('--use-cairo') do
+      options.use_cairo = true
+    end
+
+    o.on('--use-sixel') do
+      options.use_sixel = true
+    end
+  end.parse!(args)
+
+  renderer = CooCoo::DataSources::Xournal::Renderer.new(options.use_cairo)
+  puts("Outputting %ix%i images" % [ options.width, options.height ])
+  
+  args.each do |path|
+    file, *pages = path.split(',')
+    doc = CooCoo::DataSources::Xournal.from_file(file)
+    pages = if pages.empty?
+      (0...doc.pages.size)
+    else
+      pages.collect(&:to_i)
+    end
+    
+    puts(file)
+    pages.each do |page|
+      # render the whole page and crop each stroke?      
+      page_rend = renderer.render(doc, page, *options.min, nil, nil, options.zoom, options.zoom)
+      $stderr.puts("  page %i: %ix%i" % [ page, page_rend.width, page_rend.height ])
+      doc_page = doc.pages[page]
+      doc_page.layers.each.with_index do |layer, layer_n|
+        layer.each_stroke.with_index  do |stroke, stroke_n|
+          # center a circle on the stroke that has a diameter twice the stroke's largest dimension
+          canvas = crop_stroke(page_rend, stroke, doc_page.background.color)
+          next unless canvas
+          # scale the stroke to a standard size like 28x28
+          canvas = canvas.resample(options.width, options.height)
+          if options.use_sixel
+            puts(sixelize_canvas(canvas))
+          else
+            out_path = options.output_pattern.fill_template(
+                         page: "%.4i" % [ page ],
+                         layer: "%.4i" % [ layer_n ],
+                         stroke: "%.4i" % [ stroke_n ])
+            $stderr.puts("Writing %s" % [ out_path ])
+            canvas.save_to_png(out_path)
+          end
+        end
+      end
+    end
+  end
 end
 
 def scan_xournal args
@@ -97,10 +218,37 @@ end
 
 def prep_xournal args
   # annotate a xournal for learning: each stroke needs a label for training
+  # todo show each stroke and ask what it is? write all that to a file for training and use.
+  args = OptionParser.new do |o|
+  end.parse!(args)
+
+  args.each do |path|
+    file, *pages = path.split(',')
+    doc = CooCoo::DataSources::Xournal.from_file(file)
+    pages = if pages.empty?
+      (0...doc.pages.size)
+    else
+      pages.collect(&:to_i)
+    end
+    
+    puts(file)
+    pages.each do |page|
+      doc_page = doc.pages[page]
+      doc_page.layers.each.with_index do |layer, layer_n|
+        layer.each_stroke.with_index  do |stroke, stroke_n|
+          min, max = stroke.minmax
+          puts("%i/%i/%i %i,%i %i,%i " % [ page, layer_n, stroke_n, *min, *max ])
+        end
+      end
+    end
+  end
 end
 
 def learn_journal args
   # use a prepped xournal to learn what strokes mean
+end
+
+def learn_training_set args
 end
 
 if $0 == __FILE__
@@ -108,10 +256,11 @@ if $0 == __FILE__
     help: :usage,
     info: :xournal_info,
     pages: :render_pages,
-    strokes: :render_strokes,
+    features: :render_features,
     scan: :scan_xournal,
     prep: :prep_xournal,
     learn: :learn_xournal
+    training_set: :learn_training_set
   }
   args = ARGV[1..-1]
   cmd_name = ARGV[0] || 'help'

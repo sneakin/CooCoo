@@ -8,7 +8,7 @@ module CooCoo
       
       def initialize(surface_or_width, height = nil)
         if height
-          surface = Cairo::ImageSurface.new(surface_or_width, height)
+          surface = Cairo::ImageSurface.new(Cairo::FORMAT_RGB24, surface_or_width, height)
           width = surface_or_width
         else
           surface = surface_or_width
@@ -18,7 +18,7 @@ module CooCoo
         
         @surface = surface
         @context = Cairo::Context.new(@surface)
-        @context.antialias = 1
+        @context.antialias = Cairo::Antialias::GRAY
 
         super(width, height)
       end
@@ -81,7 +81,7 @@ module CooCoo
         self
       end
 
-      def blit(img, x, y, w, h)
+      def blit(img, x, y, w, h, sx = 0, sy = 0)
         surface = case img
                   when String then Cairo::ImageSurface.from_png(StringIO.new(img))
                   when Cairo::ImageSurface then img
@@ -95,7 +95,7 @@ module CooCoo
         @context.rectangle(x, y, w, h)
         @context.translate(x, y)
         @context.scale(zx, zy)
-        @context.set_source(surface, 0, 0)
+        @context.set_source(surface, -sx, -sy)
         @context.fill
         @context.restore
         
@@ -126,6 +126,11 @@ module CooCoo
       def to_vector(grayscale = false)
         @surface.flush
         chunky_to_vector(ChunkyPNG::Image.from_blob(to_blob), grayscale)
+      end
+      
+      def save_to_png path
+        @surface.flush
+        @surface.write_to_png(path)
       end
 
       def dup

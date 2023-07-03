@@ -32,7 +32,6 @@ module CooCoo
           img = ChunkyPNG::Image.new((w * zx).to_i, (h * zy).to_i, chunky_color(page.background.color || :white))
           canvas = Drawing::ChunkyCanvas.new(img)
           render_to_canvas(canvas, document, page_num, x, y, w, h, zx, zy)
-          img
         end
         
         def render_to_cairo(document, page_num, x = 0, y = 0, w = nil, h = nil, zx = 1.0, zy = 1.0)
@@ -42,7 +41,6 @@ module CooCoo
           surface = Cairo::ImageSurface.new((w * zx).to_i, (h * zy).to_i)
           canvas = Drawing::CairoCanvas.new(surface)
           render_to_canvas(canvas, document, page_num, x, y, w, h, zx, zy)
-          surface
         end
 
         def chunky_color(color)

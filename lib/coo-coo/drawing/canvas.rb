@@ -23,6 +23,11 @@ module CooCoo
         raise NotImplementedError.new
       end
       
+      def set_fill_color c
+        self.fill_color = c
+        self
+      end
+      
       def fill_color=(c)
         @fill_color = ChunkyPNG::Color.parse(c)
       end
@@ -59,17 +64,24 @@ module CooCoo
         self
       end
 
+      def crop x, y, w, h, bg = 0xFF
+        self.class.new(w, h).
+          set_fill_color(bg).
+          rect(0, 0, w, h).
+          blit(self, 0, 0, width, height, x, y)
+      end
+      
       def resample(new_width, new_height, options = Hash.new)
-        options = { maintain_aspect: true, background: 0, pad: false }.merge(options)
+        options = { maintain_aspect: true, background: 0xFF, pad: false }.merge(options)
         maintain_aspect = options.fetch(:maintain_aspect)
-        background = options.fetch(:background)
+        background = ChunkyPNG::Color.parse(options.fetch(:background))
         pad = options.fetch(:pad)
         
         w = new_width
         h = new_height
 
         if maintain_aspect
-          if width > height && pad || (width < height) && !pad
+          if (width > height && pad) || (width < height && !pad)
             h = (new_height * height / width.to_f).to_i
           else
             w = (new_width * width / height.to_f).to_i
@@ -82,7 +94,8 @@ module CooCoo
           x = new_width / 2.0 - w / 2.0
           y = new_height / 2.0 - h / 2.0
           canvas = self.class.new(new_width, new_height)
-          canvas.fill_color = 0xff
+          canvas.fill_color = background
+          canvas.stroke_color = background
           canvas.
             rect(0, 0, new_width, new_height).
             blit(self, x.to_i, y.to_i, w, h)

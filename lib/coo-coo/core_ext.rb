@@ -85,4 +85,14 @@ class File
   end
 end
 
+class String
+  def fill_template env
+    gsub(/\$((?:[{][^}]+[}])|\w+)/) do |m|
+      key = $1
+      key = key[1..-2] if key[0] == '{'
+      env.fetch(key) { env.fetch(key.to_sym, m) }
+    end
+  end
+end
+
 require_relative 'enum'
