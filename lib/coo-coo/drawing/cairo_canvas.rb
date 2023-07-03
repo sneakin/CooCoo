@@ -47,6 +47,7 @@ module CooCoo
       end
 
       def stroke(points)
+        return self if points == nil || points.empty?
         set_color(stroke_color)
         @context.set_line_width(points[0][2])
         @context.line_cap = Cairo::LINE_CAP_ROUND

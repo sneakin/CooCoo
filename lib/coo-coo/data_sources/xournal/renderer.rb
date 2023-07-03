@@ -56,7 +56,7 @@ module CooCoo
 
         # todo render background @style: lined, grid, none?
         def render_background(canvas, bg, min_x, min_y, max_x, max_y, zx, zy)
-          color = chunky_color(bg.color || :white)
+          color = chunky_color(bg ? bg.color : :white)
           canvas.stroke_color = canvas.fill_color = color
           canvas.rect(0, 0, ((max_x - min_x) * zx).ceil, ((max_y - min_y) * zy).ceil)
         end
@@ -89,8 +89,9 @@ module CooCoo
                    else
                      [ x, y, w, color ]
                    end
-            color ||= data[3]
+            color ||= data[3] || 0xFF
             acc << data
+            acc
           end
 
           canvas.stroke_color = color
