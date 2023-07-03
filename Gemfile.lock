@@ -27,7 +27,6 @@ GEM
     diff-lcs (1.5.0)
     docile (1.4.0)
     ffi (1.15.5)
-    ffi (1.15.5-x64-mingw32)
     matrix (0.4.2)
     method_source (0.9.2)
     native-package-installer (1.1.8)
@@ -69,12 +68,11 @@ GEM
       yard
 
 PLATFORMS
-  ruby
-  x64-mingw32
+  x86_64-linux
 
 DEPENDENCIES
   CooCoo!
-  bundler (~> 1.14)
+  bundler (~> 2.4.13)
   coderay
   pry (~> 0.11.3)
   rake (~> 10.0)
@@ -84,4 +82,4 @@ DEPENDENCIES
   yard-rspec
 
 BUNDLED WITH
-   1.16.1
+   2.4.13
