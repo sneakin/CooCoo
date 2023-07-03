@@ -259,7 +259,7 @@ if $0 == __FILE__
     features: :render_features,
     scan: :scan_xournal,
     prep: :prep_xournal,
-    learn: :learn_xournal
+    learn: :learn_xournal,
     training_set: :learn_training_set
   }
   args = ARGV[1..-1]
