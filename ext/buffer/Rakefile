@@ -41,6 +41,7 @@ def ffi_file(target)
             '--module', "CooCoo::DeviceBuffer",
             '--library', 'buffer',
             '-t', 'int=cudaError_t',
+            '-t', 'pointer=dim3',
             '-o', t.name,
             *t.sources)
   end

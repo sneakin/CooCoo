@@ -67,6 +67,7 @@ module CooCoo
         buffer_function :host_slice, [ DeviceBuffer, :pointer, :size_t, :size_t ], :int
 
         [ :add, :sub, :mul, :pow, :div,
+          :bsl, :bsr, :and, :or, :xor,
           :collect_eq, :collect_neq, :collect_lt, :collect_lte, :collect_gt, :collect_gte
         ].each do |binary_op|
           buffer_function binary_op, [ DeviceBuffer, DeviceBuffer ], DeviceBuffer.auto_ptr
@@ -74,10 +75,10 @@ module CooCoo
           buffer_function "#{binary_op}d", [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
         end
         buffer_function :eq, [ DeviceBuffer, DeviceBuffer ], :int
-        buffer_function :addd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
-        buffer_function :subd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
-        buffer_function :muld, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
-        buffer_function :divd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
+        #buffer_function :addd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
+        #buffer_function :subd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
+        #buffer_function :muld, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
+        #buffer_function :divd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
 
         buffer_function :sum, [ DeviceBuffer ], :double
         buffer_function :min, [ DeviceBuffer ], :double
@@ -86,7 +87,8 @@ module CooCoo
         buffer_function :dot, [ DeviceBuffer, :size_t, :size_t, DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
         buffer_function :identity, [ :size_t ], DeviceBuffer.auto_ptr
         buffer_function :diagflat, [ DeviceBuffer ], DeviceBuffer.auto_ptr
-
+        buffer_function :transpose, [ DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
+        
         [ :abs, :exp, :log, :log10, :log2, :sqrt,
           :sin, :asin, :cos, :acos, :tan, :atan,
           :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,

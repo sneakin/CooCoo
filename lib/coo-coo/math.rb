@@ -176,6 +176,10 @@ module CooCoo
         end
       end
 
+      def transpose width, height
+        self.class[@elements.each_slice(width).to_a[0, height].transpose.flatten]
+      end
+      
       def -@
         self * -1.0
       end
@@ -207,6 +211,27 @@ EOT
       binop :-
       binop :/
       binop :**
+
+
+      def self.int_binop op
+        class_eval <<-EOT
+      def #{op}(other)
+        v = case other
+            when Numeric then each.collect { |e| e.to_i #{op} other.to_i }
+            else
+              raise ArgumentError.new("Size mismatch: \#{size} != \#{other.size}") if other.respond_to?(:size) && size != other.size
+              each.with_index.collect { |e, n| e.to_i #{op} other[n].to_i }
+            end
+        self.class[v]
+      end
+EOT
+      end      
+
+      int_binop :>>
+      int_binop :<<
+      int_binop :&
+      int_binop :|
+      int_binop :^
 
       def ==(other)
         other && size == other.size && each.zip(other.each).all? do |a, b|
@@ -407,6 +432,10 @@ EOT
         end
       end
 
+      def transpose
+        self.class[@elements.transpose]
+      end
+      
       def sum
         @elements.each.sum
       end

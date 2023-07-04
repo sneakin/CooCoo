@@ -235,6 +235,11 @@ module CooCoo
       ffi_operator(:*, :mul)
       ffi_operator(:**, :pow)
       ffi_operator(:/, :div)
+      ffi_operator(:<<, :bsl)
+      ffi_operator(:>>, :bsr)
+      ffi_operator(:&, :and)
+      ffi_operator(:|, :or)
+      ffi_operator(:^, :xor)
 
       def self.identity(size)
         FFI.buffer_identity(size)
@@ -254,6 +259,10 @@ module CooCoo
 
       def minmax
         return min, max
+      end
+      
+      def transpose width, height
+        FFI.buffer_transpose(self, width, height)
       end
     end
   end

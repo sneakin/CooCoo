@@ -339,14 +339,39 @@ shared_examples "for an AbstractVector" do
           it { expect(@b / @a).to eq(described_class[[2, 3/2.0, 4/3.0, 5/4.0]]) }
         end
         
+        describe '#<<' do
+          it { expect(@a << @b).to eq(described_class[[1 << 2, 2 << 3, 3 << 4, 4 << 5]]) }
+          it { expect(@b << @a).to eq(described_class[[2 << 1, 3 << 2, 4 << 3, 5 << 4]]) }
+        end
+
+        describe '#>>' do
+          it { expect(@a >> @b).to eq(described_class[[1 >> 2, 2 >> 3, 3 >> 4, 4 >> 5]]) }
+          it { expect(@b >> @a).to eq(described_class[[2 >> 1, 3 >> 2, 4 >> 3, 5 >> 4]]) }
+        end
+
+        describe '#&' do
+          it { expect(@a & @b).to eq(described_class[[1 & 2, 2 & 3, 3 & 4, 4 & 5]]) }
+          it { expect(@b & @a).to eq(described_class[[2 & 1, 3 & 2, 4 & 3, 5 & 4]]) }
+        end
+
+        describe '#|' do
+          it { expect(@a | @b).to eq(described_class[[1 | 2, 2 | 3, 3 | 4, 4 | 5]]) }
+          it { expect(@b | @a).to eq(described_class[[2 | 1, 3 | 2, 4 | 3, 5 | 4]]) }
+        end
+
+        describe '#^' do
+          it { expect(@a ^ @b).to eq(described_class[[1 ^ 2, 2 ^ 3, 3 ^ 4, 4 ^ 5]]) }
+          it { expect(@b ^ @a).to eq(described_class[[2 ^ 1, 3 ^ 2, 4 ^ 3, 5 ^ 4]]) }
+        end
+        
         context 'of a smaller size' do
-          [ :+, :-, :*, :/ ].each do |op|
+          [ :+, :-, :*, :/, :<<, :>>, :&, :|, :& ].each do |op|
             it { expect { @a.send(op, described_class.new(@a.size - 1))}. to raise_error(ArgumentError) }
           end
         end
         
         context 'of a larger size' do
-          [ :+, :-, :*, :/ ].each do |op|
+          [ :+, :-, :*, :/, :<<, :>>, :&, :|, :& ].each do |op|
             it { expect { @a.send(op, described_class.new(@a.size + 1))}. to raise_error(ArgumentError) }
           end
         end
@@ -358,6 +383,11 @@ shared_examples "for an AbstractVector" do
           it { expect(@a - 3).to eq(described_class[[ -2, -1, 0, 1 ]]) }
           it { expect(@a * 3).to eq(described_class[[ 3, 6, 9, 12 ]]) }
           it { expect(@a / 3).to eq(described_class[[ 1/3.0, 2/3.0, 3/3.0, 4/3.0]]) }
+          it { expect(@a << 3).to eq(described_class[[ 1<<3, 2<<3, 3<<3, 4<<3]]) }
+          it { expect(@a >> 3).to eq(described_class[[ 1>>3, 2>>3, 3>>3, 4>>3]]) }
+          it { expect(@a & 3).to eq(described_class[[ 1 & 3, 2 & 3, 3 & 3, 4 & 3]]) }
+          it { expect(@a | 3).to eq(described_class[[ 1 | 3, 2 | 3, 3 | 3, 4 | 3]]) }
+          it { expect(@a ^ 3).to eq(described_class[[ 1 ^ 3, 2 ^ 3, 3 ^ 3, 4 ^ 3]]) }
         end
 
         context 'pre op' do
@@ -365,6 +395,11 @@ shared_examples "for an AbstractVector" do
           it { expect(3 - @a).to eq(described_class[[ 2, 1, 0, -1 ]]) }
           it { expect(3 * @a).to eq(described_class[[ 3, 6, 9, 12 ]]) }
           it { expect(3 / @a).to eq(described_class[[ 3/1.0, 3/2.0, 3/3.0, 3/4.0]]) }
+          it { expect(3 << @a).to eq(described_class[[ 3<<1, 3<<2, 3<<3, 3<<4]]) }
+          it { expect(3 >> @a).to eq(described_class[[ 3>>1, 3>>2, 3>>3, 3>>4]]) }
+          it { expect(3 & @a).to eq(described_class[[ 3 & 1, 3 & 2, 3 & 3, 3 & 4]]) }
+          it { expect(3 | @a).to eq(described_class[[ 3 | 1, 3 | 2, 3 | 3, 3 | 4]]) }
+          it { expect(3 ^ @a).to eq(described_class[[ 3 ^ 1, 3 ^ 2, 3 ^ 3, 3 ^ 4]]) }
         end
       end
 
@@ -374,6 +409,11 @@ shared_examples "for an AbstractVector" do
           it { expect(@a - [10,11,12,13]).to eq(described_class[[ -9, -9, -9, -9 ]]) }
           it { expect(@a * [10,11,12,13]).to eq(described_class[[ 10, 22, 36, 52]]) }
           it { expect(@a / [10,11,12,13]).to eq(described_class[[ 1/10.0, 2/11.0, 3/12.0, 4/13.0]]) }
+          it { expect(@a << [10,11,12,13]).to eq(described_class[[ 1 << 10, 2 << 11, 3 << 12, 4 << 13]]) }
+          it { expect(@a >> [10,11,12,13]).to eq(described_class[[ 1 >> 10, 2 >> 11, 3 >> 12, 4 >> 13]]) }
+          it { expect(@a & [10,11,12,13]).to eq(described_class[[ 1 & 10, 2 & 11, 3 & 12, 4 & 13]]) }
+          it { expect(@a | [10,11,12,13]).to eq(described_class[[ 1 | 10, 2 | 11, 3 | 12, 4 | 13]]) }
+          it { expect(@a ^ [10,11,12,13]).to eq(described_class[[ 1 ^ 10, 2 ^ 11, 3 ^ 12, 4 ^ 13]]) }
         end
 
         context 'pre op' do
@@ -381,6 +421,11 @@ shared_examples "for an AbstractVector" do
           it { expect { [10,11,12,13] - @a }.to raise_error(TypeError) }
           it { expect { [10,11,12,13] * @a }.to raise_error(TypeError) }
           it { expect { [10,11,12,13] / @a }.to raise_error(NoMethodError) }
+          it { expect { [10,11,12,13] << @a }.to raise_error(NoMethodError) }
+          it { expect { [10,11,12,13] >> @a }.to raise_error(NoMethodError) }
+          it { expect { [10,11,12,13] & @a }.to raise_error(NoMethodError) }
+          it { expect { [10,11,12,13] | @a }.to raise_error(NoMethodError) }
+          it { expect { [10,11,12,13] ^ @a }.to raise_error(NoMethodError) }
         end
       end
     end
@@ -892,5 +937,31 @@ shared_examples "for an AbstractVector" do
       it { expect(subject).to_not be_infinite }
     end
   end
-  
+
+  describe '#transpose' do
+    [ [ 16.times.collect, 4, 4 ],
+      [ 20.times.collect, 5, 4 ],
+      [ [ 1, 2, 3, 4, 5, 6 ], 3, 2 ],
+      [ [ 1, 2, 3, 4, 5, 6 ], 2, 3 ],
+      [ [ 1, 2, 3, 4, 5, 6 ], 6, 1 ],
+      [ [ 1, 2, 3, 4, 5, 6 ], 1, 6 ],
+      [ [ 1, 2, 3, 4 ], 2, 2 ],
+      [ [ 1 ], 1, 1 ]
+    ].each do |(input, width, height)|
+      describe "with a #{width}x#{height} input" do
+        subject { described_class[input] }
+        let(:output) { subject.each_slice(width).to_a.transpose.flatten }
+        
+        it "swaps values at x,y with y,x" do
+          expect(subject.transpose(width, height)).to eq(output)
+        end
+        
+        it { expect(subject.transpose(width, height).size).
+               to eq(width*height) }
+      end
+    end
+    
+    # todo bad dimensions: too big
+    # todo smaller dimensions
+  end  
 end

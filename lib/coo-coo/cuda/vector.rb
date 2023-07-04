@@ -69,6 +69,10 @@ module CooCoo
         self.class[@elements.diagflat]
       end
 
+      def transpose width, height
+        self.class[@elements.transpose(width, height)]
+      end
+      
       def clone
         self.class.new(self.size).set(@elements)
       end
@@ -223,6 +227,11 @@ EOT
       bin_op('**')
       bin_op('collect_equal?')
       bin_op('collect_not_equal?')
+      bin_op('<<')
+      bin_op('>>')
+      bin_op('&')
+      bin_op('|')
+      bin_op('^')
 
       # Negates every element in the vector.
       # @return [Vector]

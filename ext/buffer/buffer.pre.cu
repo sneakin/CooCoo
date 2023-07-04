@@ -615,6 +615,8 @@ PUBLIC double buffer_max(const Buffer b)
   return launch_reduce(buffer_max_kernel, b);
 }
 
+// todo overrun potential adding grid_size in the cuda kernel
+
 #define BINARY_OP(name, operation)                                      \
   __device__ inline double buffer_ ## name ## _op(double a, double b)          \
   {                                                                     \
@@ -679,6 +681,11 @@ BINARY_OP(collect_lt, a < b);
 BINARY_OP(collect_lte, a <= b);
 BINARY_OP(collect_gt, a > b);
 BINARY_OP(collect_gte, a >= b);
+BINARY_OP(bsl, (double)((unsigned long)a << (unsigned long)b));
+BINARY_OP(bsr, (double)((unsigned long)a >> (unsigned long)b));
+BINARY_OP(and, (double)((unsigned long)a & (unsigned long)b));
+BINARY_OP(or, (double)((unsigned long)a | (unsigned long)b));
+BINARY_OP(xor, (double)((unsigned long)a ^ (unsigned long)b));
 
 #undef BINARY_OP
 
@@ -819,3 +826,35 @@ PUBLIC Buffer buffer_diagflat(const Buffer a)
   buffer_diagflat_inner<<< dim, 1 >>>(i->data, a->data, a->length);
   return i;
 }
+
+__global__ void buffer_transpose_inner(double *out, size_t outw, size_t outh, const double *in, size_t inw, size_t inh, int x, int y, size_t w, size_t h, size_t grid_offset)
+//__global__ void buffer_transpose_inner(const double *in, double *out, size_t size, size_t width, size_t height)
+{
+  int bx = blockIdx.x * blockDim.x + threadIdx.x;
+  int by = blockIdx.y * blockDim.y + threadIdx.y;
+  int col = bx + x;
+  int row = by + y;
+  size_t ii = grid_offset + row * inw + col;
+  size_t oi = grid_offset + col * outw + row;
+
+  if(col >= outh || row >= outw ||
+     col >= inw || row >= inh) {
+    return;
+  }
+  
+  out[oi] = in[ii];
+}
+
+PUBLIC Buffer buffer_transpose(const Buffer in, size_t width, size_t height)
+{
+  Buffer out = buffer_new(width * height, 0.0);
+  if(out == NULL) {
+    return NULL;
+  }
+
+  launch_2d_kernel(buffer_transpose_inner, out, height, in, width, 0, 0, width, height, NULL);
+  // buffer_transpose_inner<<< width, height >>>(in->data, out->data, width*height, width, height);
+  
+  return out;
+}
+
