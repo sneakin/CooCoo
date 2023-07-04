@@ -59,7 +59,8 @@ class ExportScanner
   end
 
   def scan_for_functions(path)
-    `#{cc} -E -DIN_PUBLIC=1 -D#{NEEDLE}=#{NEEDLE} #{NVCCFLAGS.join(' ')} #{path} | grep -e '#{NEEDLE}'`.
+    `cat  #{path} | sed -e '/\#include/ d' | #{cc} -x cu -E  -DIN_PUBLIC=1 -D#{NEEDLE}=#{NEEDLE} #{NVCCFLAGS.join(' ')} - | grep -e '#{NEEDLE}'`.
+    #`cat  #{path} | sed -e '/\#include/ d' | cpp -DIN_PUBLIC=1 -D#{NEEDLE}=#{NEEDLE} | grep -e '#{NEEDLE}'`.
       split(/[;\n}]/).
       collect { |f| m = f.match(/(#{NEEDLE}.*[)]([^;]|$))/); m && m[1] }.
       reject(&:nil?).
