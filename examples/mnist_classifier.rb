@@ -314,7 +314,7 @@ data_t.
   mark = passed ? CHECKMARK : CROSSMARK
   errors[i] = 1.0 unless passed
   sixel = if options.sixel
-            " for " + CooCoo::Drawing::Sixel.from_graybytes(example.each_pixel.collect.to_a)
+            " for " + CooCoo::Drawing::Sixel.gray_bytes(example.each_pixel.collect.to_a, data.width, data.height)
           else
             "\n"
           end
