@@ -16,7 +16,7 @@ module CooCoo
       DEFAULT_OPTIONS = {
         cost: CostFunctions::MeanSquare,
         learning_rate: 1/3.0,
-        batch_size: 1024
+        batch_size: 128
       }
       
       # Returns a command line {OptionParser} to gather the trainer's

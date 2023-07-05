@@ -20,6 +20,10 @@ module CooCoo
       end
     end
 
+    def name
+      "%s(%i, %i, %s)" % [ self.class.name, num_inputs, size, activotion_func.name ]
+    end
+    
     def neurons
       @neurons
     end

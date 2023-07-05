@@ -4,6 +4,10 @@ require('ostruct')
 @options.layers = Array.new
 @options.softmax = false
 
+def split_csi str, meth = :to_i
+  str.split(',').collect(&meth)
+end
+
 @opts = CooCoo::OptionParser.new do |o|
   o.banner = "Explicit fully connected layers"
   
@@ -12,11 +16,36 @@ require('ostruct')
   end
 
   o.on('--layer SIZE', 'Add a layer with SIZE neurons.') do |n|
-    @options.layers << [ :fully_connected, n.to_i ]
+    @options.layers << [ :fully_connected, n.to_i, @options.activation_function ]
   end
 
   o.on('--linear ACTIVATION') do |n|
     @options.layers << [ :linear, nil, ActivationFunctions.from_name(n) ]
+  end
+
+  o.on('--conv-box WIDTH,HEIGHT') do |n|
+    w, h = split_csi(n)
+    h ||= w
+    @options.layers << [ :conv_box, [w, h], @options.conv_size, @options.conv_step, @options.conv_hidden_out, @options.activation_function ]
+  end
+
+  o.on('--convolution-step X,Y') do |n|
+    x, y = split_csi(n)
+    y ||= x
+    raise ArgumentError.new("The convolution step must be >0.") if x <= 0 || y <= 0
+    @options.conv_step = [ x, y ]
+  end
+
+  o.on('--convolution-size X,Y') do |n|
+    x, y = split_csi(n)
+    y ||= x
+    @options.conv_size = [ x, y ]
+  end
+  
+  o.on('--convolution-hidden-out W,H') do |n|
+    w, h = split_csi(n)
+    h ||= 1
+    @options.conv_hidden_out = [ w, h ]
   end
 
   o.on('--softmax', 'Adds a SoftMax layer to the end of the network.') do
@@ -34,9 +63,15 @@ def generate(training_set)
     log.puts("\tLayer #{i}\t#{kind}\t#{last_size}\t#{size}\t#{args.inspect}")
     case kind
     when :fully_connected
-      net.layer(CooCoo::Layer.new(last_size, size, @options.activation_function))
+      net.layer(CooCoo::Layer.new(last_size, size, args[0]))
       last_size = size
     when :linear then net.layer(CooCoo::LinearLayer.new(last_size, args[0]))
+    when :conv_box then
+      csize, cstep, cout, af = args
+      int_layer = CooCoo::Layer.new(csize[0] * csize[1], cout[0] * cout[1], af)
+      layer = CooCoo::Convolution::BoxLayer.new(*size, *cstep, int_layer, *csize, *cout)
+      net.layer(layer)
+      last_size = layer.size
     end
   end
 

@@ -26,7 +26,7 @@ end
 
 require 'ostruct'
 options = OpenStruct.new
-options.epochs = 1000
+options.epochs = 10
 options.dataset = nil
 options.model_path = nil
 options.prototype = nil
@@ -36,7 +36,7 @@ options.num_tests = 20
 options.start_tests_at = 0
 options.test_cost = CooCoo::CostFunctions::MeanSquare
 options.classifying = false
-options.passing = 1e-8
+options.passing = 0.01
 
 opts = CooCoo::OptionParser.new do |o|
   o.on('-d', '--dataset PATH') do |path|

@@ -21,6 +21,10 @@ module CooCoo
       @bias = @activation_function.initial_bias(@size)
     end
 
+    def name
+      "%s(%i, %i, %s)" % [ self.class.name, num_inputs, size, activation_function.name ]
+    end
+    
     def num_inputs
       @num_inputs
     end

@@ -14,6 +14,10 @@ module CooCoo
       @activation_function = activation_function
     end
 
+    def name
+      "%s(%i, %s)" % [ self.class.name, size, activation_function.name ]
+    end
+
     def num_inputs
       size
     end

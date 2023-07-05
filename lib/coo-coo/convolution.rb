@@ -33,16 +33,20 @@ module CooCoo
         raise ArgumentError.new("Weights delta accumulator can only be averaged or summed") unless [ :average, :sum ].include?(@delta_accumulator)
       end
 
+      def name
+        "%s([ %i, %i ], [ %i, %i ], [ %i, %i ], %s)" % [ self.class.name, input_width, input_height, horizontal_step, vertical_step,  output_width, output_height, internal_layer.name ]
+      end
+      
       def activation_function
         internal_layer.activation_function
       end
 
-      def horizontal_span
-        @horizontal_span ||= (@width / @horizontal_step.to_f).ceil
+      def horizontal_grid_span
+        @horizontal_grid_span ||= (@width / @horizontal_step.to_f).ceil
       end
 
-      def vertical_span
-        @vertical_span ||= (@height / @vertical_step.to_f).ceil
+      def vertical_grid_span
+        @vertical_grid_span ||= (@height / @vertical_step.to_f).ceil
       end
       
       def num_inputs
@@ -50,11 +54,11 @@ module CooCoo
       end
 
       def output_width
-        (horizontal_span * int_output_width).to_i
+        (horizontal_grid_span * int_output_width).to_i
       end
 
       def output_height
-        (vertical_span * int_output_height).to_i
+        (vertical_grid_span * int_output_height).to_i
       end
 
       def size
@@ -70,8 +74,8 @@ module CooCoo
         
         each_area do |grid_x, grid_y|
           area_output = outputs[grid_y][grid_x]
-          gx = grid_x * inner_width #w / horizontal_span.to_f
-          gy = grid_y * inner_height #h / vertical_span.to_f
+          gx = grid_x * inner_width #w / horizontal_grid_span.to_f
+          gy = grid_y * inner_height #h / vertical_grid_span.to_f
           #puts("flatten #{out.size} #{grid_x} #{grid_y}\t#{gx} #{gy}\t#{inner_width} #{inner_height}")
           out.set2d!(w, area_output, inner_width, gx, gy)
         end
@@ -95,19 +99,19 @@ module CooCoo
       def forward(input, hidden_state)
         hs = hidden_state[self] || Array.new
         outputs = each_area do |grid_x, grid_y|
-          hs_index = (grid_y * horizontal_span + grid_x).to_i
+          hs_index = (grid_y * horizontal_grid_span + grid_x).to_i
           output, layer_hs = @internal_layer.forward(slice_input(input, grid_x, grid_y), hs[hs_index])
           hs[hs_index] = layer_hs
           output
         end
         hidden_state[self] = hs
-        [ flatten_areas(outputs, horizontal_span * int_output_width, vertical_span * int_output_height, int_output_width, int_output_height), hidden_state ]
+        [ flatten_areas(outputs, horizontal_grid_span * int_output_width, vertical_grid_span * int_output_height, int_output_width, int_output_height), hidden_state ]
       end
 
       def backprop(input, output, errors, hidden_state)
         hs = hidden_state[self] || Array.new
         deltas = each_area do |grid_x, grid_y|
-          hs_index = grid_y * horizontal_span + grid_x
+          hs_index = grid_y * horizontal_grid_span + grid_x
           d, layer_hs = @internal_layer.backprop(slice_input(input, grid_x, grid_y), slice_output(output, grid_x, grid_y), slice_output(errors, grid_x, grid_y), hs[hs_index])
           hs[hs_index] = layer_hs
           d
@@ -132,13 +136,13 @@ module CooCoo
       end
 
       def weight_deltas(inputs, deltas)
-        #rate = rate / (@horizontal_span * @vertical_span).to_f
+        #rate = rate / (@horizontal_grid_span * @vertical_grid_span).to_f
         change = []
         wd = []
 
         d = []
         each_area do |grid_x, grid_y|
-          hs_index = grid_y * horizontal_span + grid_x
+          hs_index = grid_y * horizontal_grid_span + grid_x
           delta, hs = @internal_layer.
             weight_deltas(slice_input(inputs, grid_x, grid_y),
                           deltas[grid_y][grid_x])
@@ -191,8 +195,8 @@ module CooCoo
       def each_area
         return to_enum(:each_area) unless block_given?
 
-        vertical_span.to_i.times.collect do |grid_y|
-          horizontal_span.to_i.times.collect do |grid_x|
+        vertical_grid_span.to_i.times.collect do |grid_y|
+          horizontal_grid_span.to_i.times.collect do |grid_x|
             yield(grid_x, grid_y)
           end
         end
@@ -211,8 +215,8 @@ module CooCoo
       def slice_output(output, grid_x, grid_y)
         origin_x = grid_x * @int_output_width
         origin_y = grid_y * @int_output_height
-        output.slice_2d((horizontal_span * @int_output_width).to_i,
-                        (vertical_span * @int_output_height).to_i,
+        output.slice_2d((horizontal_grid_span * @int_output_width).to_i,
+                        (vertical_grid_span * @int_output_height).to_i,
                         origin_x, origin_y,
                         @int_output_width, @int_output_height,
                         0.0)

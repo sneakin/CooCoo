@@ -37,7 +37,7 @@ options.save_every = 8
 options.trainer = 'Stochastic'
 options.softmax = false
 options.convolution = nil
-options.conv_span = 16
+options.conv_size = 16
 options.conv_hidden_out = 4
 options.conv_step = 8
 options.stacked_convolution = false
@@ -140,8 +140,8 @@ opts = CooCoo::OptionParser.new do |o|
     options.conv_step = n
   end
 
-  o.on('--convolution-span INTEGER') do |n|
-    options.conv_span = n.to_i
+  o.on('--convolution-size INTEGER') do |n|
+    options.conv_size = n.to_i
   end
   
   o.on('--convolution-hidden-out INTEGER') do |n|
@@ -165,9 +165,6 @@ if options.trainer
   argv = t_opts.parse!(argv)
 end
 
-
-raise ArgumentError.new("The convolution step must be >=8 when stacking convolutions.") if options.conv_step < 8
-
 puts("Loading MNist data")
 data = MNist::DataStream.new
 
@@ -184,7 +181,7 @@ else
   area = data.width * data.height
 
   if options.stacked_convolutions
-    span = options.conv_span || 16
+    span = options.conv_size || 16
     oun_w = options.conv_hidden_out || 4
     lw = data.width
     lh = data.height
@@ -214,7 +211,7 @@ else
     area = data.width * data.height
 
     if options.convolution
-      l = CooCoo::Convolution::BoxLayer.new(data.width, data.height, options.conv_step, options.conv_step, CooCoo::Layer.new(options.conv_span**2, options.conv_hidden_out**2, options.activation_function), options.conv_span, options.conv_span, options.conv_hidden_out, options.conv_hidden_out)
+      l = CooCoo::Convolution::BoxLayer.new(data.width, data.height, options.conv_step, options.conv_step, CooCoo::Layer.new(options.conv_size**2, options.conv_hidden_out, options.activation_function), options.conv_size, options.conv_size, options.conv_hidden_out, 1)
       net.layer(l)
       area = l.size
     end
@@ -244,7 +241,7 @@ puts("\tInputs: #{net.num_inputs}")
 puts("\tOutputs: #{net.num_outputs}")
 puts("\tLayers: #{net.num_layers}")
 net.layers.each_with_index do |l, i|
-  puts("\t\t#{i}\t#{l.num_inputs}\t#{l.size}\t#{l.class}")
+  puts("\t\t#{i}\t#{l.num_inputs}\t#{l.size}\t#{l.name}")
 end
 
 $stdout.flush
