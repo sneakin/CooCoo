@@ -152,7 +152,7 @@ puts("\tInputs: #{net.num_inputs}")
 puts("\tOutputs: #{net.num_outputs}")
 puts("\tLayers: #{net.num_layers}")
 net.layers.each_with_index do |l, i|
-  puts("\t\t#{i}\t#{l.num_inputs}\t#{l.size}\t#{l.class}")
+  puts("\t\t#{i}\t#{l.num_inputs}\t#{l.size}\t#{l.name}")
 end
 
 $stdout.flush
