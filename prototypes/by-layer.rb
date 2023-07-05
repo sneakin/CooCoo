@@ -4,10 +4,6 @@ require('ostruct')
 @options.layers = Array.new
 @options.softmax = false
 
-def split_csi str, meth = :to_i
-  str.split(',').collect(&meth)
-end
-
 @opts = CooCoo::OptionParser.new do |o|
   o.banner = "Explicit fully connected layers"
   
@@ -24,26 +20,26 @@ end
   end
 
   o.on('--conv-box WIDTH,HEIGHT') do |n|
-    w, h = split_csi(n)
+    w, h = CooCoo::Utils.split_csi(n)
     h ||= w
     @options.layers << [ :conv_box, [w, h], @options.conv_size, @options.conv_step, @options.conv_hidden_out, @options.activation_function ]
   end
 
   o.on('--convolution-step X,Y') do |n|
-    x, y = split_csi(n)
+    x, y = CooCoo::Utils.split_csi(n)
     y ||= x
     raise ArgumentError.new("The convolution step must be >0.") if x <= 0 || y <= 0
     @options.conv_step = [ x, y ]
   end
 
   o.on('--convolution-size X,Y') do |n|
-    x, y = split_csi(n)
+    x, y = CooCoo::Utils.split_csi(n)
     y ||= x
     @options.conv_size = [ x, y ]
   end
   
   o.on('--convolution-hidden-out W,H') do |n|
-    w, h = split_csi(n)
+    w, h = CooCoo::Utils.split_csi(n)
     h ||= 1
     @options.conv_hidden_out = [ w, h ]
   end

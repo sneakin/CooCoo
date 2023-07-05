@@ -3,6 +3,7 @@
 require 'optparse'
 require 'ostruct'
 require 'coo-coo/data_sources/xournal'
+require 'coo-coo/utils'
 
 def usage args
   puts("Usage: #{$0} command [options...]")
@@ -248,7 +249,87 @@ def learn_journal args
   # use a prepped xournal to learn what strokes mean
 end
 
+def curry_method sym, *args
+  lambda { |this, *a, **o, &cb| this.send(sym, *args, *a, **o, &cb) }
+end
+
+
 def learn_training_set args
+  options = OpenStruct.new
+  options.output = nil
+  options.page_width = 612
+  options.page_height = 792
+  options.cells_per_example = 4
+  options.cell_width = options.page_width / (options.cells_per_example * 2)
+  options.labels = []
+    
+  utf_chr = curry_method(:chr, 'UTF-8')
+  paths = OptionParser.new do |o|
+    o.on('-o', '--output PATH') do |v|
+      options.output = v
+    end
+    o.on('--page-width NUMBER', Float) do |n|
+      options.page_width = n
+    end
+    o.on('--page-height NUMBER', Float) do |n|
+      options.page_height = n
+    end
+    o.on('--cells-per-example INTEGER', Integer) do |n|
+      options.cells_per_example = n
+    end
+    o.on('--cell-width INTEGER', Integer) do |n|
+      options.cell_width = n
+    end
+    o.on('--cell-height INTEGER', Integer) do |n|
+      options.cell_height = n
+    end
+    o.on('--columns INTEGER', Integer) do |n|
+      options.columns = n
+    end
+    o.on('--rows INTEGER', Integer) do |n|
+      options.rows = n
+    end
+    o.on('--with-ascii') do
+      options.labels += 32.upto(128).collect(&utf_chr)
+    end
+    o.on('--with-supplement') do
+      options.labels += 128.upto(256).collect(&utf_chr)
+    end
+    o.on('--with-hiragana') do
+      options.labels += 0x3040.upto(0x30A0).collect(&utf_chr)
+    end
+    o.on('--with-katakana') do
+      options.labels += 0x30A0.upto(0x3100).collect(&utf_chr)
+    end
+    o.on('--with-shavian') do
+      options.labels += 0x10450.upto(0x10480).collect(&utf_chr)
+    end
+    o.on('--with-range START,END') do |v|
+      start, ending = CooCoo::Utils.split_csi(v)
+      options.labels += start.upto(ending).collect(&utf_chr)
+    end
+    
+    o.on('-l', '--label LABEL') do |v|
+      options.labels << v
+    end
+  end.parse(args)
+  
+  options.columns ||= options.page_width / options.cell_width
+  options.cell_width ||= options.page_width / options.columns
+  options.cell_height ||= options.cell_width
+  options.rows ||= options.page_height / options.cell_height
+
+  if options.output
+    options.labels = 0.upto(128).collect(&:chr) if options.labels.empty?
+
+    td = CooCoo::DataSources::Xournal::TrainingDocument.new
+    options.labels.each do |label|
+      td.add_example(label)
+    end
+
+    doc = td.to_document(options.columns, options.rows, options.cells_per_example, options.page_width, options.page_height)
+    doc.save(options.output)
+  end
 end
 
 if $0 == __FILE__

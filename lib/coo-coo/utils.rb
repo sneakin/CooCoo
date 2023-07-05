@@ -19,4 +19,8 @@ module CooCoo::Utils
   rescue Zlib::GzipFile::Error
     File.open(path, &cb)
   end
+  
+  def self.split_csi str, meth = :to_i
+    str.split(',').collect(&meth)
+  end
 end
