@@ -1,6 +1,7 @@
 require 'pathname'
 require 'net/http'
 require 'zlib'
+require 'ostruct'
 
 # todo read directly from gzipped files
 # todo usable by the bin/trainer?
@@ -334,6 +335,64 @@ module MNist
     end
   end
 
+  def self.default_options
+    options = OpenStruct.new
+    options.images_path = MNist::TRAIN_IMAGES_PATH
+    options.labels_path = MNist::TRAIN_LABELS_PATH
+    options.translations = 1
+    options.translation_amount = 0
+    options.rotations = 1
+    options.rotation_amount = 0
+    options.num_labels = nil
+    options
+  end
+  
+  def self.option_parser options
+    parser = CooCoo::OptionParser.new do |o|
+      o.banner = "The MNist data set"
+      
+      o.on('--images-path PATH') do |path|
+        options.images_path = path
+      end
+
+      o.on('--labels-path PATH') do |path|
+        options.labels_path = path
+      end
+
+      o.on('--num-labels INTEGER', Integer) do |n|
+        options.num_labels = n
+      end    
+
+      o.on('--translations INTEGER') do |n|
+        options.translations = n.to_i
+      end
+
+      o.on('--translation-amount DEGREE') do |n|
+        options.translation_amount = n.to_i
+      end
+
+      o.on('--rotations INTEGER') do |n|
+        options.rotations = n.to_i
+      end
+
+      o.on('--rotation-amount DEGREE') do |n|
+        options.rotation_amount = n.to_i
+      end
+    end
+  
+    parser
+  end
+  
+  def self.training_set(options)
+    data = MNist::DataStream.new(options.labels_path, options.images_path)
+    if options.rotations > 0 && options.rotation_amount > 0
+      data = MNist::DataStream::Rotator.new(data.each, options.rotations, options.rotation_amount / 180.0 * Math::PI, false)
+    end
+    if options.translations > 0 && options.translation_amount > 0
+      data = MNist::DataStream::Translator.new(data, options.translations, options.translation_amount, options.translation_amount, false)
+    end
+    MNist::TrainingSet.new(data, options.num_labels)
+  end
 end
 
 if __FILE__ == $0
@@ -363,60 +422,7 @@ if __FILE__ == $0
 
   puts("#{data.size} total #{data.width}x#{data.height} images")
 elsif $0 =~ /trainer$/
-  require 'pathname'
-  require 'ostruct'
-
-  @options = OpenStruct.new
-  @options.images_path = MNist::TRAIN_IMAGES_PATH
-  @options.labels_path = MNist::TRAIN_LABELS_PATH
-  @options.translations = 1
-  @options.translation_amount = 0
-  @options.rotations = 1
-  @options.rotation_amount = 0
-  @options.num_labels = nil
-  
-  @opts = CooCoo::OptionParser.new do |o|
-    o.banner = "The MNist data set"
-    
-    o.on('--images-path PATH') do |path|
-      @options.images_path = path
-    end
-
-    o.on('--labels-path PATH') do |path|
-      @options.labels_path = path
-    end
-
-    o.on('--num-labels INTEGER', Integer) do |n|
-      @options.num_labels = n
-    end    
-
-    o.on('--translations INTEGER') do |n|
-      @options.translations = n.to_i
-    end
-
-    o.on('--translation-amount DEGREE') do |n|
-      @options.translation_amount = n.to_i
-    end
-
-    o.on('--rotations INTEGER') do |n|
-      @options.rotations = n.to_i
-    end
-
-    o.on('--rotation-amount DEGREE') do |n|
-      @options.rotation_amount = n.to_i
-    end
-  end
-
-  def training_set()
-    data = MNist::DataStream.new(@options.labels_path, @options.images_path)
-    if @options.rotations > 0 && @options.rotation_amount > 0
-      data = MNist::DataStream::Rotator.new(data.each, @options.rotations, @options.rotation_amount / 180.0 * Math::PI, false)
-    end
-    if @options.translations > 0 && @options.translation_amount > 0
-      data = MNist::DataStream::Translator.new(data, options.translations, options.translation_amount, options.translation_amount, false)
-    end
-    MNist::TrainingSet.new(data, @options.num_labels)
-  end
-
-  [ method(:training_set), @opts ]
+  [ MNist.method(:training_set),
+    MNist.method(:option_parser),
+    MNist.method(:default_options) ]
 end

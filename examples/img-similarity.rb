@@ -66,54 +66,62 @@ if $0 != __FILE__
   require 'pathname'
   require 'ostruct'
 
-  @options = OpenStruct.new
-  @options.slice_width = 32
-  @options.slice_height = 32
-  @options.num_slices = 1000
-  @options.cycles = 100
-  @options.images = []
-  @options.chitters = 4
-
-  @opts = CooCoo::OptionParser.new do |o|
-    o.banner = "Image Similarity Data Generator options"
-    
-    o.on('--data-path PATH') do |path|
-      @options.images += Dir.glob(path)
-    end
-
-    o.on('--data-slice-width SIZE') do |n|
-      @options.slice_width = n.to_i
-    end
-
-    o.on('--data-slice-height SIZE') do |n|
-      @options.slice_height = n.to_i
-    end
-
-    o.on('--data-slices NUM') do |n|
-      @options.num_slices = n.to_i
-    end
-
-    o.on('--data-cycles NUM') do |n|
-      @options.cycles = n.to_i
-    end
-
-    o.on('--data-chitters NUM') do |n|
-      @options.chitters = n.to_i
-    end
+  def default_options
+    options = OpenStruct.new
+    options.slice_width = 32
+    options.slice_height = 32
+    options.num_slices = 1000
+    options.cycles = 100
+    options.images = []
+    options.chitters = 4
+    options
   end
 
-  def training_set()
-    raw_stream = CooCoo::DataSources::Images::RawStream.new(*@options.images)
+  def option_parser options
+    CooCoo::OptionParser.new do |o|
+      o.banner = "Image Similarity Data Generator options"
+      
+      o.on('--data-path PATH') do |path|
+        options.images += Dir.glob(path)
+      end
+
+      o.on('--data-slice-width SIZE') do |n|
+        options.slice_width = n.to_i
+      end
+
+      o.on('--data-slice-height SIZE') do |n|
+        options.slice_height = n.to_i
+      end
+
+      o.on('--data-slices NUM') do |n|
+        options.num_slices = n.to_i
+      end
+
+      o.on('--data-cycles NUM') do |n|
+        options.cycles = n.to_i
+      end
+
+      o.on('--data-chitters NUM') do |n|
+        options.chitters = n.to_i
+      end
+    end
+  end
+  
+  def training_set options
+    raw_stream = CooCoo::DataSources::Images::RawStream.new(*options.images)
     stream = CooCoo::DataSources::Images::Stream.new(raw_stream)
-    slicer = CooCoo::DataSources::Images::Slicer.new(@options.cycles,
-                                                     @options.slice_width,
-                                                     @options.slice_height,
+    slicer = CooCoo::DataSources::Images::Slicer.new(options.cycles,
+                                                     options.slice_width,
+                                                     options.slice_height,
                                                      stream,
-                                                     @options.chitters)
-    training_set = TrainingSet.new(slicer, @options.num_slices.to_i)
+                                                     options.chitters)
+    training_set = TrainingSet.new(slicer, options.num_slices.to_i)
 
     training_set
   end
 
-  [ method(:training_set), @opts ]
+  [ method(:training_set),
+    method(:option_parser),
+    method(:default_options)
+  ]
 end

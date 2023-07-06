@@ -1,3 +1,4 @@
+require 'ostruct'
 require 'coo-coo/option_parser'
 
 module CooCoo
@@ -11,7 +12,7 @@ module CooCoo
       end
     end
 
-    attr_reader :opts
+    attr_reader :parser, :defaults
 
     def initialize(path, log)
       @path = path
@@ -21,18 +22,21 @@ module CooCoo
 
     def load(path)
       env = EvalBinding.new(@log)
-      @generator, @opts = eval(File.read(path), env.get_binding, path)
+      @generator, @parser, @defaults = eval(File.read(path), env.get_binding, path)
       @path = path
       self
     end
 
     def parse_args(argv)
-      @opts.parse!(argv)
+      opts = defaults ? defaults.call : OpenStruct.new
+      p = @parser.call(opts)
+      argv = p.parse!(argv)
+      [ opts, argv ]
     end
 
     def call(argv, *args)
-      argv = parse_args(argv)
-      [ argv, @generator.call(*args) ]
+      opts, argv = parse_args(argv)
+      [ argv, @generator.call(opts, *args) ]
     end
   end
 end

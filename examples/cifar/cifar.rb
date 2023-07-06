@@ -208,60 +208,67 @@ elsif $0 =~ /trainer$/
   require 'pathname'
   require 'ostruct'
   require_relative '../mnist'
-  
-  @options = OpenStruct.new
-  @options.images_paths = []
-  @options.labels_path = nil
-  @options.translations = 1
-  @options.translation_amount = 0
-  @options.rotations = 1
-  @options.rotation_amount = 0
+
+  def default_options
+    options = OpenStruct.new
+    options.images_paths = []
+    options.labels_path = nil
+    options.translations = 1
+    options.translation_amount = 0
+    options.rotations = 1
+    options.rotation_amount = 0
+    options
+  end
   
   # todo needs rotator and translator
-  
-  @opts = CooCoo::OptionParser.new do |o|
-    o.banner = "The CIFAR data set"
-    
-    o.on('--images-path PATH') do |path|
-      @options.images_paths << path
-    end
+  def option_parser options
+    CooCoo::OptionParser.new do |o|
+      o.banner = "The CIFAR data set"
+      
+      o.on('--images-path PATH') do |path|
+        options.images_paths << path
+      end
 
-    o.on('--labels-path PATH') do |path|
-      @options.labels_path = path
-    end
+      o.on('--labels-path PATH') do |path|
+        options.labels_path = path
+      end
 
-    o.on('--translations INTEGER') do |n|
-      @options.translations = n.to_i
-    end
+      o.on('--translations INTEGER') do |n|
+        options.translations = n.to_i
+      end
 
-    o.on('--translation-amount DEGREE') do |n|
-      @options.translation_amount = n.to_i
-    end
+      o.on('--translation-amount DEGREE') do |n|
+        options.translation_amount = n.to_i
+      end
 
-    o.on('--rotations INTEGER') do |n|
-      @options.rotations = n.to_i
-    end
+      o.on('--rotations INTEGER') do |n|
+        options.rotations = n.to_i
+      end
 
-    o.on('--rotation-amount DEGREE') do |n|
-      @options.rotation_amount = n.to_i
+      o.on('--rotation-amount DEGREE') do |n|
+        options.rotation_amount = n.to_i
+      end
     end
   end
-
-  def training_set()
+  
+  def training_set(options)
     CooCoo::Cifar::Fetcher.fetch!
-    batch = CooCoo::Cifar::Batch.new(*@options.images_paths)
-    labels = CooCoo::Cifar::LabelSet.new(@options.labels_path)
+    batch = CooCoo::Cifar::Batch.new(*options.images_paths)
+    labels = CooCoo::Cifar::LabelSet.new(options.labels_path)
     data = CooCoo::Cifar::DataStream.new(labels, batch)
-    if @options.rotations > 0 && @options.rotation_amount > 0
-      data = MNist::DataStream::Rotator.new(data.each, @options.rotations, @options.rotation_amount / 180.0 * ::Math::PI, false)
+    if options.rotations > 0 && options.rotation_amount > 0
+      data = MNist::DataStream::Rotator.new(data.each, options.rotations, options.rotation_amount / 180.0 * ::Math::PI, false)
     end
-    if @options.translations > 0 && @options.translation_amount > 0
+    if options.translations > 0 && options.translation_amount > 0
       data = MNist::DataStream::Translator.new(data, options.translations, options.translation_amount, options.translation_amount, false)
     end
     Cifar::TrainingSet.new(data_stream: data,
-      input_size: CooCoo::Cifar::Batch::BYTESIZE,
-      output_size: labels.size)
+                           input_size: CooCoo::Cifar::Batch::BYTESIZE,
+                           output_size: labels.size)
   end
 
-  [ method(:training_set), @opts ]
+  [ method(:training_set),
+    method(:option_parser),
+    method(:default_options)
+  ]
 end

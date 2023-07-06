@@ -36,44 +36,52 @@ if $0 =~ /trainer$/
   require 'pathname'
   require 'ostruct'
 
-  @options = OpenStruct.new
-  @options.width = 32
-  @options.height = nil
-  @options.images = []
-  @options.pad = true
-
-  @opts = CooCoo::OptionParser.new do |o|
-    o.banner = "Image autoencoder training set"
-    
-    o.on('--data-path PATH') do |path|
-      @options.images += Dir.glob(path)
-    end
-
-    o.on('-w', '--data-width SIZE') do |n|
-      @options.width = n.to_i
-    end
-
-    o.on('-h', '--data-height SIZE') do |n|
-      @options.height = n.to_i
-    end
-
-    o.on('--data-pad') do
-      @options.pad = !@options.pad
-    end
+  def default_options
+    options = OpenStruct.new
+    options.width = 32
+    options.height = nil
+    options.images = []
+    options.pad = true
+    options
   end
 
-  def training_set()
-    @options.height ||= @options.width
+  def option_parser options
+    CooCoo::OptionParser.new do |o|
+      o.banner = "Image autoencoder training set"
+      
+      o.on('--data-path PATH') do |path|
+        options.images += Dir.glob(path)
+      end
+
+      o.on('-w', '--data-width SIZE') do |n|
+        options.width = n.to_i
+      end
+
+      o.on('-h', '--data-height SIZE') do |n|
+        options.height = n.to_i
+      end
+
+      o.on('--data-pad') do
+        options.pad = !options.pad
+      end
+    end
+  end
+  
+  def training_set options
+    options.height ||= options.width
     
-    raw_stream = CooCoo::DataSources::Images::RawStream.new(*@options.images)
-    scaler = CooCoo::DataSources::Images::ScaledStream.new(raw_stream, @options.width, @options.height, pad: @options.pad)
+    raw_stream = CooCoo::DataSources::Images::RawStream.new(*options.images)
+    scaler = CooCoo::DataSources::Images::ScaledStream.new(raw_stream, options.width, options.height, pad: options.pad)
     
     stream = CooCoo::DataSources::Images::Stream.new(scaler)
-    training_set = TrainingSet.new(stream, @options.width, @options.height)
+    training_set = TrainingSet.new(stream, options.width, options.height)
     training_set
   end
 
-  [ method(:training_set), @opts ]
+  [ method(:training_set),
+    method(:option_parser),
+    method(:default_options)
+  ]
 elsif $0 == __FILE__
   include CooCoo
 

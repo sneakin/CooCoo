@@ -52,13 +52,30 @@ module EMNist
   def self.dataset name, set = 'train'
     DataStream.new(*dataset_paths(name, set))
   end
+
+  def self.default_options
+    options = MNist.default_options
+    labels, images, mapping = dataset_paths('balanced')
+    options.images_path = images
+    options.labels_path = labels
+    options.translations = 1
+    options.translation_amount = 0
+    options.rotations = 1
+    options.rotation_amount = 0
+    options.num_labels = File.readlines(mapping).size
+    options
+  end
 end
 
 if $0 == __FILE__
-  data = EMNist.dataset('balance')
+  data = EMNist.dataset('balanced')
   data.each.with_index do |(label, ex), n|
     puts("%i: %s" % [ n, label ])
     puts(ex)
     puts
   end
+elsif $0 =~ /trainer$/
+  [ MNist.method(:training_set),
+    MNist.method(:option_parser),
+    EMNist.method(:default_options) ]
 end
