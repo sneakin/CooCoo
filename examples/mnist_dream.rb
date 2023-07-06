@@ -1,37 +1,13 @@
 require 'coo-coo'
 require 'ostruct'
 require 'coo-coo/drawing/sixel'
-require 'colorize'
 
 $use_color = true
-PixelValues = ' -+%X#'
-ColorValues = [ :black, :red, :green, :blue, :magenta, :white ]
-
-def char_for_pixel(p)
-  PixelValues[(p * (PixelValues.length - 1)).to_i] || PixelValues[0]
-end
-
-def color_for_pixel(p)
-  ColorValues[(p * (ColorValues.length - 1)).to_i] || ColorValues[0]
-end
 
 def output_to_ascii(output)
   output = output.minmax_normalize(true)
-  
-  s = ""
   w = Math.sqrt(output.size).to_i
-  w.times do |y|
-    w.times do |x|
-      v = output[x + y * w]
-      v = 1.0 if v > 1.0
-      v = 0.0 if v < 0.0
-      c = char_for_pixel(v)
-      c = c.colorize(color_for_pixel(v)) if $use_color
-      s += c
-    end
-    s += "\n"
-  end
-  s
+  CooCoo::Drawing::Ascii.gray_vector(output, w, w)
 end
 
 def output_to_sixel(output)
@@ -148,8 +124,8 @@ opts = CooCoo::OptionParser.new do |o|
     options.ascii = !options.ascii
   end
   
-  o.on('--color BOOL', 'toggles the use of color in the ASCII dream') do |bool|
-    $use_color = bool =~ /(1|t(rue)?|f(false)?|y(es)?)/
+  o.on('--use-color', 'toggles the use of color in the ASCII dream') do |bool|
+    CooCoo::Drawing::Ascii.use_color = true
   end
   
   o.on('-m', '--model PATH') do |path|

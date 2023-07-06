@@ -6,4 +6,5 @@ begin
 rescue LoadError
 end
 
+require 'coo-coo/drawing/ascii'
 require 'coo-coo/drawing/sixel'

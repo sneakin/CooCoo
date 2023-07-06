@@ -53,14 +53,7 @@ module MNist
     end
 
     def to_ascii
-      s = ""
-      28.times do |y|
-        28.times do |x|
-          s += char_for_pixel(pixel(x, y))
-        end
-        s += "\n"
-      end
-      s
+      CooCoo::Drawing::Ascii.gray_bytes(pixels.flatten, 28, 28)
     end
 
     def each_pixel(&block)
@@ -70,13 +63,6 @@ module MNist
           yield(pixel(x, y))
         end
       end
-    end
-    
-    private
-    PixelValues = ' -+X#'
-
-    def char_for_pixel(p)
-      PixelValues[(p / 256.0 * PixelValues.length).to_i]
     end
   end
 

@@ -59,6 +59,10 @@ opts = CooCoo::OptionParser.new do |o|
   o.on('--sixel') do
     options.sixel = true
   end
+  
+  o.on('--use-color') do
+    CooCoo::Drawing::Ascii.use_color = true
+  end
 
   o.on('-m', '--model PATH') do |path|
     options.model_path = Pathname.new(path)
