@@ -19,7 +19,7 @@ require('ostruct')
     @options.layers << [ :linear, nil, ActivationFunctions.from_name(n) ]
   end
 
-  o.on('--conv-box WIDTH,HEIGHT') do |n|
+  o.on('--convolution-box WIDTH,HEIGHT') do |n|
     w, h = CooCoo::Utils.split_csi(n)
     h ||= w
     @options.layers << [ :conv_box, [w, h], @options.conv_size, @options.conv_step, @options.conv_hidden_out, @options.activation_function ]
@@ -53,27 +53,28 @@ def generate(training_set)
   log.puts("Generating #{@options.layers.size} layers")
 
   net = CooCoo::Network.new
-  last_size = training_set.input_size
-  
+  last_size = [ training_set.input_size ]
+
   @options.layers.each_with_index do |(kind, size, *args), i|
-    log.puts("\tLayer #{i}\t#{kind}\t#{last_size}\t#{size}\t#{args.inspect}")
+    log.puts("\tLayer #{i}\t#{kind}\t#{last_size.inspect}\t#{size}\t#{args.inspect}")
     case kind
     when :fully_connected
-      net.layer(CooCoo::Layer.new(last_size, size, args[0]))
-      last_size = size
-    when :linear then net.layer(CooCoo::LinearLayer.new(last_size, args[0]))
+      net.layer(CooCoo::Layer.new(last_size.reduce(1, &:*), size, args[0]))
+      last_size = [ size ]
+    when :linear then net.layer(CooCoo::LinearLayer.new(last_size.reduce(1, &:*), args[0]))
     when :conv_box then
       csize, cstep, cout, af = args
+      raise ArgumentError.new("Convolution size mismatch: #{size.inspect} #{last_size.inspect}") if size.reduce(1, &:*) != last_size.reduce(1, &:*)
       int_layer = CooCoo::Layer.new(csize[0] * csize[1], cout[0] * cout[1], af)
       layer = CooCoo::Convolution::BoxLayer.new(*size, *cstep, int_layer, *csize, *cout)
       net.layer(layer)
-      last_size = layer.size
+      last_size = [ layer.output_width, layer.output_height ]
     end
   end
 
-  if last_size != training_set.output_size
+  if last_size.reduce(1, &:*) != training_set.output_size
     log.puts("\tLayer #{net.layers.size}\t\t#{last_size}\t#{training_set.output_size}")
-    net.layer(CooCoo::Layer.new(last_size, training_set.output_size, @options.activation_function))
+    net.layer(CooCoo::Layer.new(last_size.reduce(1, &:*), training_set.output_size, @options.activation_function))
   end
 
   if @options.softmax

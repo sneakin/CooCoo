@@ -142,7 +142,6 @@ module CooCoo
 
         d = []
         each_area do |grid_x, grid_y|
-          hs_index = grid_y * horizontal_grid_span + grid_x
           delta, hs = @internal_layer.
             weight_deltas(slice_input(inputs, grid_x, grid_y),
                           deltas[grid_y][grid_x])
