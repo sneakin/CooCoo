@@ -21,6 +21,8 @@ def backup(path)
 end
 
 options = OpenStruct.new
+options.model = nil
+options.model_format = :marshal
 options.examples = 0
 options.epochs = 1
 options.num_tests = 10
@@ -66,11 +68,15 @@ opts = CooCoo::OptionParser.new do |o|
 
   o.on('-m', '--model PATH') do |path|
     options.model_path = Pathname.new(path)
-    options.binary_blob = File.extname(options.model_path) == '.bin'
+    options.model_format = (File.extname(options.model_path) == '.bin') ? :marshal : :yaml
+  end
+
+  o.on('--model-format NAME') do |v|
+    options.model_format = v.to_sym
   end
 
   o.on('--binary') do
-    options.binary_blob = true
+    options.model_format = :marshal
   end
 
   o.on('--save-every INTEGER') do |n|
@@ -176,11 +182,7 @@ net = CooCoo::Network.new
 
 if options.model_path && File.exists?(options.model_path)
   puts("Loading #{options.model_path}")
-  if options.binary_blob
-    net = Marshal.load(File.read(options.model_path))
-  else
-    net.load!(options.model_path)
-  end
+  net = CooCoo::Network.load(options.model_path, format: options.model_format)
 else
   area = data.width * data.height
 
@@ -283,13 +285,7 @@ if options.train
       puts("Batch #{stats.batch} took #{stats.total_time} seconds")
       if options.save_every > 0 && stats.batch % options.save_every == 0
         puts("Saving to #{options.model_path}")
-        if options.binary_blob
-          File.open(options.model_path, 'wb') do |f|
-            f.write(Marshal.dump(net))
-          end
-        else
-          net.save(options.model_path)
-        end
+        net.save(options.model_path, format: options.model_format)
       end
     end
 

@@ -1,4 +1,5 @@
 require 'yaml'
+require 'shellwords'
 require 'coo-coo/consts'
 require 'coo-coo/debug'
 require 'coo-coo/core_ext'
@@ -10,15 +11,20 @@ require 'coo-coo/cost_functions'
 module CooCoo
   class Network
     attr_reader :age, :activation_function
-    attr_accessor :command, :comments
+    attr_accessor :command, :comments, :born_at, :format
     
     def initialize
       @layers = Array.new
       @age = 0
-      @command = [ $0 ] + ARGV
+      @born_at = Time.now
+      @command = Shellwords.join([ $0 ] + ARGV)
       yield(self) if block_given?
     end
 
+    def comments
+      @comments ||= []
+    end
+    
     def num_inputs
       @layers.first.num_inputs
     end
@@ -185,10 +191,16 @@ module CooCoo
       raise
     end
 
-    def save(path)
-      File.write_to(path) do |f|
-        f.write(to_hash.to_yaml)
+    def save(path, format: nil)
+      File.write_to(path, 'wb') do |f|
+        case format || self.format
+        when :marshal then f.write(Marshal.dump(self))
+        when :yaml then f.write(to_hash.to_yaml)
+        else raise ArgumentError.new("Unknown format: %s. Try :marshal or :yaml" % [ format ])
+        end
       end
+      
+      self
     end
 
     def load!(path)
@@ -207,7 +219,9 @@ module CooCoo
         @layers << CooCoo::LayerFactory.from_hash(layer_hash, self)
       end
 
+      @format = h.fetch(:format)
       @age = h.fetch(:age, 0)
+      @born_at = h.fetch(:born_at) { Time.now }
       @command = h.fetch(:command, nil)
       @comments = h.fetch(:comments) { Array.new }
 
@@ -216,6 +230,7 @@ module CooCoo
 
     def to_hash
       { age: @age,
+        born_at: @born_at,
         command: @command,
         comments: @comments,
         layers: @layers.collect { |l| l.to_hash(self) }
@@ -231,8 +246,15 @@ module CooCoo
         self.new.update_from_hash!(h)
       end
 
-      def load(path)
-        self.new().load!(path)
+      def load(path, format: :marshal)
+        n = case format
+        when :marshal then Marshal.load(File.read(path))
+        when :yaml then self.new().load!(path)
+        else raise ArgumentError.new("Unknown format: %s. Try :marshal or :yaml" % [ format ])
+        end
+        
+        n.format = format
+        n
       end
     end
   end

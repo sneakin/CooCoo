@@ -29,6 +29,7 @@ options = OpenStruct.new
 options.epochs = 10
 options.dataset = nil
 options.model_path = nil
+options.model_format = nil
 options.prototype = nil
 options.save_every = 1
 options.trainer = nil
@@ -53,7 +54,11 @@ opts = CooCoo::OptionParser.new do |o|
   end
 
   o.on('--binary') do
-    options.binary_blob = true
+    options.model_format = :marshal
+  end
+  
+  o.on('--model-format NAME') do |v|
+    options.model_format = v.to_sym
   end
   
   o.on('--save-every INTEGER') do |n|
@@ -112,7 +117,7 @@ opts = CooCoo::OptionParser.new do |o|
   end
 end
 
-argv = opts.parse!(ARGV)
+argv = opts.parse!(ARGV.dup)
 
 puts("Loading training set #{options.dataset}")
 
@@ -121,11 +126,7 @@ argv, training_set = training_set_gen.call(argv)
 
 if options.model_path && File.exists?(options.model_path.to_s)
   puts("Loading network #{options.model_path}")
-  if options.binary_blob
-    net = Marshal.load(File.read(options.model_path))
-  else
-    net = CooCoo::Network.load(options.model_path)
-  end
+  net = CooCoo::Network.load(options.model_path, format: options.model_format)
 else
   puts("Generating network from #{options.prototype}")
   net_gen = CooCoo::GenerationScript.new(options.prototype.to_s, $stdout)
@@ -146,7 +147,9 @@ unless argv.empty?
 end
 
 puts("Net ready:")
-puts("\tAge: #{net.age}")
+puts("\tAge: #{net.age} adjustments since #{net.born_at}")
+puts("\tCommand: #{net.command}")
+puts("\tLast Comment: #{net.comments.last}") if net.comments
 puts("\tActivation: #{net.activation_function}")
 puts("\tInputs: #{net.num_inputs}")
 puts("\tOutputs: #{net.num_outputs}")
@@ -161,7 +164,8 @@ if options.trainer
   num_batches = (options.epochs * training_set.size / trainer_options.batch_size.to_f).ceil
   
   puts("Training #{training_set.size} examples in #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name} using #{trainer_options.cost_function.name}.")
-
+  net.comments << "#{Time.now}: Training with command: #{Shellwords.join([ $0 ] + ARGV)}"
+  
   bar = CooCoo::ProgressBar.create(:total => num_batches)
   
   trainer.train({ network: net,
@@ -173,13 +177,9 @@ if options.trainer
     status << "Cost\t#{avg_err.average}\t#{options.verbose ? avg_err : nil}"
     status << "Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds"
     if options.model_path && options.save_every > 0 && stats.batch % options.save_every == 0
-      if options.binary_blob
-        File.write_to(options.model_path) do |f|
-          f.write(Marshal.dump(net))
-        end
-      else
-        net.save(options.model_path)
-      end
+      net.comments.pop if net.comments[-1] =~ /Cost/
+      net.comments << status.join("\n")
+      net.save(options.model_path, format: options.model_format)
       status << "Saved network to #{options.model_path}"
     end
     bar.log(status.join("\n"))

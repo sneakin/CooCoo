@@ -120,6 +120,7 @@ DATA_FILE = Pathname.new(__FILE__).dirname.join("seeds_dataset.txt") # via http:
 
 options = OpenStruct.new
 options.model_path = nil
+options.model_format = :yaml
 options.epochs = nil
 options.data_path = DATA_FILE
 options.activation_function = CooCoo.default_activation
@@ -130,6 +131,10 @@ options.trainer = 'Stochastic'
 op = CooCoo::OptionParser.new do |o|
   o.on('-m', '--model PATH') do |path|
     options.model_path = Pathname.new(path)
+  end
+  
+  o.on('--model-format NAME') do |v|
+    options.model_format = v.to_sym
   end
 
   o.on('-t', '--train NUMBER') do |epochs|
@@ -187,14 +192,14 @@ end
 Random.srand(123)
 
 training_data = SeedData.new(options.data_path)
-model = CooCoo::Network.new()
 
 puts("Using CUDA") if CooCoo::CUDA.available?
 
 if options.model_path && File.exists?(options.model_path)
-  model.load!(options.model_path)
+  model = CooCoo::Network.load(options.model_path, format: options.model_format)
   puts("Loaded model #{options.model_path}")
 else
+  model = CooCoo::Network.new()
   options.num_layers.times do |i|
     inputs = case i
              when 0 then 7
@@ -231,7 +236,7 @@ if options.epochs
     bar.log("Cost #{cost.average} #{cost}")
     if options.model_path
       backup(options.model_path)
-      model.save(options.model_path)
+      model.save(options.model_path, format: options.model_format)
       bar.log("Saved to #{options.model_path}")
     end
     bar.increment

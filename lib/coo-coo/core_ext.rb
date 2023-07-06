@@ -58,12 +58,13 @@ class Hash
 end
 
 class File
-  def self.write_to(path, &block)
+  def self.write_to(path, mode = nil, &block)
     tmp = path.to_s + ".tmp"
     bak = path.to_s + "~"
+    raise ArgumentError.new('No block given.') unless block_given?
 
     # write to temp file
-    File.open(tmp, "w", &block)
+    File.open(tmp, mode || "w", 0600, &block)
 
     # create a backup file
     if File.exists?(path)
@@ -72,7 +73,7 @@ class File
         File.delete(bak)
       end
 
-      File.rename(path, bak)
+      File.rename(path.to_s, bak)
     end
 
     # finalize the save
@@ -81,6 +82,7 @@ class File
     self
   rescue
     File.delete(tmp) if File.exists?(tmp)
+    File.rename(bak, path) if !File.exists?(path) && File.exists?(bak)
     raise
   end
 end
