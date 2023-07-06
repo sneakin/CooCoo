@@ -16,7 +16,7 @@ module CooCoo
               raise ArgumentError.new("Xournal lacks a Text element with '#{META_LABEL} VERSION: COLS ROWS CELLS_PER_EXAMPLE'")
             end
 
-            doc = TrainingDocument.new
+            doc = TrainingDocument.new(xournal: xournal)
             
             xournal.each_page do |page|
               page.each_layer do |layer|
@@ -93,7 +93,10 @@ module CooCoo
                                     s.
                                     translate(-grid_min_x, -grid_min_y).
                                     scale(1.0 / grid_w, 1.0 / grid_h, 1.0 / grid_w)
-                                  })
+                                  },
+                                  [ column * grid_w, row * grid_h,
+                                    (column + 1) * grid_w, (row + 1) * grid_h ],
+                                  page)
                 end
               end
             end

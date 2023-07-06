@@ -12,11 +12,12 @@ module CooCoo
       # and associated strokes. Examples are loaded and stored to Xournal
       # documents formatted into a grid with a label and strokes in each cell.
       class TrainingDocument
-        attr_reader :examples
+        attr_reader :examples, :xournal
 
         # @param examples [Array<Example>]
-        def initialize(examples = nil)
+        def initialize(examples = nil, xournal: nil)
           @examples = examples || Hash.new { |h, k| h[k] = Example.new(k) }
+          @xournal = xournal
         end
 
         # @return [Integer] Number of examples
@@ -33,9 +34,9 @@ module CooCoo
         # @param label [String] The label of the example.
         # @param strokes [Array<Stroke>] Strokes associated with this label.
         # @return self
-        def add_example(label, strokes = nil)
+        def add_example(label, strokes = nil, bounds = nil, page = nil)
           ex = @examples[label]
-          ex.add_set(strokes) if strokes && !strokes.empty?
+          ex.add_set(strokes, bounds, page) if strokes && !strokes.empty?
           self
         end
 

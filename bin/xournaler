@@ -254,7 +254,7 @@ def curry_method sym, *args
 end
 
 
-def learn_training_set args
+def training_doc_generate args
   options = OpenStruct.new
   options.output = nil
   options.page_width = 612
@@ -263,6 +263,7 @@ def learn_training_set args
   options.cell_width = options.page_width / (options.cells_per_example * 2)
   options.labels = []
     
+  # todo use training_document/sets.rb methods?
   utf_chr = curry_method(:chr, 'UTF-8')
   paths = OptionParser.new do |o|
     o.on('-o', '--output PATH') do |v|
@@ -320,7 +321,7 @@ def learn_training_set args
   options.rows ||= options.page_height / options.cell_height
 
   if options.output
-    options.labels = 0.upto(128).collect(&:chr) if options.labels.empty?
+    options.labels = 32.upto(128).collect(&:chr) if options.labels.empty?
 
     td = CooCoo::DataSources::Xournal::TrainingDocument.new
     options.labels.each do |label|
@@ -329,6 +330,67 @@ def learn_training_set args
 
     doc = td.to_document(options.columns, options.rows, options.cells_per_example, options.page_width, options.page_height)
     doc.save(options.output)
+  else
+    puts("No output specified.")
+    exit(-1)
+  end
+end
+
+def training_doc_learn args
+  paths = OptionParser.new do |o|
+  end.parse(args)
+end
+
+def grid_bounds td, pos
+  [ pos[0] * td.cell_width, pos[1] * td.cell_height ]
+end
+
+def training_doc_print args
+  options = OpenStruct.new
+  
+  paths = OptionParser.new do |o|
+    o.on('--use-sixel') do
+      options.use_sixel = true
+    end
+  end.parse(args)
+
+  renderer = CooCoo::DataSources::Xournal::Renderer.new(true)
+  
+  paths.each do |p|
+    td = CooCoo::DataSources::Xournal::TrainingDocument.from_file(p)
+    puts(p)
+    puts("%i examples" % [ td.size ])
+    puts("Labels: #{td.labels.join(' ,')}")
+    td.each_example do |ex|
+      puts("  %s: %i stroke sets" % [ ex.label, ex.size ])
+      # todo reneder to sixel or ascii ...TD needs rendering: keep page and bounds in Example
+      next if ex.empty?
+      ex.each_set do |set|
+        puts("      %i,%i %i,%i" % [ *set.bounds ]) if set.bounds
+        next if set.empty?
+        img = renderer.render(td.xournal, td.xournal.pages.index(set.page), *set.bounds, 1, 1)
+        if options.use_sixel
+          puts(CooCoo::Drawing::Sixel.gray_bytes(img.to_vector(true), img.width, img.height))
+        else
+          puts(CooCoo::Drawing::Ascii.gray_bytes(img.to_vector(true), img.width, img.height))
+        end
+      end
+    end
+    puts
+  end
+end
+
+def cmd_training_doc args
+  case subcmd = (args.shift || 'help')
+  when 'help' then
+    puts("Usage #{$0} training_doc subcmd [options...]")
+    exit(-1)
+  when 'generate' then training_doc_generate(args)
+  when 'learn' then training_doc_learn(args)
+  when 'print' then training_doc_print(args)
+  else
+    puts("Unknown command #{subcmd.inspect}.")
+    exit(-1)
   end
 end
 
@@ -341,7 +403,7 @@ if $0 == __FILE__
     scan: :scan_xournal,
     prep: :prep_xournal,
     learn: :learn_xournal,
-    training_set: :learn_training_set
+    training_doc: :cmd_training_doc
   }
   args = ARGV[1..-1]
   cmd_name = ARGV[0] || 'help'

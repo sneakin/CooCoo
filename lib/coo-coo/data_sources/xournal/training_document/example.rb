@@ -2,6 +2,15 @@ module CooCoo
   module DataSources
     module Xournal
       class TrainingDocument
+        class StrokeSet
+          attr_accessor :strokes, :bounds, :page
+          def initialize strokes, bounds = nil, page = nil
+            @strokes = strokes
+            @bounds = bounds
+            @page = page
+          end
+        end
+        
         class Example
           attr_accessor :label
           attr_reader :stroke_sets
@@ -10,12 +19,12 @@ module CooCoo
             @label = label
             @stroke_sets = Array.new
             sets.each do |points|
-              @stroke_sets << points
+              add_set(points)
             end
           end
 
-          def add_set(strokes)
-            @stroke_sets << strokes
+          def add_set(strokes, bounds = nil, page = nil)
+            @stroke_sets << StrokeSet.new(strokes, bounds, page)
             self
           end
           

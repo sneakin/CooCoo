@@ -42,7 +42,7 @@ module CooCoo
 
             examples = examples.collect { |e|
               e.each_set.collect { |s|
-                [ e.label, s ]
+                [ e.label, s.strokes ]
               } + Array.new(@cells_per_example - e.size, [ e.label, [] ])
             }.flatten(1)
 
