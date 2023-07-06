@@ -282,8 +282,12 @@ module MNist
   end
 
   class TrainingSet
-    def initialize(data_stream = MNist::DataStream.new(MNist::TRAIN_LABELS_PATH, MNist::TRAIN_IMAGES_PATH))
+    attr_reader :output_size
+    
+    def initialize(data_stream = MNist::DataStream.new(MNist::TRAIN_LABELS_PATH, MNist::TRAIN_IMAGES_PATH),
+                   output_size = nil)
       @stream = data_stream
+      @output_size = output_size || 10
     end
 
     def name
@@ -292,10 +296,6 @@ module MNist
     
     def input_size
       Width*Height
-    end
-    
-    def output_size
-      10
     end
     
     def size
@@ -309,9 +309,9 @@ module MNist
       loop do
         example = enum.next
 
-        a = Array.new(10, 0.0)
+        a = CooCoo::Vector.new(output_size, 0.0)
         a[example.label] = 1.0
-        m = [ CooCoo::Vector[a],
+        m = [ a,
               CooCoo::Vector[example.pixels] / 255.0
         ]
         #$stderr.puts("#{m[0]}\t#{m[1]}")
@@ -373,6 +373,7 @@ elsif $0 =~ /trainer$/
   @options.translation_amount = 0
   @options.rotations = 1
   @options.rotation_amount = 0
+  @options.num_labels = nil
   
   @opts = CooCoo::OptionParser.new do |o|
     o.banner = "The MNist data set"
@@ -384,6 +385,10 @@ elsif $0 =~ /trainer$/
     o.on('--labels-path PATH') do |path|
       @options.labels_path = path
     end
+
+    o.on('--num-labels INTEGER', Integer) do |n|
+      @options.num_labels = n
+    end    
 
     o.on('--translations INTEGER') do |n|
       @options.translations = n.to_i
@@ -410,7 +415,7 @@ elsif $0 =~ /trainer$/
     if @options.translations > 0 && @options.translation_amount > 0
       data = MNist::DataStream::Translator.new(data, options.translations, options.translation_amount, options.translation_amount, false)
     end
-    MNist::TrainingSet.new(data)
+    MNist::TrainingSet.new(data, @options.num_labels)
   end
 
   [ method(:training_set), @opts ]
