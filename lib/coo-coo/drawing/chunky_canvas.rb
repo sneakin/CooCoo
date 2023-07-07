@@ -201,7 +201,7 @@ module CooCoo
       end
       
       def text(txt, x, y, font, font_size, font_style = nil)
-        $stderr.puts("Warning: #{self.class.name}\#text is not implemented.")
+        # $stderr.puts("Warning: #{self.class.name}\#text is not implemented.")
         self
       end
 

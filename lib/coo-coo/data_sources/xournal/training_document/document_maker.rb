@@ -79,7 +79,8 @@ module CooCoo
             
             Page.new(@page_width, @page_height).
               add_layer(make_grid(grid_w, grid_h)).
-              add_layer(make_cells(examples, grid_w, grid_h))
+              add_layer(make_cells(examples, grid_w, grid_h)).
+              add_layer(Layer.new)
           end
         end
       end

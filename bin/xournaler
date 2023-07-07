@@ -347,28 +347,46 @@ end
 
 def training_doc_print args
   options = OpenStruct.new
-  
+  options.out_width = 64
+  options.out_height = 64
+
   paths = OptionParser.new do |o|
+    o.on('--out-width INT', Integer) do |n|
+      options.out_width = n
+    end
+    
+    o.on('--out-height INT', Integer) do |n|
+      options.out_height = n
+    end
+    
     o.on('--use-sixel') do
       options.use_sixel = true
     end
+
+    o.on('--use-cairo') do
+      options.use_cairo = true
+    end
   end.parse(args)
 
-  renderer = CooCoo::DataSources::Xournal::Renderer.new(true)
+  renderer = CooCoo::DataSources::Xournal::Renderer.new(options.use_cairo)
+  out_width = options.out_width
+  out_height = options.out_height
   
   paths.each do |p|
     td = CooCoo::DataSources::Xournal::TrainingDocument.from_file(p)
     puts(p)
     puts("%i examples" % [ td.size ])
-    puts("Labels: #{td.labels.join(' ,')}")
+    puts("Labels: #{td.labels.join(', ')}")
     td.each_example do |ex|
       puts("  %s: %i stroke sets" % [ ex.label, ex.size ])
       # todo reneder to sixel or ascii ...TD needs rendering: keep page and bounds in Example
       next if ex.empty?
       ex.each_set do |set|
-        puts("      %i,%i %i,%i" % [ *set.bounds ]) if set.bounds
-        next if set.empty?
-        img = renderer.render(td.xournal, td.xournal.pages.index(set.page), *set.bounds, 1, 1)
+        page_num = td.xournal.pages.index(set.page)
+        puts("      p. %i %i,%i %i,%i %ix%i" % [ page_num, *set.bounds, *set.size])
+        next if set.empty? || !set.bounds
+        img = renderer.render(td.xournal, page_num, *set.min, *set.size, 1, 1)
+        img = img.resample(out_width, out_height)
         if options.use_sixel
           puts(CooCoo::Drawing::Sixel.gray_bytes(img.to_vector(true), img.width, img.height))
         else
@@ -384,6 +402,7 @@ def cmd_training_doc args
   case subcmd = (args.shift || 'help')
   when 'help' then
     puts("Usage #{$0} training_doc subcmd [options...]")
+    puts("Subcommands: generate, learn, print")
     exit(-1)
   when 'generate' then training_doc_generate(args)
   when 'learn' then training_doc_learn(args)

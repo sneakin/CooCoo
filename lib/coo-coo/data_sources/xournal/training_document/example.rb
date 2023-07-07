@@ -3,11 +3,25 @@ module CooCoo
     module Xournal
       class TrainingDocument
         class StrokeSet
-          attr_accessor :strokes, :bounds, :page
+          attr_accessor :strokes, :bounds, :size, :page
+          
           def initialize strokes, bounds = nil, page = nil
             @strokes = strokes
             @bounds = bounds
+            @size = [ bounds[2] - bounds[0], bounds[3] - bounds[1] ]
             @page = page
+          end
+
+          def min
+            bounds[0, 2]
+          end
+
+          def max
+            bounds[2, 2]
+          end
+          
+          def empty?
+            @strokes.empty?
           end
         end
         
