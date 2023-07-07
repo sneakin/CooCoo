@@ -100,18 +100,18 @@ opts = CooCoo::OptionParser.new do |o|
   o.on('-h', '--help') do
     puts(opts)
     if options.dataset
-      opts = load_script_opts(options.dataset.to_s)
-      puts(opts)
+      parser, opts = load_script_opts(options.dataset.to_s)
+      puts(parser)
     end
     if options.prototype
-      opts = load_script_opts(options.prototype.to_s)
-      puts(opts)
+      parser, opts = load_script_opts(options.prototype.to_s)
+      puts(parser)
     end
     if options.trainer
       t = CooCoo::Trainer.from_name(options.trainer)
       raise ArgumentError.new("Unknown trainer #{options.trainer}") unless t
-      opts, _ = t.options
-      puts(opts)
+      parser, _ = t.options
+      puts(parser)
     end
     exit
   end
