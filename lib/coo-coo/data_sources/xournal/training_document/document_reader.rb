@@ -6,11 +6,28 @@ module CooCoo
     module Xournal
       class TrainingDocument
         class DocumentReader
+          class GridSizeInfo
+            attr_reader :columns, :rows
+
+            def initialize columns, rows
+              @columns = columns
+              @rows = rows
+            end
+            
+            def grid_size page
+              [ page.width / columns.to_f,
+                page.height / rows.to_f
+              ]
+            end
+          end
+          
           def initialize
           end
 
           def load(xournal)
+            # todo meta labels per page?
             version, columns, rows, cells_per_example = read_meta_label(xournal)
+            sizing = GridSizeInfo.new(columns, rows)
             
             if columns == nil || rows == nil
               raise ArgumentError.new("Xournal lacks a Text element with '#{META_LABEL} VERSION: COLS ROWS CELLS_PER_EXAMPLE'")
@@ -19,9 +36,9 @@ module CooCoo
             doc = TrainingDocument.new(xournal: xournal)
             
             xournal.each_page do |page|
-              page.each_layer do |layer|
-                process_layer(doc, page, layer, columns, rows)
-              end
+              labels = process_labels(doc, page, sizing)
+              strokes = process_strokes(doc, page, sizing, labels)
+              add_examples(doc, page, sizing, labels, strokes)
             end
 
             doc
@@ -54,36 +71,49 @@ module CooCoo
 
             return version, columns, rows, cells_per_example
           end
-          
-          def process_layer(doc, page, layer, columns, rows)
-            grid_w = page.width / columns.to_f
-            grid_h = page.height / rows.to_f
 
+          def process_labels(doc, page, sizing)
+            grid_w, grid_h = sizing.grid_size(page)
             labels = Hash.new { |h, k| h[k] = Hash.new { |a, b| a[b] = Array.new } }
+
+            page.layers.each do |layer|
+              layer.each_text do |txt|
+                next if txt.text =~ /^#{META_LABEL}/
+                row = (txt.y / grid_h).round
+                column = (txt.x / grid_w).round
+                labels[row.to_i][column.to_i] << txt
+              end
+            end
+
+            labels
+          end
+
+          def process_strokes(doc, page, sizing, labels)
+            grid_w, grid_h = sizing.grid_size(page)
             strokes = Hash.new { |h, k| h[k] = Hash.new { |a, b| a[b] = Array.new } }
-            
-            layer.each_text do |txt|
-              next if txt.text =~ /^#{META_LABEL}/
-              row = (txt.y / grid_h).round
-              column = (txt.x / grid_w).round
-              labels[row.to_i][column.to_i] << txt
+
+            page.layers.each do |layer|
+              layer.each_stroke do |stroke|
+                color = ChunkyPNG::Color.parse(stroke.color)
+                next if ChunkyPNG::Color.euclidean_distance_rgba(color, PARSED_GRID_COLOR) == 0.0
+                min, max = stroke.minmax
+                row = (min[1] / grid_h)
+                column = (min[0] / grid_w)
+
+                strokes[row.to_i][column.to_i] << stroke
+              end
             end
 
-            layer.each_stroke do |stroke|
-              color = ChunkyPNG::Color.parse(stroke.color)
-              next if ChunkyPNG::Color.euclidean_distance_rgba(color, PARSED_GRID_COLOR) == 0.0
-              min, max = stroke.minmax
-              row = (min[1] / grid_h)
-              column = (min[0] / grid_w)
+            strokes
+          end
 
-              strokes[row.to_i][column.to_i] << stroke
-            end
-            
+          def add_examples(doc, page, sizing, labels, strokes)
+            grid_w, grid_h = sizing.grid_size(page)
 
-            rows.times do |row|
+            sizing.rows.times do |row|
               grid_min_y = (row * grid_h).floor
 
-              columns.times do |column|
+              sizing.columns.times do |column|
                 grid_min_x = (column * grid_w).floor
                 ex_label = labels[row][column].first
                 ex_strokes = strokes[row][column]

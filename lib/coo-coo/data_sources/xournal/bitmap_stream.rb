@@ -17,6 +17,8 @@ module CooCoo
         attr_reader :use_color
         attr_accessor :random_colors
         attr_accessor :velocity
+
+        # todo needs a label to output mapping
         
         def initialize(options = Hash.new)
           @training_documents = Array.new
@@ -109,8 +111,8 @@ module CooCoo
         end
         
         def encode_strokes_to_canvas(strokes, canvas)
-          fg = @random_colors ? random_color : 'black'
-          bg = @random_colors ? random_color(fg) : 'white'
+          fg = @random_colors ? random_color : 'white'
+          bg = @random_colors ? random_color(fg) : 'black'
           fg, bg = bg, fg if @random_invert
           canvas.fill_color = bg
           canvas.stroke_color = bg
@@ -180,69 +182,81 @@ module CooCoo
   end
 end
 
-if $0 != __FILE__
+if $0 =~ /trainer$/
   require 'ostruct'
-
-  @options = OpenStruct.new
-  @options.training_documents = Array.new
-  @options.labels_path = nil
-  @options.width = 28
-  @options.height = 28
-  @options.shuffle = 128
-  @options.random_colors = false
-  @options.random_invert = false
-  
   require 'coo-coo/option_parser'
 
-  @opts = CooCoo::OptionParser.new do |o|
-    o.banner = "Xournal Training Document Bitmap Stream Generator"
-
-    o.on('--data-path PATH', String, 'Adds a Xournal training document to be loaded.') do |p|
-      @options.training_documents += Dir.glob(p).to_a
-    end
-
-    o.on('--data-labels PATH', String, 'Predefined list of labels to preset the one hot encoding.') do |p|
-      @options.labels = p
-    end
-
-    o.on('--data-num-labels NUMBER', Integer, 'Minimum number of labels in the model') do |n|
-      @options.num_labels = n.to_i
-    end
-    
-    o.on('--data-width NUMBER', Integer, 'Width in pixels of the generated bitmaps.') do |n|
-      n = n.to_i
-      raise ArgumentError.new('data-width must be > 0') if n <= 0
-      @options.width = n
-    end
-
-    o.on('--data-height NUMBER', Integer, 'Height in pixels of the generated bitmaps.') do |n|
-      n = n.to_i
-      raise ArgumentError.new('data-height must be > 0') if n <= 0
-      @options.height = n
-    end
-
-    o.on('--data-shuffle NUMBER', Integer, 'Number of examples to shuffle before yielding.') do |n|
-      n = n.to_i
-      raise ArgumentError.new('data-shuffle must be > 0') if n <= 0
-      @options.shuffle = n
-    end
-
-    o.on('--data-shuffle-colors', 'toggles if strokes are to be rendered with random colors on random backgrounds') do
-      @options.random_colors = !@options.random_colors
-    end
-
-    o.on('--data-random-invert', 'toggles if foreground and background colors should randomly be inverted') do
-      @options.random_invert = !@options.random_invert
-    end
-
-    o.on('--data-color', 'toggles if examples are to be rendered in three color channels') do
-      @options.use_color = !@options.use_color
-    end
-  end
-
-  def training_set
-    CooCoo::DataSources::Xournal::BitmapStream.new(@options.to_h)
+  def default_options
+    options = OpenStruct.new
+    options.training_documents = Array.new
+    options.labels_path = nil
+    options.width = 28
+    options.height = 28
+    options.shuffle = 128
+    options.random_colors = false
+    options.random_invert = false
+    options.pen_scale = 1.0
+    options
   end
   
-  [ method(:training_set), @opts ]
+  def option_parser options
+    CooCoo::OptionParser.new do |o|
+      o.banner = "Xournal Training Document Bitmap Stream Generator"
+
+      o.on('--data-path PATH', String, 'Adds a Xournal training document to be loaded.') do |p|
+        options.training_documents += Dir.glob(p).to_a
+      end
+
+      o.on('--data-labels PATH', String, 'Predefined list of labels to preset the one hot encoding.') do |p|
+        options.labels = p
+      end
+
+      o.on('--data-num-labels NUMBER', Integer, 'Minimum number of labels in the model') do |n|
+        options.num_labels = n.to_i
+      end
+      
+      o.on('--data-width NUMBER', Integer, 'Width in pixels of the generated bitmaps.') do |n|
+        n = n.to_i
+        raise ArgumentError.new('data-width must be > 0') if n <= 0
+        options.width = n
+      end
+
+      o.on('--data-height NUMBER', Integer, 'Height in pixels of the generated bitmaps.') do |n|
+        n = n.to_i
+        raise ArgumentError.new('data-height must be > 0') if n <= 0
+        options.height = n
+      end
+
+      o.on('--data-shuffle NUMBER', Integer, 'Number of examples to shuffle before yielding.') do |n|
+        n = n.to_i
+        raise ArgumentError.new('data-shuffle must be > 0') if n <= 0
+        options.shuffle = n
+      end
+
+      o.on('--data-shuffle-colors', 'toggles if strokes are to be rendered with random colors on random backgrounds') do
+        options.random_colors = !options.random_colors
+      end
+
+      o.on('--data-random-invert', 'toggles if foreground and background colors should randomly be inverted') do
+        options.random_invert = !options.random_invert
+      end
+
+      o.on('--data-color', 'toggles if examples are to be rendered in three color channels') do
+        options.use_color = !options.use_color
+      end
+
+      o.on('--data-pen-scale SCALE', Float, 'sets the multiplier of the stroke width') do |v|
+        options.pen_scale = v
+      end
+    end
+  end
+  
+  def training_set options
+    CooCoo::DataSources::Xournal::BitmapStream.new(options.to_h)
+  end
+  
+  [ method(:training_set),
+    method(:option_parser),
+    method(:default_options)
+  ]
 end

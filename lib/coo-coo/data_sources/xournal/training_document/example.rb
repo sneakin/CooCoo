@@ -23,6 +23,14 @@ module CooCoo
           def empty?
             @strokes.empty?
           end
+
+          def each &cb
+            @strokes.each(&cb)
+          end
+
+          def collect &cb
+            each.collect(&cb)
+          end
         end
         
         class Example

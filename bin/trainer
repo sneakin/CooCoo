@@ -38,6 +38,7 @@ options.start_tests_at = 0
 options.test_cost = CooCoo::CostFunctions::MeanSquare
 options.classifying = false
 options.passing = 0.01
+options.use_sixel = false
 
 opts = CooCoo::OptionParser.new do |o|
   o.on('-d', '--dataset PATH') do |path|
@@ -91,6 +92,11 @@ opts = CooCoo::OptionParser.new do |o|
 
   o.on('--passing FLOAT') do |v|
     options.passing = v.to_f
+  end
+
+  o.on('--use-sixel W,H') do |v|
+    w, h = CooCoo::Utils.split_csi(v)
+    options.use_sixel = [ w, h || w ]
   end
 
   o.on('--verbose') do
@@ -209,6 +215,9 @@ if options.num_tests
              end
     
     passes += 1 if passed
+    if options.use_sixel
+      $stdout.write(CooCoo::Drawing::Sixel.gray_bytes(pixels * 255.0, *options.use_sixel))
+    end
     puts("#{passed ? CHECKMARK : CROSSMARK} #{options.start_tests_at + i}\t#{avg_loss}\t#{target_max}\t#{out[target_max[1]]}\t#{out_max}\t#{options.verbose ? target : nil}\t#{options.verbose ? out : nil}")
     $stdout.flush
     GC.start
