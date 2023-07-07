@@ -110,15 +110,6 @@ module CooCoo
 
       alias to_ary to_a
 
-      def _dump(depth)
-        @elements.to_a.pack('E*')
-      end
-
-      def self._load(args)
-        arr = args.unpack('E*')
-        self[arr]
-      end
-
       def null?
         @elements.null?
       end

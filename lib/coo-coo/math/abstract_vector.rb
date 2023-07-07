@@ -23,6 +23,15 @@ module CooCoo
         end
       end
 
+      def _dump(depth)
+        to_a.pack('E*')
+      end
+
+      def self._load(args)
+        arr = args.unpack('E*')
+        Vector[arr]
+      end
+
       def zero
         self.class.zeros(size)
       end

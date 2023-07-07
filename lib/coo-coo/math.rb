@@ -350,15 +350,6 @@ EOT
         "[" + to_a.join(", ") + "]"
       end
 
-      def _dump(depth)
-        @elements.to_a.pack('E*')
-      end
-
-      def self._load(args)
-        arr = args.unpack('E*')
-        self[arr]
-      end
-
       def [](i, len = nil)
         i = size + i if i < 0
         raise RangeError.new if i >= size || i < 0
