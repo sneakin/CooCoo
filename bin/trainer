@@ -9,7 +9,7 @@ require 'coo-coo'
 def load_script_opts(path)
   CooCoo::GenerationScript.
     new(path, $stdout).
-    opts
+    parser
 end
 
 require 'pry'

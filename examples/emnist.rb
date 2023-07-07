@@ -54,7 +54,7 @@ module EMNist
   end
 
   def self.default_options
-    options = MNist.default_options
+    options = MNist.default_options.dup
     labels, images, mapping = dataset_paths('balanced')
     options.images_path = images
     options.labels_path = labels

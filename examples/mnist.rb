@@ -348,7 +348,7 @@ module MNist
   end
   
   def self.option_parser options
-    parser = CooCoo::OptionParser.new do |o|
+    CooCoo::OptionParser.new do |o|
       o.banner = "The MNist data set"
       
       o.on('--images-path PATH') do |path|

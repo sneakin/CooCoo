@@ -12,7 +12,7 @@ module CooCoo
       end
     end
 
-    attr_reader :parser, :defaults
+    attr_reader :defaults
 
     def initialize(path, log)
       @path = path
@@ -27,9 +27,13 @@ module CooCoo
       self
     end
 
+    def parser
+      opts = defaults ? defaults.call.dup : OpenStruct.new
+      [ @parser.call(opts), opts ]
+    end
+    
     def parse_args(argv)
-      opts = defaults ? defaults.call : OpenStruct.new
-      p = @parser.call(opts)
+      p, opts = parser
       argv = p.parse!(argv)
       [ opts, argv ]
     end
