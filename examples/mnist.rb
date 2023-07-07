@@ -197,7 +197,11 @@ module MNist
 
     public
     class Rotator < Enumerator
+      attr_reader :size, :raw_data
+      
       def initialize(data, rotations, rotation_range, random = false)
+        @size = data.size
+        @raw_data = data
         @data = data.to_enum
         @rotations = rotations
         @rotation_range = rotation_range
@@ -236,7 +240,11 @@ module MNist
     end
 
     class Translator < Enumerator
+      attr_reader :size, :raw_data
+      
       def initialize(data, num_translations, dx, dy, random = false)
+        @size = data.size
+        @raw_data = data
         @data = data.to_enum
         @num_translations = num_translations
         @dx = dx
@@ -367,7 +375,7 @@ module MNist
         options.translations = n.to_i
       end
 
-      o.on('--translation-amount DEGREE') do |n|
+      o.on('--translation-amount PIXELS') do |n|
         options.translation_amount = n.to_i
       end
 
@@ -379,14 +387,12 @@ module MNist
         options.rotation_amount = n.to_i
       end
     end
-  
-    parser
   end
   
   def self.training_set(options)
     data = MNist::DataStream.new(options.labels_path, options.images_path)
     if options.rotations > 0 && options.rotation_amount > 0
-      data = MNist::DataStream::Rotator.new(data.each, options.rotations, options.rotation_amount / 180.0 * Math::PI, false)
+      data = MNist::DataStream::Rotator.new(data, options.rotations, options.rotation_amount / 180.0 * Math::PI, false)
     end
     if options.translations > 0 && options.translation_amount > 0
       data = MNist::DataStream::Translator.new(data, options.translations, options.translation_amount, options.translation_amount, false)
