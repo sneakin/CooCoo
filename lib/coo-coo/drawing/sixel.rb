@@ -76,7 +76,9 @@ module CooCoo
         
         def from_array(a, width, height = nil)
           max_color = a.max.ceil
-
+          width = width.to_i
+          height = height.to_i
+          
           # A sixel encodes 6 vertical pixels per byte for a single color.
           # To use all the colors each line needs sixels for each color.
           # todo CUDA reduction?

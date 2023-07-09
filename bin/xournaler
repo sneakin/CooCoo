@@ -2,8 +2,9 @@
 
 require 'optparse'
 require 'ostruct'
-require 'coo-coo/data_sources/xournal'
 require 'coo-coo/utils'
+require 'coo-coo/data_sources/xournal'
+require 'coo-coo/data_sources/xournal/bitmap_stream'
 
 def usage args
   puts("Usage: #{$0} command [options...]")
@@ -27,11 +28,26 @@ end
 def sixelize_canvas canvas
   term_size = CooCoo::Vector[[ENV.fetch('COLUMNS', 80), ENV.fetch('LINES', 24)]]
   term_pixel_size = term_size * [ 8, 6 ]
-  w = [ canvas.width, term_pixel_size[0] ].min
-  h = canvas.height
+  w, h = if canvas.width < term_pixel_size[0]
+           [ canvas.width, canvas.height ]
+         else
+           [ term_pixel_size[0], term_pixel_size[0] *  canvas.height / canvas.width ]
+         end
   canvas = canvas.resample(w, h, maintain_aspect: true, pad: true, background: 0xFFFFFFFF)
   pixels = canvas.to_vector(true)
   CooCoo::Drawing::Sixel.gray_bytes(pixels, w, h)
+end
+
+def ascii_canvas canvas
+  term_size = CooCoo::Vector[[ENV.fetch('COLUMNS', 80), ENV.fetch('LINES', 24)]]
+  w, h = if canvas.width < term_size[0]
+           [ canvas.width, canvas.height ]
+         else
+           [ term_size[0], term_size[0] *  canvas.height / canvas.width ]
+         end
+  canvas = canvas.resample(w, h, maintain_aspect: true, pad: true, background: 0xFFFFFFFF)
+  pixels = canvas.to_vector(true)
+  CooCoo::Drawing::Ascii.gray_bytes(pixels, w, h)
 end
 
 def render_pages args
@@ -170,6 +186,9 @@ def render_features args
     o.on('--use-sixel') do
       options.use_sixel = true
     end
+    o.on('--use-ascii') do
+      options.use_ascii = true
+    end
   end.parse!(args)
 
   renderer = CooCoo::DataSources::Xournal::Renderer.new(options.use_cairo)
@@ -199,6 +218,8 @@ def render_features args
           canvas = canvas.resample(options.width, options.height)
           if options.use_sixel
             puts(sixelize_canvas(canvas))
+          elsif options.use_ascii
+            puts(ascii_canvas(canvas))            
           else
             out_path = options.output_pattern.fill_template(
                          page: "%.4i" % [ page ],
@@ -398,6 +419,51 @@ def training_doc_print args
   end
 end
 
+def training_doc_bitmap_stream args
+  stream_opts = CooCoo::DataSources::Xournal::BitmapStream.default_options
+  stream_parser = CooCoo::DataSources::Xournal::BitmapStream.option_parser(stream_opts)
+  
+  options = OpenStruct.new
+  options.out_width = 64
+  options.out_height = 64
+  options.data_size = [ 28, 28 ]
+  options.training_documents = []
+
+  args = CooCoo::OptionParser.new do |o|
+    o.on('-h', '--help') do
+      puts(o)
+      puts(stream_parser)
+      exit
+    end
+    
+    o.on('--out-width INT', Integer) do |n|
+      options.out_width = n
+    end
+    
+    o.on('--out-height INT', Integer) do |n|
+      options.out_height = n
+    end
+    
+    o.on('--use-sixel') do
+      options.use_sixel = true
+    end
+  end.parse!(args)
+  paths = stream_parser.parse!(args)
+
+  puts(options.inspect, paths.inspect)
+  
+  set = CooCoo::DataSources::Xournal::BitmapStream.training_set(stream_opts.to_h)
+  set.each(true) do |target, canvas|
+    canvas = canvas.resample(options.out_width, options.out_height)
+    puts(target.to_s)
+    if options.use_sixel
+      puts(sixelize_canvas(canvas))
+    else
+      puts(ascii_canvas(canvas))
+    end
+  end
+end
+
 def cmd_training_doc args
   case subcmd = (args.shift || 'help')
   when 'help' then
@@ -407,6 +473,7 @@ def cmd_training_doc args
   when 'generate' then training_doc_generate(args)
   when 'learn' then training_doc_learn(args)
   when 'print' then training_doc_print(args)
+  when 'bitmap' then training_doc_bitmap_stream(args)
   else
     puts("Unknown command #{subcmd.inspect}.")
     exit(-1)

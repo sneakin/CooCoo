@@ -23,6 +23,8 @@ module CooCoo::Drawing
 
     def self.gray_vector(output, width, height)
       #output = output.minmax_normalize(true)
+      width = width.to_i
+      height = height.to_i
       s = ""
       height.times do |y|
         width.times do |x|

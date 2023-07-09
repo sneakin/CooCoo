@@ -1,3 +1,5 @@
+require 'coo-coo/bounding_box'
+
 module CooCoo
   module DataSources
     module Xournal
@@ -30,6 +32,17 @@ module CooCoo
 
           def collect &cb
             each.collect(&cb)
+          end
+
+          def stroke_bounds
+            samples = @strokes.collect(&:minmax)
+            mins = samples.collect { |s| s[0] }
+            maxs = samples.collect { |s| s[1] }
+            min_x = mins.min { |n| n[0] }[0]
+            min_y = mins.min { |n| n[1] }[1]
+            max_x = maxs.max { |n| n[0] }[0]
+            max_y = maxs.max { |n| n[1] }[1]
+            BoundingBox.new(min_x, min_y, max_x, max_y)
           end
         end
         

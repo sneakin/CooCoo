@@ -1,4 +1,6 @@
 require 'pathname'
+require 'ostruct'
+require 'coo-coo/option_parser'
 require 'coo-coo/math'
 require 'coo-coo/data_sources/xournal/training_document'
 require 'coo-coo/data_sources/xournal/renderer'
@@ -17,8 +19,7 @@ module CooCoo
         attr_reader :use_color
         attr_accessor :random_colors
         attr_accessor :velocity
-
-        # todo needs a label to output mapping
+        attr_accessor :scale_to_fit
         
         def initialize(options = Hash.new)
           @training_documents = Array.new
@@ -38,7 +39,12 @@ module CooCoo
           @random_colors = options.fetch(:random_colors, false)
           @random_invert = options.fetch(:random_invert, false)
           @velocity = options.fetch(:velocity, false)
-
+          @scale_to_fit = options.fetch(:scale_to_fit, false)
+          @maintain_aspect = options.fetch(:maintain_aspect, true)
+          @margin = options.fetch(:margin, 0.25)
+          @foreground = options.fetch(:foreground, 'white')
+          @background = options.fetch(:background, 'black')
+          
           options[:training_documents].each do |td|
             add_training_document(td)
           end
@@ -110,9 +116,9 @@ module CooCoo
           c
         end
         
-        def encode_strokes_to_canvas(strokes, canvas)
-          fg = @random_colors ? random_color : 'white'
-          bg = @random_colors ? random_color(fg) : 'black'
+        def paint_strokes_to_canvas(strokes, canvas, bounds)
+          fg = @random_colors ? random_color : @foreground
+          bg = @random_colors ? random_color(fg) : @background
           fg, bg = bg, fg if @random_invert
           canvas.fill_color = bg
           canvas.stroke_color = bg
@@ -120,14 +126,31 @@ module CooCoo
           ren = Renderer.new
 
           strokes.each do |stroke|
-            ren.render_stroke(canvas, stroke, 0, 0, 1, 1, @example_width, @example_height) do |i, x, y, w, c|
-              [ x, y, w, if @velocity
-                           color_xy(*stroke.slope(i))
-                         else
-                           fg
-                         end
-              ]
+            ren.render_stroke(canvas, stroke, *stroke_viewport(bounds).flatten) do |i, x, y, w, c|
+              [ x, y, w, @velocity ? color_xy(*stroke.slope(i)) : fg ]
             end
+          end
+        end
+
+        def stroke_viewport bounds
+          if @scale_to_fit
+            ex_size = Ruby::Vector[[@example_width, @example_height]]
+            bb = bounds.grow(bounds.size * @margin)
+            if @maintain_aspect
+              # find the center
+              center = bb.center
+              # find the largest radius
+              r = [ bb.width, bb.height ].max
+              bb = BoundingBox.centered_at(center, r)
+            end
+
+            z = ex_size / bb.size
+            z = [ z.min ] * 2 if @maintain_aspect
+            [ bb.to_a.flatten, z ]
+          else
+            [ [ 0, 0, 1, 1 ],
+              [ @example_width, @example_height ]
+            ]
           end
         end
         
@@ -138,13 +161,16 @@ module CooCoo
           ChunkyPNG::Color.rgb(xc.to_i, 0, yc.to_i)
         end
         
-        def encode_strokes(strokes, return_canvas = false)
+        def paint_strokes(strokeset, return_canvas = false)
           canvas = @canvas_klass.new(@example_width, @example_height)
-          if pen_scale != 1.0
-            strokes = strokes.collect { |s| s.scale(1.0, 1.0, pen_scale) }
-          end
-          
-          encode_strokes_to_canvas(strokes, canvas)
+          strokes = if pen_scale != 1.0
+                      strokeset.collect { |s| s.scale(1.0, 1.0, pen_scale) }
+                    else
+                      strokeset
+                    end
+
+          bounds = strokeset.stroke_bounds
+          paint_strokes_to_canvas(strokes, canvas, bounds)
           
           if return_canvas
             canvas.flush
@@ -169,7 +195,7 @@ module CooCoo
                 raise StopIteration if examples.empty?
 
                 examples.shuffle.each do |(label, strokes)|
-                  yield(encode_label(label), encode_strokes(strokes, yield_canvas))
+                  yield(encode_label(label), paint_strokes(strokes, yield_canvas))
                 end
               end
               
@@ -177,86 +203,95 @@ module CooCoo
             end
           end
         end
+
+        def self.default_options
+          options = OpenStruct.new
+          options.training_documents = Array.new
+          options.labels_path = nil
+          options.width = 28
+          options.height = 28
+          options.shuffle = 128
+          options.random_colors = false
+          options.random_invert = false
+          options.pen_scale = 1.0
+          options.scale_to_fit = true
+          options
+        end
+        
+        def self.option_parser options = default_options
+          CooCoo::OptionParser.new do |o|
+            o.banner = "Xournal Training Document Bitmap Stream Generator"
+
+            o.on('--data-path PATH', String, 'Adds a Xournal training document to be loaded.') do |p|
+              options.training_documents += Dir.glob(p).to_a
+            end
+
+            o.on('--data-labels PATH', String, 'Predefined list of labels to preset the one hot encoding.') do |p|
+              options.labels = p
+            end
+
+            o.on('--data-num-labels NUMBER', Integer, 'Minimum number of labels in the model') do |n|
+              options.num_labels = n.to_i
+            end
+            
+            o.on('--data-width NUMBER', Integer, 'Width in pixels of the generated bitmaps.') do |n|
+              n = n.to_i
+              raise ArgumentError.new('data-width must be > 0') if n <= 0
+              options.width = n
+            end
+
+            o.on('--data-height NUMBER', Integer, 'Height in pixels of the generated bitmaps.') do |n|
+              n = n.to_i
+              raise ArgumentError.new('data-height must be > 0') if n <= 0
+              options.height = n
+            end
+
+            o.on('--data-shuffle NUMBER', Integer, 'Number of examples to shuffle before yielding.') do |n|
+              n = n.to_i
+              raise ArgumentError.new('data-shuffle must be > 0') if n <= 0
+              options.shuffle = n
+            end
+
+            o.on('--data-shuffle-colors', 'toggles if strokes are to be rendered with random colors on random backgrounds') do
+              options.random_colors = !options.random_colors
+            end
+
+            o.on('--data-random-invert', 'toggles if foreground and background colors should randomly be inverted') do
+              options.random_invert = !options.random_invert
+            end
+
+            o.on('--data-color', 'toggles if examples are to be rendered in three color channels') do
+              options.use_color = !options.use_color
+            end
+
+            o.on('--data-pen-scale SCALE', Float, 'sets the multiplier of the stroke width') do |v|
+              options.pen_scale = v
+            end
+
+            o.on('--data-as-is') do
+              options.scale_to_fit = false
+            end
+
+            o.on('--data-stretch') do
+              options.maintain_aspect = false
+            end
+
+            o.on('--data-margin PERCENT', Float, 'The amount of space to save when fitting strokes to fit.') do |n|
+              options.margin = n
+            end
+          end
+        end
+        
+        def self.training_set options
+          new(options.to_h)
+        end
       end
     end
   end
 end
 
 if $0 =~ /trainer$/
-  require 'ostruct'
-  require 'coo-coo/option_parser'
-
-  def default_options
-    options = OpenStruct.new
-    options.training_documents = Array.new
-    options.labels_path = nil
-    options.width = 28
-    options.height = 28
-    options.shuffle = 128
-    options.random_colors = false
-    options.random_invert = false
-    options.pen_scale = 1.0
-    options
+  [ :training_set, :option_parser, :default_options ].collect do |m|
+    CooCoo::DataSources::Xournal::BitmapStream.method(m)
   end
-  
-  def option_parser options
-    CooCoo::OptionParser.new do |o|
-      o.banner = "Xournal Training Document Bitmap Stream Generator"
-
-      o.on('--data-path PATH', String, 'Adds a Xournal training document to be loaded.') do |p|
-        options.training_documents += Dir.glob(p).to_a
-      end
-
-      o.on('--data-labels PATH', String, 'Predefined list of labels to preset the one hot encoding.') do |p|
-        options.labels = p
-      end
-
-      o.on('--data-num-labels NUMBER', Integer, 'Minimum number of labels in the model') do |n|
-        options.num_labels = n.to_i
-      end
-      
-      o.on('--data-width NUMBER', Integer, 'Width in pixels of the generated bitmaps.') do |n|
-        n = n.to_i
-        raise ArgumentError.new('data-width must be > 0') if n <= 0
-        options.width = n
-      end
-
-      o.on('--data-height NUMBER', Integer, 'Height in pixels of the generated bitmaps.') do |n|
-        n = n.to_i
-        raise ArgumentError.new('data-height must be > 0') if n <= 0
-        options.height = n
-      end
-
-      o.on('--data-shuffle NUMBER', Integer, 'Number of examples to shuffle before yielding.') do |n|
-        n = n.to_i
-        raise ArgumentError.new('data-shuffle must be > 0') if n <= 0
-        options.shuffle = n
-      end
-
-      o.on('--data-shuffle-colors', 'toggles if strokes are to be rendered with random colors on random backgrounds') do
-        options.random_colors = !options.random_colors
-      end
-
-      o.on('--data-random-invert', 'toggles if foreground and background colors should randomly be inverted') do
-        options.random_invert = !options.random_invert
-      end
-
-      o.on('--data-color', 'toggles if examples are to be rendered in three color channels') do
-        options.use_color = !options.use_color
-      end
-
-      o.on('--data-pen-scale SCALE', Float, 'sets the multiplier of the stroke width') do |v|
-        options.pen_scale = v
-      end
-    end
-  end
-  
-  def training_set options
-    CooCoo::DataSources::Xournal::BitmapStream.new(options.to_h)
-  end
-  
-  [ method(:training_set),
-    method(:option_parser),
-    method(:default_options)
-  ]
 end
