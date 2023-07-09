@@ -1,6 +1,7 @@
 require 'coo-coo/platform'
 require 'coo-coo/consts'
 require 'coo-coo/utils'
+require 'coo-coo/rescue_harness'
 require 'coo-coo/math'
 require 'coo-coo/neuron'
 require 'coo-coo/layer'

@@ -172,29 +172,31 @@ end
 $stdout.flush
 
 if options.trainer
-  num_batches = (options.epochs * training_set.size / trainer_options.batch_size.to_f).ceil
-  
-  puts("Training #{training_set.size} examples in #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name} using #{trainer_options.cost_function.name}.")
-  net.comments << "#{Time.now}: Training with command: #{Shellwords.join([ $0 ] + ARGV)}"
-  
-  bar = CooCoo::ProgressBar.create(:total => num_batches)
-  
-  trainer.train({ network: net,
-                  data: training_set.each.cycle(options.epochs)
-                }.merge(trainer_options.to_h)) do |stats|
-    avg_err = stats.average_loss
-    raise "Cost went to NAN" if avg_err.nan?
-    status = []
-    status << "Cost\t#{avg_err.average}\t#{options.verbose ? avg_err : nil}"
-    status << "Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds"
-    if options.model_path && options.save_every > 0 && stats.batch % options.save_every == 0
-      net.comments.pop if net.comments[-1] =~ /Cost/
-      net.comments << status.join("\n")
-      net.save(options.model_path, format: options.model_format)
-      status << "Saved network to #{options.model_path}"
+  CooCoo.rescue_harness do
+    num_batches = (options.epochs * training_set.size / trainer_options.batch_size.to_f).ceil
+    
+    puts("Training #{training_set.size} examples in #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name} using #{trainer_options.cost_function.name}.")
+    net.comments << "#{Time.now}: Training with command: #{Shellwords.join([ $0 ] + ARGV)}"
+    
+    bar = CooCoo::ProgressBar.create(:total => num_batches)
+    
+    trainer.train({ network: net,
+                    data: training_set.each.cycle(options.epochs)
+                  }.merge(trainer_options.to_h)) do |stats|
+      avg_err = stats.average_loss
+      raise "Cost went to NAN" if avg_err.nan?
+      status = []
+      status << "Cost\t#{avg_err.average}\t#{options.verbose ? avg_err : nil}"
+      status << "Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds"
+      if options.model_path && options.save_every > 0 && stats.batch % options.save_every == 0
+        net.comments.pop if net.comments[-1] =~ /Cost/
+        net.comments << status.join("\n")
+        net.save(options.model_path, format: options.model_format)
+        status << "Saved network to #{options.model_path}"
+      end
+      bar.log(status.join("\n"))
+      bar.increment
     end
-    bar.log(status.join("\n"))
-    bar.increment
   end
 end
 

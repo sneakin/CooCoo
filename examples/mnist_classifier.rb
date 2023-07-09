@@ -273,23 +273,25 @@ if options.train
   nex = "all" if nex == 0
   puts("Training #{nex} examples in #{trainer_options.batch_size} sized batches at a rate of #{trainer_options.learning_rate} with #{trainer.name}.")
 
-  trainer.train({ network: net,
-                  data: ts
-                }.merge(trainer_options.to_h)) do |stats|
-    avg_err = stats.average_loss
-    raise "Cost went to NAN" if avg_err.nan?
-    puts("Cost\t#{avg_err.average}")
-    puts("  Magnitude\t#{avg_err.magnitude}")
+  CooCoo.rescue_harness do
+    trainer.train({ network: net,
+                    data: ts
+                  }.merge(trainer_options.to_h)) do |stats|
+      avg_err = stats.average_loss
+      raise "Cost went to NAN" if avg_err.nan?
+      puts("Cost\t#{avg_err.average}")
+      puts("  Magnitude\t#{avg_err.magnitude}")
 
-    if options.model_path
-      puts("Batch #{stats.batch} took #{stats.total_time} seconds")
-      if options.save_every > 0 && stats.batch % options.save_every == 0
-        puts("Saving to #{options.model_path}")
-        net.save(options.model_path, format: options.model_format)
+      if options.model_path
+        puts("Batch #{stats.batch} took #{stats.total_time} seconds")
+        if options.save_every > 0 && stats.batch % options.save_every == 0
+          puts("Saving to #{options.model_path}")
+          net.save(options.model_path, format: options.model_format)
+        end
       end
-    end
 
-    $stdout.flush
+      $stdout.flush
+    end
   end
 end
 
