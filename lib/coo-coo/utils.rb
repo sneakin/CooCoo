@@ -20,7 +20,11 @@ module CooCoo::Utils
     File.open(path, &cb)
   end
   
-  def self.split_csi str, meth = :to_i
+  def self.split_csv str, meth = :to_s
     str.split(',').collect(&meth)
+  end
+
+  def self.split_csi str
+    split_csv(str, :to_i)
   end
 end

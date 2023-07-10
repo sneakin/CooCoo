@@ -288,6 +288,55 @@ module MNist
         (img * transform)
       end
     end
+
+    class Scaler < Enumerator
+      attr_reader :size, :raw_data
+      
+      def initialize(data, num_translations, amount, random = false)
+        @size = data.size
+        @raw_data = data
+        @data = data.to_enum
+        @num_translations = num_translations
+        @min_scale, @max_scale = amount
+        @random = random
+        
+        super() do |yielder|
+          loop do
+            example = @data.next
+            @num_translations.times do |r|
+              x = if @random
+                    rand
+                  else
+                    (r / @num_translations.to_f)
+                  end
+              x = @max_scale * x + @min_scale
+              y = if @random
+                    rand
+                  else
+                    (r / @num_translations.to_f)
+                  end
+              y = @max_scale * y + @min_scale
+              img = scale_pixels(example.pixels, x, y)
+              yielder << Example.new(example.label, img.to_a.flatten, example.angle, x, y)
+            end
+          end
+        end
+      end
+
+      def wrap(enum)
+        self.class.new(enum, @num_translations, @dx, @dy, @random)
+      end
+      
+      def drop(n)
+        wrap(@data.drop(n))
+      end
+
+      def scale_pixels(pixels, x, y)
+        transform = CooCoo::Image::Scale.new(x, y)
+        img = CooCoo::Image::Base.new(MNist::Width, MNist::Height, 1, pixels.to_a.flatten)
+        (img * transform)
+      end
+    end
   end
 
   class TrainingSet
@@ -347,10 +396,12 @@ module MNist
     options = OpenStruct.new
     options.images_path = MNist::TRAIN_IMAGES_PATH
     options.labels_path = MNist::TRAIN_LABELS_PATH
-    options.translations = 1
-    options.translation_amount = 0
-    options.rotations = 1
-    options.rotation_amount = 0
+    options.translations = 0
+    options.translation_amount = 10
+    options.rotations = 0
+    options.rotation_amount = 90
+    options.scale = 0
+    options.scale_amount = [ 0.25, 1.5 ]
     options.num_labels = nil
     options
   end
@@ -386,16 +437,28 @@ module MNist
       o.on('--rotation-amount DEGREE') do |n|
         options.rotation_amount = n.to_i
       end
+
+      o.on('--scale INTEGER') do |n|
+        options.scale = n.to_i
+      end
+
+      o.on('--scale-amount MIN,MAX') do |n|
+        min, max = CooCoo::Utils.split_csv(n, :to_f)
+        options.scale_amount = [ min, max || min ].sort
+      end
     end
   end
   
   def self.training_set(options)
     data = MNist::DataStream.new(options.labels_path, options.images_path)
     if options.rotations > 0 && options.rotation_amount > 0
-      data = MNist::DataStream::Rotator.new(data, options.rotations, options.rotation_amount / 180.0 * Math::PI, false)
+      data = MNist::DataStream::Rotator.new(data, options.rotations, options.rotation_amount / 180.0 * ::Math::PI, true)
     end
     if options.translations > 0 && options.translation_amount > 0
-      data = MNist::DataStream::Translator.new(data, options.translations, options.translation_amount, options.translation_amount, false)
+      data = MNist::DataStream::Translator.new(data, options.translations, options.translation_amount, options.translation_amount, true)
+    end
+    if options.scale > 0
+      data = MNist::DataStream::Scaler.new(data, options.scale, options.scale_amount, true)
     end
     MNist::TrainingSet.new(data, options.num_labels)
   end
