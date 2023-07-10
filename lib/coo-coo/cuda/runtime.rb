@@ -126,19 +126,23 @@ module CooCoo
         props
       end
 
-      def self.read_size_t(pointer)
-        if @size_t_reader == nil
-          type = ::FFI.find_type(:size_t)
-          @size_t_reader = case type.size
-                           when 8 then :read_ulong_long
-                           when 4 then :read_ulong
-                           when 2 then :read_ushort
-                           when 1 then :read_ubyte
-                           else raise ArgumentError.new("size_t type not found")
-                           end
+      def self.reader_for type_name
+        type = ::FFI.find_type(type_name)
+        case type.size
+        when 8 then :read_ulong_long
+        when 4 then :read_ulong
+        when 2 then :read_ushort
+        when 1 then :read_ubyte
+        else raise ArgumentError.new("Reader for #{type_name} not found")
         end
+      end
 
-        pointer.send(@size_t_reader)
+      def self.size_t_reader
+        @size_t_reader ||= reader_for(:size_t)
+      end
+      
+      def self.read_size_t(pointer)
+        pointer.send(size_t_reader)
       end
       
       def self.memory_info
