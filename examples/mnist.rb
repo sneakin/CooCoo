@@ -196,11 +196,33 @@ module MNist
     end
 
     public
+    class Inverter < Enumerator
+      attr_reader :size, :raw_data
+      
+      def initialize(data, inverts_only)
+        @size = data.size * (inverts_only ? 2 : 1)
+        @raw_data = data
+        @data = data.to_enum
+        @inverts_only = inverts_only
+        
+        super() do |y|
+          loop do
+            example = @data.next
+            img = example.pixels.to_a.flatten
+            unless @inverts_only
+              y << Example.new(example.label, img, example.angle, example.offset_x, example.offset_y)
+            end
+            y << Example.new(example.label, 255 - CooCoo::Vector[img], example.angle, example.offset_x, example.offset_y)
+          end
+        end
+      end
+    end
+
     class Rotator < Enumerator
       attr_reader :size, :raw_data
       
       def initialize(data, rotations, rotation_range, random = false)
-        @size = data.size
+        @size = data.size * rotations
         @raw_data = data
         @data = data.to_enum
         @rotations = rotations
@@ -243,7 +265,7 @@ module MNist
       attr_reader :size, :raw_data
       
       def initialize(data, num_translations, dx, dy, random = false)
-        @size = data.size
+        @size = data.size * num_translations
         @raw_data = data
         @data = data.to_enum
         @num_translations = num_translations
@@ -293,7 +315,7 @@ module MNist
       attr_reader :size, :raw_data
       
       def initialize(data, num_translations, amount, random = false)
-        @size = data.size
+        @size = data.size * num_translations
         @raw_data = data
         @data = data.to_enum
         @num_translations = num_translations
@@ -446,6 +468,15 @@ module MNist
         min, max = CooCoo::Utils.split_csv(n, :to_f)
         options.scale_amount = [ min, max || min ].sort
       end
+
+      o.on('--invert') do
+        options.invert = true
+      end
+
+      o.on('--inverts-only') do
+        options.invert = true
+        options.inverts_only = true
+      end
     end
   end
   
@@ -459,6 +490,9 @@ module MNist
     end
     if options.scale > 0
       data = MNist::DataStream::Scaler.new(data, options.scale, options.scale_amount, true)
+    end
+    if options.invert
+      data = MNist::DataStream::Inverter.new(data, options.inverts_only)
     end
     MNist::TrainingSet.new(data, options.num_labels)
   end
