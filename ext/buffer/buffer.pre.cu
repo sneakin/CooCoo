@@ -645,7 +645,7 @@ PUBLIC double buffer_max(const Buffer b)
     if(bx >= 0 && bx < w                                                \
        && ax >= 0 && ax < aw                                            \
        && by >= 0 && by < h                                             \
-       && ay >= 0 && ax < ah) {                                         \
+       && ay >= 0 && ay < ah) {                                         \
       int ai = grid_offset + ay * aw + ax;                              \
       int bi = grid_offset + by * bw + bx;                              \
       a[ai] = buffer_ ## name ## _op(a[ai], b[bi]);                     \
