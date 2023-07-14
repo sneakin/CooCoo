@@ -229,7 +229,6 @@ if options.num_tests
     end
     puts("#{passed ? CHECKMARK : CROSSMARK} #{options.start_tests_at + i}\t#{avg_loss}\t#{target_max}\t#{out[target_max[1]]}\t#{out_max}\t#{options.verbose ? target : nil}\t#{options.verbose ? out : nil}")
     $stdout.flush
-    GC.start
   end
 
   puts

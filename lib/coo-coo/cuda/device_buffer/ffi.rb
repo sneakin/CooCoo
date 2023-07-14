@@ -35,11 +35,11 @@ module CooCoo
           
           class_eval <<-EOT
             def self.#{meth}(*call_args)
-              #{caller}(:#{func}, *call_args)
+                #{caller}(:#{func}, *call_args)
             end
-          EOT
+EOT
         end
-        
+          
         buffer_function :block_size, [], :int
         buffer_function :block_dim, [], Dim3.ptr
         buffer_function :set_block_size, [ :int ], :void
@@ -100,26 +100,63 @@ module CooCoo
           buffer_function f, [ DeviceBuffer ], DeviceBuffer.auto_ptr
         end
 
-        def self.call_func(func, *args)
-          r = send("buffer_#{func}", *args)
-          raise APIError.new(r) if r != 0
-          r
+        def self.synchronize! *call_sig
+          err = Runtime.cudaDeviceSynchronize
+          raise APIError.new(err, call_sig) if err != 0
+        end
+
+        def self.check_last_error! *call_sig
+          case err=Runtime.cudaGetLastError
+          when 0 then
+            synchronize!(*call_sig)
+            raise NullResultError.new
+          else raise APIError.new(err, call_sig)
+          end
         end
         
+        def self.call_func(func, *args)
+          trace_pre(func, args)
+          r = send("buffer_#{func}", *args)
+          trace_post(r)
+          return true if r == 0
+          raise APIError.new(r, [ func ] + args)
+        end
+
         def self.call_buffer(func, *args)
           retries = 0
           begin
+            trace_pre(func, args)
             r = send("buffer_#{func}", *args)
-            raise NullResultError.new if r.null?
-            r
+            trace_post(r)
+            check_last_error!(func, args) if r.null?
+            return r
           rescue NullResultError
+            $stderr.puts("Null result #{retries}") if CooCoo::Constants.trace?
             raise if retries > Constants.max_null_results
             retries += 1
             CUDA.collect_garbage
             retry
           end
         end
-      end
+
+        def self.trace_post ret
+          return unless CooCoo::Constants.trace?
+          size = case ret
+                 when ->(x) { ::FFI::MemoryPointer === x && x.null? } then 'null'
+                 when DeviceBuffer then buffer_length(ret).to_s
+                 else ''
+                 end
+          $stderr.puts("=> #{ret.inspect} #{size}")
+        end
+        
+        def self.trace_pre func, args
+          return unless CooCoo::Constants.trace?
+          $stderr.puts("call buffer: %s %s" %
+                       [ func, args.collect { |a|
+                           DeviceBuffer === a ? [ a, buffer_length(a) ] : a
+                         }.inspect ])
+        end
+      end          
     end
   end
 end

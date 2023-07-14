@@ -88,6 +88,7 @@ module CooCoo
       attach_function :cudaGetLastError, [], :int
 
       attach_function :cudaDeviceReset, [], :int
+      attach_function :cudaDeviceSynchronize, [], :int
       attach_function :cudaSetDevice, [ :int ], :int
       attach_function :cudaGetDevice, [ :pointer ], :int
       attach_function :cudaGetDeviceCount, [ :pointer ], :int

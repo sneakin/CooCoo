@@ -8,6 +8,14 @@ module CooCoo
       def max_null_results=(n)
         @max_null_results = n
       end
+
+      def trace?
+        @trace ||= ENV['COOCOO_TRACE'] == '1'
+      end
+
+      def trace= yes
+        @trace =kyes
+      end
     end
   end
   

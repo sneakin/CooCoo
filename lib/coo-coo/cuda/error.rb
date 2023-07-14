@@ -6,8 +6,11 @@ module CooCoo
     end
 
     class APIError < Error
-      def initialize(err = nil)
+      attr_reader :data
+      
+      def initialize(err = nil, data = nil)
         @err = err || Runtime.cudaGetLastError()
+        @data = data
         super(message)
       end
 
