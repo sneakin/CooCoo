@@ -7,8 +7,8 @@
 #ifdef IN_PUBLIC
 typedef struct Buffer_s
 {
-  double *data;
   size_t length;
+  double *data;
 } *Buffer;
 #endif
 
@@ -66,6 +66,16 @@ static size_t _total_memory = 0;
 static size_t _total_bytes_free = 0;
 static size_t _total_bytes_allocated = 0;
 
+PUBLIC size_t buffer_total_memory()
+{
+  return _total_memory;
+}
+
+PUBLIC size_t buffer_total_bytes_free()
+{
+  return _total_bytes_free;
+}
+
 PUBLIC size_t buffer_total_bytes_allocated()
 {
   return _total_bytes_allocated;
@@ -78,6 +88,19 @@ PUBLIC long long buffer_num_allocated()
   return _num_allocated;
 }
 
+PUBLIC void buffer_mem_stats_add(size_t amt)
+{
+  _total_bytes_allocated += amt;
+  _total_bytes_free -= amt;
+  _num_allocated++;
+}
+
+PUBLIC void buffer_mem_stats_freed(size_t amt)
+{
+  _total_bytes_allocated -= amt;
+  _total_bytes_free += amt;
+  _num_allocated--;
+}
 
 typedef void (*kernel_func_t)(int len, double *out, const double *a, const double *b, int grid_offset, void *);
 
@@ -285,9 +308,7 @@ PUBLIC Buffer buffer_new(size_t length, double initial_value)
       return NULL;
     }
 
-    _total_bytes_allocated += bytes;
-    _total_bytes_free -= bytes;
-    _num_allocated++;
+    buffer_mem_stats_add(bytes);
   }
       
   return ptr;
@@ -302,10 +323,10 @@ PUBLIC cudaError_t buffer_free(Buffer buffer)
         return err;
       }
       size_t bytes = buffer->length * sizeof(double);
-      _total_bytes_allocated -= bytes;
-      _total_bytes_free += bytes;
-      _num_allocated--;
+      buffer_mem_stats_freed(bytes);
     }
+    buffer->data = NULL;
+    buffer->length = 0;
     free(buffer);
   }
 
@@ -431,35 +452,42 @@ PUBLIC Buffer buffer_slice_2d(const Buffer in, int width, int height, int x, int
   Buffer out = buffer_new(out_width * out_height, empty);
   if(out == NULL) return NULL;
 
-  if(y >= height || x >= width) {
+  int w = out_width;
+  int h = out_height;
+  int ox = 0, oy = 0;
+
+  if(y+h < 0 || y >= height || x+w < 0 || x >= width) {
     return out;
   }
-  
-  for(int i = 0; i < out_height; i++) {
-    int oi = i * out_width;
-    int w = out_width;
-    int iy = y + i;
-    int ii = (iy) * width + x;
 
-    if(x < 0) {
-      ii = ii - x;
-      w = w + x;
-      oi = oi - x;
-    } else if(x + w > width) {
-      w = width - x;
-    }
+  if(y < 0) {
+    h+=y;
+    oy=-y;
+    y=0;
+  } else if(y+h >= height) {
+    h=height-y;
+  }
     
-    if(iy < 0) {
-      continue;
-    } else if(iy >= height || ii >= in->length) {
-      break;
-    }
+  if(x < 0) {
+    w+=x;
+    ox=-x;
+    x=0;
+  } else if(x+w >= width) {
+    w=width-x;
+  }
+    
+  int oi = oy * out_width + ox;
+  int ii = y * width + x;
 
-    cudaError_t err = cudaMemcpy(out->data + oi, in->data + ii, w * sizeof(double), cudaMemcpyDeviceToDevice);
-    if(err != cudaSuccess) {
-      buffer_free(out);
-      return NULL;
-    }
+  if(ii >= in->length || oi >= out->length) {
+    return out;
+  }
+
+  cudaError_t err = cudaMemcpy2D(out->data + oi, out_width * sizeof(double),
+                                 in->data + ii, width * sizeof(double), w * sizeof(double), h, cudaMemcpyDeviceToDevice);
+  if(err != cudaSuccess) {
+    buffer_free(out);
+    return NULL;
   }
 
   return out;

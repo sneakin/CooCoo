@@ -48,6 +48,8 @@ module CooCoo
         buffer_function :set_max_grid_size, [ :int ], :void
 
         buffer_function :init, [ :int ], :int
+        buffer_function :total_memory, [], :size_t
+        buffer_function :total_bytes_free, [], :size_t
         buffer_function :total_bytes_allocated, [], :size_t
         buffer_function :num_allocated, [], :long_long
 
