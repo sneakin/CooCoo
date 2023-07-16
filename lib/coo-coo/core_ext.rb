@@ -38,8 +38,25 @@ class Object
       end
     end
   end
+
+  def try meth, *args, &cb
+    send(meth, *args, &cb)
+  end
+
+  def blank?
+    false
+  end
 end
 
+class NilClass
+  def try meth, *args, &cb
+  end
+
+  def blank?
+    true
+  end
+end
+  
 class Array
   def zero
     self.class.new(size, 0.0)
@@ -47,6 +64,10 @@ class Array
 
   def rand
     self[Random.rand(size)]
+  end
+
+  def blank?
+    empty?
   end
 end
 
@@ -94,6 +115,10 @@ class String
       key = key[1..-2] if key[0] == '{'
       env.fetch(key) { env.fetch(key.to_sym, m) }
     end
+  end
+
+  def blank?
+    empty?
   end
 end
 
