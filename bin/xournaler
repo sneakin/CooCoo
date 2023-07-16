@@ -5,6 +5,7 @@ require 'ostruct'
 require 'coo-coo/utils'
 require 'coo-coo/data_sources/xournal'
 require 'coo-coo/data_sources/xournal/bitmap_stream'
+require 'coo-coo/data_sources/xournal/training_sets/features'
 
 def usage args
   puts("Usage: #{$0} command [options...]")
@@ -178,7 +179,7 @@ def render_features args
     o.on('-o', '--output STRING', 'Filename to write renderings. Replaces $page with the page number.') do |s|
       options.output_pattern = s
     end
-    
+
     o.on('--use-cairo') do
       options.use_cairo = true
     end
@@ -189,6 +190,13 @@ def render_features args
     o.on('--use-ascii') do
       options.use_ascii = true
     end
+    o.on('--use-vector') do
+      options.use_vector = true
+    end
+
+    o.on('-a', '--annotate') do
+      options.annotate = true
+    end
   end.parse!(args)
 
   renderer = CooCoo::DataSources::Xournal::Renderer.new(options.use_cairo)
@@ -198,37 +206,61 @@ def render_features args
     file, *pages = path.split(',')
     doc = CooCoo::DataSources::Xournal.from_file(file)
     pages = if pages.empty?
-      (0...doc.pages.size)
+      (0...doc.pages.size).to_a
     else
       pages.collect(&:to_i)
     end
     
     puts(file)
-    pages.each do |page|
-      # render the whole page and crop each stroke?      
-      page_rend = renderer.render(doc, page, *options.min, nil, nil, options.zoom, options.zoom)
-      $stderr.puts("  page %i: %ix%i" % [ page, page_rend.width, page_rend.height ])
-      doc_page = doc.pages[page]
-      doc_page.layers.each.with_index do |layer, layer_n|
-        layer.each_stroke.with_index  do |stroke, stroke_n|
-          # center a circle on the stroke that has a diameter twice the stroke's largest dimension
-          canvas = crop_stroke(page_rend, stroke, doc_page.background.color)
-          next unless canvas
-          # scale the stroke to a standard size like 28x28
-          canvas = canvas.resample(options.width, options.height)
-          if options.use_sixel
-            puts(sixelize_canvas(canvas))
-          elsif options.use_ascii
-            puts(ascii_canvas(canvas))            
-          else
-            out_path = options.output_pattern.fill_template(
-                         page: "%.4i" % [ page ],
-                         layer: "%.4i" % [ layer_n ],
-                         stroke: "%.4i" % [ stroke_n ])
-            $stderr.puts("Writing %s" % [ out_path ])
-            canvas.save_to_png(out_path)
-          end
+
+    labels = CooCoo::DataSources::Xournal::TrainingSets::LabelSet.new
+    begin
+      File.open(file + ".labels", 'r') { |f| labels.load(f) }
+    rescue Errno::ENOENT
+    end
+    changed = false
+
+    stream = CooCoo::DataSources::Xournal::TrainingSets::GraphicFeatures.
+      new(xournal: doc, labels: labels,
+          pages: pages, use_cairo: options.use_cairo)
+
+    stream.each_canvas do |info, canvas|
+      canvas = canvas.resample(options.width, options.height)
+      puts("%i %i/%i/%i %f,%f %f,%f" % [ stream.output_for(info.label).each_with_index.max[1], *info.id, *info.minmax.flatten ])
+      if options.use_sixel
+        puts(sixelize_canvas(canvas))
+      elsif options.use_ascii
+        puts(ascii_canvas(canvas))
+      elsif options.use_vector
+        puts((canvas.to_vector(true) / 255.0).join(' '))
+      else
+        out_path = options.output_pattern.
+          fill_template(page: "%.4i" % [ info.page_n ],
+                        layer: "%.4i" % [ info.layer_n ],
+                        stroke: "%.4i" % [ info.stroke_n ])
+        $stderr.puts("Writing %s" % [ out_path ])
+        canvas.save_to_png(out_path)
+      end
+
+      if options.annotate
+        label = info.label ? " (#{info.label})" : ''
+        $stdout.write("Label%s: " % [ label ])
+        case line=$stdin.readline
+        when /^\s*$/ then :ok
+        else
+          labels.add_stroke(info.page_n, info.layer_n, info.stroke_n, info.stroke, line)
+          changed = true
         end
+      else
+        puts(info.label)
+        puts
+      end
+    end
+    
+    if changed
+      $stderr.puts("Writing #{path}.labels")
+      File.write_to(path + '.labels') do |io|
+        labels.save(io)
       end
     end
   end
@@ -259,7 +291,7 @@ def prep_xournal args
       doc_page.layers.each.with_index do |layer, layer_n|
         layer.each_stroke.with_index  do |stroke, stroke_n|
           min, max = stroke.minmax
-          puts("%i/%i/%i %i,%i %i,%i " % [ page, layer_n, stroke_n, *min, *max ])
+          puts("%i/%i/%i %f,%f %f,%f " % [ page, layer_n, stroke_n, *min, *max ])
         end
       end
     end

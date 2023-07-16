@@ -6,6 +6,10 @@ require 'ostruct'
 # todo read directly from gzipped files
 # todo usable by the bin/trainer?
 
+# todo label and map network outputs
+# todo blank space needs to be standard part
+# todo additional outputs and labels beyond 0-9
+
 module MNist
   PATH = Pathname.new(__FILE__)
   ROOT = PATH.dirname.join('mnist')
@@ -460,7 +464,7 @@ module MNist
         options.rotation_amount = n.to_i
       end
 
-      o.on('--scale INTEGER') do |n|
+      o.on('--scale INTEGER', Integer) do |n|
         options.scale = n.to_i
       end
 
@@ -486,7 +490,11 @@ module MNist
       data = MNist::DataStream::Rotator.new(data, options.rotations, options.rotation_amount / 180.0 * ::Math::PI, true)
     end
     if options.translations > 0 && options.translation_amount > 0
-      data = MNist::DataStream::Translator.new(data, options.translations, options.translation_amount, options.translation_amount, true)
+      data = MNist::DataStream::Translator.
+        new(data, options.translations,
+            options.translation_amount,
+            options.translation_amount,
+            true)
     end
     if options.scale > 0
       data = MNist::DataStream::Scaler.new(data, options.scale, options.scale_amount, true)

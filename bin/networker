@@ -1,0 +1,190 @@
+#!/usr/bin/env ruby
+
+require 'CooCoo'
+
+V = CooCoo::Ruby::Vector
+
+def tty_size
+  V[[ ENV.fetch('COLUMNS', 80),
+      ENV.fetch('LINES', 24) ]]
+end
+
+def neuron_coord layer_size, layer_n, index, bounds, spacing
+  spacing = [ bounds[0] / (spacing[0] + layer_size.to_f), spacing[1] ]
+  V[[1 + index, 2 + layer_n]] * spacing
+end
+
+def gray percent
+  percent = 0 if percent < 0
+  percent = 1 if percent > 1
+  '#' + ("%.2x" % [ (255*percent).to_i ]) * 3
+end
+
+def draw_network(net, canvas, color: 0xFF00FF00, highlight: nil, highlight_color: 0xFF000000)
+  size = V[[canvas.width, canvas.height]]
+  spacing = V[[ 1, canvas.height / (3+net.layers.size.to_f) ]]
+  
+  # draw lines from a layer's nodes to the next layer shaded by weight or state
+  net.layers.each.with_index do |layer, n|
+    next if CooCoo::Convolution::BoxLayer === layer
+    layer.weights.each_slice(layer.num_inputs).with_index do |weights, k|
+      sx, sy = neuron_coord(layer.size, n, k, size, spacing)
+      weights.each.with_index do |weight, wn|
+        dx, dy = neuron_coord(layer.num_inputs, n-1, wn, size, spacing)
+        alpha = ((1.0 - weight).clamp(0..1) * 255).to_i
+        c = color
+        c = highlight_color if highlight == [ n, k ]
+        canvas.stroke_color = c | (alpha << 16) | (((alpha >> 1) + 0x80))
+        canvas.line(sx, sy, dx, dy)
+      end
+    end
+  end
+
+  # draw each layer as boxes
+  canvas.stroke_color = 'white'
+  canvas.fill_color = 'white'
+  net.layers.each.with_index do |layer, n|
+    layer.size.times do |i|
+      x, y = neuron_coord(layer.size, n, i, size, spacing)
+      canvas.rect(x-2, y-2, 4, 4)
+    end
+  end  
+end
+
+def draw_cmd args
+  options = OpenStruct.new
+  options.output_size = nil
+  options.canvas = CooCoo::Drawing::ChunkyCanvas
+  
+  paths = CooCoo::OptionParser.new do |o|
+    o.on('-o', '--output PATH') do |v|
+      options.output = v
+    end
+    o.on('--size WIDTH,HEIGHT') do |v|
+      w, h = CooCoo::Utils.split_csi(v)
+      h ||= w
+      options.output_size = V[[ w, h ]]
+    end
+    
+    o.on('--use-sixel') do
+      options.use_sixel = true
+    end
+    o.on('--use-ascii') do
+      options.use_ascii = true
+    end
+    o.on('--use-cairo') do
+      options.canvas = CooCoo::Drawing::CairoCanvas
+    end
+
+    o.on('--highlight LAYER,NEURON') do |v|
+      l, n = CooCoo::Utils.split_csi(v)
+      options.highlight = [ l, n ]
+    end
+  end.parse!(args)
+
+  net_path = paths[0]
+  net = CooCoo::Network.load(net_path)
+  max_in = net.layers.collect(&:num_inputs).max
+  min_in = net.layers.collect(&:num_inputs).min
+  max_out = net.layers.collect(&:size).max
+  min_out = net.layers.collect(&:size).min
+  puts("%s - %i -> %i, %i:%i -> %i:%i" % [ net_path, net.num_inputs, net.num_outputs, net.num_layers, min_in, min_in, max_in, max_in ])
+  max_size = if options.output_size
+               options.output_size
+             elsif options.use_sixel
+               tty_size * [ 8, 6 ]
+             elsif options.use_ascii
+               tty_size
+             else
+               V[[ 640, 480 ]]
+             end
+  puts("Max size: %ix%i" % max_size)
+  canvas = options.canvas.new(*max_size)
+  canvas.fill_color = 'black'
+  canvas.stroke_color = 'white'
+  canvas.rect(0, 0, canvas.width, canvas.height)
+  draw_network(net, canvas, highlight: options.highlight)
+  pixels = canvas.to_vector(true)
+  if options.use_sixel
+    puts(CooCoo::Drawing::Sixel.gray_bytes(pixels * 255.0, *max_size))
+  elsif options.use_ascii
+    puts(CooCoo::Drawing::Ascii.gray_bytes(pixels * 255.0, *max_size))
+  elsif options.output
+    canvas.save_to_png(options.output)
+  end  
+end
+
+def generate_cmd argv
+  options = OpenStruct.new
+  options.prototype = Pathname.new(__FILE__).dirname.dirname.join('prototypes', 'by-layer.rb')
+  
+  argv = CooCoo::OptionParser.new do |o|
+    o.on('-p', '--prototype PATH') do |v|
+      options.prototype = v
+    end
+    o.on('-o', '--output PATH') do |v|
+      options.output = v
+    end
+    o.on('--inputs INTEGER', Integer) do |v|
+      options.input_size = v
+    end
+    o.on('--outputs INTEGER', Integer) do |v|
+      options.output_size = v
+    end
+    o.on('-h', '--help') do
+      puts(o)
+      puts(CooCoo::GenerationScript.new(options.prototype.to_s, $stdout).parser)
+      exit(-1)
+    end
+  end.parse!(argv)
+
+  raise ArgumentError.new("No output path provided.") if options.output.blank?
+  
+  puts("Generating network from #{options.prototype}")
+  net_gen = CooCoo::GenerationScript.new(options.prototype.to_s, $stdout)
+  argv, net = net_gen.call(argv, options.input_size, options.output_size)
+  puts("Saving network to #{options.output}")
+  net.save(options.output,
+           format: File.extname(options.output) == '.bin' ? :marshal : :yaml)
+end
+
+def info_cmd args
+  args.each do |path|
+    net = CooCoo::Network.load(path)
+    puts("= #{path}")
+    puts
+    puts("Age: #{net.age} adjustments since #{net.born_at}")
+    puts("Command: #{net.command}")
+    puts("Activation: #{net.activation_function}")
+    puts("Inputs: #{net.num_inputs}")
+    puts("Outputs: #{net.num_outputs}")
+    puts
+    puts("Layers: #{net.num_layers}")
+    net.layers.each_with_index do |l, i|
+      puts("\t#{i}\t#{l.num_inputs}\t#{l.size}\t#{l.name}")
+    end
+    puts
+    puts("Comments:")
+    net.comments.each do |c|
+      puts
+      puts(c)
+    end
+    puts
+  end
+end
+
+Commands = {
+  'info' => :info_cmd,
+  'generate' => :generate_cmd,
+  'draw' => :draw_cmd
+}
+
+if $0 == __FILE__
+  cmd = ARGV.shift
+  meth = Commands[cmd]
+  if meth
+    send(meth, ARGV)
+  else
+    raise "Unknown command: #{cmd}"
+  end
+end

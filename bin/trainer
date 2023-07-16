@@ -141,7 +141,7 @@ if options.model_path && File.exists?(options.model_path.to_s)
 else
   puts("Generating network from #{options.prototype}")
   net_gen = CooCoo::GenerationScript.new(options.prototype.to_s, $stdout)
-  argv, net = net_gen.call(argv, training_set)
+  argv, net = net_gen.call(argv, training_set.input_size, training_set.output_size)
 end
 
 trainer = nil

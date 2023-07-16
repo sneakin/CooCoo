@@ -36,6 +36,22 @@ module CooCoo
         self.class.zeros(size)
       end
 
+      def pack fmt
+        to_a.pack(fmt)
+      end
+
+      def join str
+        to_a.join(str)
+      end
+      
+      def take n
+        self[0, n]
+      end
+
+      def drop n
+        self[n, size - n]
+      end
+
       def average
         sum / size
       end
