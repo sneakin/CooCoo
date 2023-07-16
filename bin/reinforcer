@@ -1,0 +1,104 @@
+#!/usr/bin/env ruby
+
+require 'CooCoo'
+require 'ostruct'
+require 'optparse'
+
+options = OpenStruct.new
+options.cost_function = 'MeanSquare'
+options.rate = 0.03
+options.learning = true
+
+args = OptionParser.new do |o|
+  o.on('-m', '--model PATH') do |v|
+    options.model = v
+  end
+  o.on('--cost NAME') do |v|
+    options.cost_function = v
+  end
+  o.on('--rate FLOAT', Float) do |v|
+    options.rate = v
+  end
+  o.on('--ascii') do
+    options.ascii = true
+  end
+  o.on('--read-only') do
+    options.learning = false
+  end
+end.parse!(ARGV)
+
+cost_function = CooCoo::CostFunctions.from_name(options.cost_function)
+
+$stderr.puts("Using network #{options.model}")
+net = CooCoo::Network.load(options.model)
+$stderr.puts("  %i -> %i" % [ net.num_inputs, net.num_outputs ])
+
+# Loop:
+$stderr.puts("Ready")
+expectation = nil
+input = nil
+output = nil
+state = {}
+action = nil
+done = false
+while !done
+  # Read input from $stdin
+  input = nil
+  begin
+    line = ARGF.readline
+    case line
+    when nil then break
+    when /^\s*$/ then break
+    else
+      # todo console limits by cutting of at 4095 bytes. Ruby adds a \n
+      input = if options.ascii
+                CooCoo::Vector[line.split.take(net.num_inputs).collect(&:to_f)]
+              else
+                CooCoo::Vector[line.unpack('E%i' % [ net.num_inputs ])]
+              end
+      if input.size < net.num_inputs
+        $stderr.puts("Input too small: %i != %i." % [ net.num_inputs, input.size ])
+        next
+      end
+    end
+  rescue EOFError
+    break
+  end
+  
+  # Compute the cost between the new input and the expectation.
+  if expectation && input && action && output
+    cost = cost_function.call(expectation, input)
+    $stderr.puts("Cost: %f %s" % [ cost.average, cost.to_s ])
+    # Back propagate to nudge towards matching the expectation
+    if options.learning
+      actual = output.last.dup
+      actual[0, net.num_inputs] = input
+      dc = cost_function.derivative(actual, output.last)
+      dc_sum = dc.sum
+      action.size.times do |i|
+        actual[net.num_inputs + i] = dc_sum
+      end
+      deltas, state = net.backprop(input, output, dc, state)
+      net.update_weights!(input, output, deltas * options.rate)
+    end
+  end
+  
+  # Forward the input through the network to get a set of outputs and expected inputs
+  output, state = net.forward(input)
+  expectation = output.last.take(net.num_inputs)
+  action = output.last.drop(net.num_inputs)
+  
+  # Write output to $stdout
+  $stderr.puts("Expecting: %s" % [ expectation.inspect ])
+  # $stderr.puts(output.inspect)
+  if options.ascii
+    puts(action.join(' '))
+  else
+    puts(action.pack('E*'))
+  end
+end
+
+if options.learning
+  $stderr.puts("Saving #{options.model}")
+  net.save(options.model)
+end

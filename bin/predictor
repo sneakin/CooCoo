@@ -1,0 +1,57 @@
+#!/usr/bin/env ruby
+
+require 'CooCoo'
+require 'ostruct'
+require 'optparse'
+
+options = OpenStruct.new
+
+args = OptionParser.new do |o|
+  o.on('-m', '--model PATH') do |v|
+    options.model = v
+  end
+  o.on('--ascii') do
+    options.ascii = true
+  end
+end.parse!(ARGV)
+
+$stderr.puts("Using network #{options.model}")
+net = CooCoo::Network.load(options.model)
+$stderr.puts("  %i -> %i" % [ net.num_inputs, net.num_outputs ])
+
+# Loop:
+$stderr.puts("Ready")
+expectation = nil
+done = false
+while !done
+  # Read input from $stdin
+  input = nil
+  line = ARGF.readline
+  case line
+  when nil then break
+  when /^\s*$/ then break
+  else
+    # todo console limits to 4095+\n bytes
+    input = if options.ascii
+              CooCoo::Vector[line.split.take(net.num_inputs).collect(&:to_f)]
+            else
+              CooCoo::Vector[line.unpack('E%i' % [ net.num_inputs ])]
+            end
+    if input.size < net.num_inputs
+      $stderr.puts("Input too small: %i != %i." % [ net.num_inputs, input.size ])
+      next
+    end
+  end
+  
+  # Forward the input through the network to get a set of outputs and expected inputs
+  output, state = net.predict(input)
+  
+  # Write output to $stdout
+  $stderr.puts(output.inspect)
+  if options.ascii
+    puts(output.join(' '))
+  else
+    puts(output.pack('E*'))
+  end
+end
+
