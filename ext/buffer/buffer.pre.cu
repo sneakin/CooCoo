@@ -102,6 +102,22 @@ PUBLIC void buffer_mem_stats_freed(size_t amt)
   _num_allocated--;
 }
 
+PUBLIC cudaError_t cuda_alloc(void **out, size_t bytes)
+{
+  cudaError_t err = cudaMalloc(out, bytes);
+  if(err == cudaSuccess) {
+    buffer_mem_stats_add(bytes);
+  }
+  return err;
+}
+
+PUBLIC cudaError_t cuda_free(void *ptr, size_t bytes)
+{
+  cudaError_t err = cudaFree(ptr);
+  buffer_mem_stats_freed(bytes);
+  return err;
+}
+
 typedef void (*kernel_func_t)(int len, double *out, const double *a, const double *b, int grid_offset, void *);
 
 Buffer launch_kerneln(kernel_func_t kernel, int length, const Buffer a, const Buffer b, void *data)
@@ -296,7 +312,7 @@ PUBLIC Buffer buffer_new(size_t length, double initial_value)
   
   Buffer ptr = (Buffer)malloc(sizeof(Buffer_s));;
   if(ptr != NULL) {
-    if(cudaMalloc(&ptr->data, bytes) != cudaSuccess) {
+    if(cuda_alloc((void **)&ptr->data, bytes) != cudaSuccess) {
       ptr->data = NULL;
       buffer_free(ptr);
       return NULL;
@@ -307,8 +323,6 @@ PUBLIC Buffer buffer_new(size_t length, double initial_value)
       buffer_free(ptr);
       return NULL;
     }
-
-    buffer_mem_stats_add(bytes);
   }
       
   return ptr;
@@ -318,12 +332,10 @@ PUBLIC cudaError_t buffer_free(Buffer buffer)
 {
   if(buffer != NULL) {
     if(buffer->data != NULL) {
-      cudaError_t err = cudaFree(buffer->data);
+      cudaError_t err = cuda_free(buffer->data, buffer->length * sizeof(double));
       if(err != cudaSuccess) {
         return err;
       }
-      size_t bytes = buffer->length * sizeof(double);
-      buffer_mem_stats_freed(bytes);
     }
     buffer->data = NULL;
     buffer->length = 0;

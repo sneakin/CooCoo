@@ -24,7 +24,7 @@ module CooCoo
           else
             raise ArgumentError.new("Wrong number of arguments: (given #{args.size}, expected 3 or 4")
           end
-
+        
           attach_function("buffer_#{func}", args, return_type)
 
           caller = if return_type.kind_of?(Symbol)

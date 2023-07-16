@@ -1,4 +1,5 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'coo-coo', 'platform')
+require 'shellwords'
 
 NVCC = ENV.fetch("NVCC", "nvcc")
 NVCCFLAGS = []
@@ -14,8 +15,11 @@ DLEXT=RbConfig::CONFIG['DLEXT']
 
 task :default => [ "buffer.#{DLEXT}", "buffer_ffi.rb", "matrix_ffi.rb" ]
 
+ToClean = []
+
 task :clean do
-  sh("rm -f buffer.#{DLEXT} buffer.ext buffer.lib buffer.cu buffer.h buffer_ffi.rb matrix.cu matrix.h matrix_ffi.rb")
+  paths = ToClean.flatten.collect { |s| Shellwords.escape(s) }.join(' ')
+  sh("rm -f buffer.#{DLEXT} buffer.ext buffer.lib #{paths}")
 end
 
 desc "Build buffer.#{DLEXT}"
@@ -27,7 +31,9 @@ def ffi_gen(*args)
   ruby(File.join(CooCoo.root, 'bin', 'ffi-gen'), *args)
 end
 
-def ffi_file(target)
+def cuda_src(target)
+  ToClean << [ "#{target}.cu", "#{target}.h", "#{target}_ffi.rb" ]
+  
   file "#{target}.cu" => [ "#{target}.pre.cu", "#{target}.h" ] do |t|
     ffi_gen('--source', '-o', t.name, t.source)
   end
@@ -47,5 +53,5 @@ def ffi_file(target)
   end
 end
 
-ffi_file 'buffer'
-ffi_file 'matrix'
+cuda_src 'buffer'
+cuda_src 'matrix'
