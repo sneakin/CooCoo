@@ -8,7 +8,8 @@ module CooCoo
       
       def initialize(img_or_width, height = nil)
         if height
-          img = ChunkyPNG::Image.new(img_or_width, height)
+          img_or_width = img_or_width.to_i if Numeric === img_or_width
+          img = ChunkyPNG::Image.new(img_or_width, height.to_i)
           width = img_or_width
         else
           img = img_or_width
@@ -41,7 +42,7 @@ module CooCoo
       end
 
       def line(x1, y1, x2, y2)
-        @image.line(x1, y1, x2, y2, stroke_color)
+        @image.line(x1.to_i, y1.to_i, x2.to_i, y2.to_i, stroke_color)
         self
       end
 
@@ -94,12 +95,12 @@ module CooCoo
       end
 
       def rect(x, y, w, h)
-        @image.rect(x, y, w, h, stroke_color, fill_color)
+        @image.rect(x.to_i, y.to_i, (x+w).to_i, (y+h).to_i, stroke_color, fill_color)
         self
       end
 
       def circle(x, y, r)
-        @image.circle(x, y, r, stroke_color, fill_color)
+        @image.circle(x.to_i, y.to_i, r.to_i, stroke_color, fill_color)
         self
       end
 
@@ -184,7 +185,7 @@ module CooCoo
 
       def crop x, y, w, h, bg = 0xFF
         # todo padding...done through the slow route of super only if needed (needs sx,sy in blit)?
-        $stderr.puts("crop0 %ix%i %ix%i %ix%i" % [ x, y, w, h, width, height ])
+        # $stderr.puts("crop0 %ix%i %ix%i %ix%i" % [ x, y, w, h, width, height ])
 
         if x < 0
           w += x
@@ -196,7 +197,7 @@ module CooCoo
         end
         w = width-x if (x+w) >= width
         h = height-y if (y+h) >= height
-        $stderr.puts("crop1 %ix%i %ix%i %ix%i" % [ x, y, w, h, width, height ])
+        # $stderr.puts("crop1 %ix%i %ix%i %ix%i" % [ x, y, w, h, width, height ])
         self.class.new(@image.crop(x.to_i, y.to_i, w.to_i, h.to_i))
       end
       

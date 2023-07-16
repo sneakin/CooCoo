@@ -2,6 +2,7 @@ require 'nmatrix'
 
 module CooCoo
   module Image
+    # todo CUDA versions
     class Base
       attr_reader :width, :height, :bpp, :background
       attr_accessor :repeat_x, :repeat_y
