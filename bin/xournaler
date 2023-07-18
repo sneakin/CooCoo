@@ -7,10 +7,6 @@ require 'coo-coo/data_sources/xournal'
 require 'coo-coo/data_sources/xournal/bitmap_stream'
 require 'coo-coo/data_sources/xournal/training_sets/features'
 
-def usage args
-  puts("Usage: #{$0} command [options...]")
-end
-
 def xournal_info args
   # render full pages to an image
   args.each do |path|
@@ -180,6 +176,14 @@ def render_features args
       options.output_pattern = s
     end
 
+    o.on('--invert') do
+      options.invert = :both
+    end
+
+    o.on('--only-invert') do
+      options.invert = true
+    end
+
     o.on('--use-cairo') do
       options.use_cairo = true
     end
@@ -221,8 +225,8 @@ def render_features args
     changed = false
 
     stream = CooCoo::DataSources::Xournal::TrainingSets::GraphicFeatures.
-      new(xournal: doc, labels: labels,
-          pages: pages, use_cairo: options.use_cairo)
+      new(xournal: doc, labels: labels, pages: pages,
+          use_cairo: options.use_cairo, invert: options.invert)
 
     stream.each_canvas do |info, canvas|
       canvas = canvas.resample(options.width, options.height)
@@ -245,11 +249,24 @@ def render_features args
       if options.annotate
         label = info.label ? " (#{info.label})" : ''
         $stdout.write("Label%s: " % [ label ])
-        case line=$stdin.readline
-        when /^\s*$/ then :ok
-        else
-          labels.add_stroke(info.page_n, info.layer_n, info.stroke_n, info.stroke, line)
-          changed = true
+        begin
+          label = nil
+          case line=$stdin.readline
+          when /^$/ then :ok # nop. keeping old label
+          when /^:b(lank)?/ then
+            label = ''
+          when /^:s(kip(pped)?)?/ then
+            label = ':skipped'
+          else
+            label = line
+          end
+
+          if label
+            labels.add_stroke(info.page_n, info.layer_n, info.stroke_n, stroke: info.stroke, label: label)
+            changed = true
+          end
+        rescue EOFError
+          break
         end
       else
         puts(info.label)
@@ -264,6 +281,19 @@ def render_features args
       end
     end
   end
+end
+
+def label_map_cmd args
+  paths = OptionParser.new do |o|
+  end.parse!(args)
+
+  labels = CooCoo::DataSources::Xournal::TrainingSets::LabelSet.new
+  
+  paths.each do |p|
+    File.open(p) { |io| labels.load(io) }
+  end
+
+  puts(*labels.labels)
 end
 
 def scan_xournal args
@@ -518,18 +548,20 @@ if $0 == __FILE__
     info: :xournal_info,
     pages: :render_pages,
     features: :render_features,
+    label_map: :label_map_cmd,
     scan: :scan_xournal,
     prep: :prep_xournal,
     learn: :learn_xournal,
     training_doc: :cmd_training_doc
   }
+
+  def usage args
+    puts("Usage: #{$0} command [options...]")
+    puts("Commands: %s" % [ Commands.keys.join(', ') ])
+  end
+
   args = ARGV[1..-1]
   cmd_name = ARGV[0] || 'help'
-  cmd = cmd_name ? Commands.fetch(cmd_name.to_sym, nil) : nil
-  if cmd
-    send(cmd, args)
-  else
-    puts("Unknown command: #{cmd_name.inspect}")
-    puts("Try #{Commands.keys.join(', ')}")
-  end
+  cmd = Commands.fetch(cmd_name.to_sym)
+  send(cmd, args)
 end

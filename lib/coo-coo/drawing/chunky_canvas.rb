@@ -206,6 +206,13 @@ module CooCoo
         self
       end
 
+      def invert!
+        @image.pixels.each_with_index { |p, n|
+          @image.pixels[n] = (0xFFFFFF00 - (p & 0xFFFFFF00) & 0xFFFFFF00) | (p & 0xFF)
+        }
+        self
+      end
+      
       def to_vector(grayscale = false)
         chunky_to_vector(@image, grayscale)
       end

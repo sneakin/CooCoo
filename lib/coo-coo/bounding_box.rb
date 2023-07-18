@@ -18,6 +18,10 @@ module CooCoo
       [ min, max ]
     end
 
+    def flatten
+      to_a.flatten
+    end
+
     def left; @min[0]; end
     def right; @max[0]; end
     def top; @min[1]; end

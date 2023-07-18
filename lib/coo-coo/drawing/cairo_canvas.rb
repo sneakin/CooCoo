@@ -142,7 +142,17 @@ module CooCoo
                                                @surface.stride))
       end
       
-      protected
+      def invert!
+        @context.save
+        @context.set_source_rgb(1, 1, 1)
+        @context.set_operator(Cairo::Operator::DIFFERENCE)
+        @context.rectangle(0, 0, width, height)
+        @context.fill
+        @context.restore
+        self
+      end
+      
+     protected
       def set_color(c)
         rgba = Vector[ChunkyPNG::Color.to_truecolor_alpha_bytes(c)] / 255.0
         @context.set_source_rgba(*rgba)

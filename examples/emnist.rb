@@ -79,3 +79,6 @@ elsif $0 =~ /trainer$/
     MNist.method(:option_parser),
     EMNist.method(:default_options) ]
 end
+
+# todo trainer returns
+# todo label mapping needs to be added to mnist 

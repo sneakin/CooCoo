@@ -315,6 +315,9 @@ module MNist
       end
     end
 
+    # todo eliminate the three enumelators here with a single abstract Transformer that takes a transform chain
+    # todo Scaler needs to expand the image size, follow with a crop transform
+    
     class Scaler < Enumerator
       attr_reader :size, :raw_data
       
