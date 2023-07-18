@@ -24,6 +24,7 @@ module CooCoo
       # @return [[OptionParser, OpenStruct]] an {OptionParser} to parse command line options and hash to store their values.
       def options(defaults = DEFAULT_OPTIONS)
         options = OpenStruct.new(defaults)
+        options.cost_function = CostFunctions::MeanSquare
         
         parser = OptionParser.new do |o|
           o.banner = "#{name} trainer options"
