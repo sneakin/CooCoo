@@ -176,12 +176,17 @@ def render_features args
       options.output_pattern = s
     end
 
+    o.on('--rgb') do
+      options.rgb = true
+    end
     o.on('--invert') do
       options.invert = :both
     end
-
     o.on('--only-invert') do
       options.invert = true
+    end
+    o.on('--with-skipped') do
+      options.with_skipped = true
     end
 
     o.on('--use-cairo') do
@@ -226,7 +231,9 @@ def render_features args
 
     stream = CooCoo::DataSources::Xournal::TrainingSets::GraphicFeatures.
       new(xournal: doc, labels: labels, pages: pages,
-          use_cairo: options.use_cairo, invert: options.invert)
+          use_cairo: options.use_cairo, invert: options.invert,
+          rgb: options.rgb,
+          with_skipped: options.with_skipped)
 
     stream.each_canvas do |info, canvas|
       canvas = canvas.resample(options.width, options.height)
@@ -252,7 +259,10 @@ def render_features args
         begin
           label = nil
           case line=$stdin.readline
-          when /^$/ then :ok # nop. keeping old label
+          when /^$/ then
+            if info.label.blank?
+              label = ':skipped'
+            end
           when /^:b(lank)?/ then
             label = ''
           when /^:s(kip(pped)?)?/ then

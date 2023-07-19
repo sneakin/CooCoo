@@ -123,7 +123,7 @@ module CooCoo::DataSources::Xournal
       
       def initialize(xournal:, labels:, label_map: nil,
                      input_size: nil, use_cairo: nil, pages: nil, min: nil, zoom: nil,
-                     invert: nil)
+                     invert: nil, with_skipped: nil, rgb: false)
         @xournal = xournal
         @input_size = input_size || [ 28, 28 ]
         @labels = labels
@@ -133,6 +133,8 @@ module CooCoo::DataSources::Xournal
         @zoom = zoom || 1.0
         @renderer = Renderer.new(use_cairo)
         @invert = invert
+        @with_skipped = with_skipped
+        @rgb = rgb
       end
 
       def name
@@ -190,10 +192,10 @@ module CooCoo::DataSources::Xournal
       def each &block
         return to_enum(__method__) unless block_given?
         each_canvas do |info, canvas|
-          next if info.skipped?
+          next if !@with_skipped && info.skipped?
           # scale the stroke to a standard size like 28x28
           canvas = canvas.resample(*@input_size)
-          pixels = canvas.to_vector(true)
+          pixels = canvas.to_vector(!@rgb)
           target = output_for(info.label)
           #puts info.label.inspect, target.inspect
           yield([target, pixels])
