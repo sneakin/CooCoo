@@ -143,7 +143,7 @@ module CooCoo::DataSources::Xournal
         @size ||= @xournal.each_stroke.select do |s, n, page, layer|
           info = labels.for_stroke(page, layer, n)
           info && !info.skipped?
-        end.count * ([ false, true ].include?(@invert) ? 1 : 2)
+        end.count * ( @invert == :both ? 2 : 1)
       end
       
       def input_size
@@ -151,7 +151,7 @@ module CooCoo::DataSources::Xournal
       end
       
       def output_size
-        @output_size ||= [ @labels.num_labels, 1 ].max
+        @output_size ||= [ @label_map.size, 1 ].max
       end
 
       def each_canvas &block
@@ -253,7 +253,7 @@ module CooCoo::DataSources::Xournal
         mapping = nil
         if options.label_mapping
           mapping = {}
-          File.readlines(options.label_bapping).each.with_index do |line, no|
+          File.readlines(options.label_mapping).each.with_index do |line, no|
             mapping[line.chomp] = no
           end
         end

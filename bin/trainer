@@ -204,11 +204,12 @@ CHECKMARK = "\u2714".green
 CROSSMARK = "\u2718".red
 
 if options.num_tests
-  puts("Running #{options.num_tests} tests starting from #{options.start_tests_at}:")
+  num_tests = [ training_set.size, options.num_tests ].min
+  puts("Running #{num_tests} tests starting from #{options.start_tests_at}:")
   e = training_set.each
   e = e.drop(options.start_tests_at) if options.start_tests_at > 0
   passes = 0
-  e.first(options.num_tests).
+  e.first(num_tests).
     each_with_index do |(target, pixels), i|
     out, hs = net.predict(pixels)
     loss = options.test_cost.call(target, out)
@@ -232,5 +233,5 @@ if options.num_tests
   end
 
   puts
-  puts("#{passes}/#{options.num_tests} #{passes / options.num_tests.to_f * 100.0}% passed")
+  puts("#{passes}/#{num_tests} #{passes / num_tests.to_f * 100.0}% passed")
 end
