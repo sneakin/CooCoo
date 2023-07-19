@@ -294,16 +294,27 @@ def render_features args
 end
 
 def label_map_cmd args
+  all_labels = []
+  specials = []
+  
   paths = OptionParser.new do |o|
+    o.on('--with-blank') do
+      specials << ''
+    end
+    o.on('--with-skipped') do
+      specials << ':skipped'
+    end    
   end.parse!(args)
 
-  labels = CooCoo::DataSources::Xournal::TrainingSets::LabelSet.new
+  # todo append/merge to existing map
   
   paths.each do |p|
-    File.open(p) { |io| labels.load(io) }
+    set = CooCoo::DataSources::Xournal::TrainingSets::LabelSet.new
+    File.open(p) { |io| set.load(io) }
+    all_labels += set.labels.to_a
   end
 
-  puts(*labels.labels)
+  puts(*specials, *(all_labels.sort.uniq - ['']))
 end
 
 def scan_xournal args
