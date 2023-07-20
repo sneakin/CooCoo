@@ -12,6 +12,10 @@ module CooCoo
         @num_recurrent_outputs = num_recurrent_outputs
       end
 
+      def name
+        "%s(%i, %i)" % [ self.class.name, num_inputs, recurrent_size ]
+      end
+
       def num_inputs
         @num_inputs
       end

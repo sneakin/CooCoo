@@ -5,10 +5,11 @@ module CooCoo
     attr_reader :network
     attr_accessor :backprop_limit
 
-    delegate :age, :to => :network
-    delegate :num_inputs, :to => :network
-    delegate :num_outputs, :to => :network
-    delegate :num_layers, :to => :network
+    delegate :age, to: :network
+    delegate :num_inputs, to: :network
+    delegate :num_outputs, to: :network
+    delegate :num_layers, to: :network
+    delegate :command, :comments, :born_at, :format, to: :network
     
     def initialize(opts = Hash.new)
       @network = opts.fetch(:network) { CooCoo::Network.new }
@@ -129,6 +130,10 @@ module CooCoo
       self.new(network: net)
     end
 
+    def save path, format: nil
+      @network.save(path, format: format)
+    end
+    
     private
     def accumulate_deltas(deltas)
       weight = 1.0 / deltas.size.to_f
