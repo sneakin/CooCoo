@@ -236,6 +236,7 @@ def render_features args
           with_skipped: options.with_skipped)
 
     stream.each_canvas do |info, canvas|
+      next if !options.with_skipped && info.skipped?
       canvas = canvas.resample(options.width, options.height)
       puts("%i %i/%i/%i %f,%f %f,%f" % [ stream.output_for(info.label).each_with_index.max[1], *info.id, *info.minmax.flatten ])
       if options.use_sixel

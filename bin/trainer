@@ -186,15 +186,15 @@ if options.trainer
       avg_err = stats.average_loss
       raise "Cost went to NAN" if avg_err.nan?
       status = []
-      status << "Cost\t#{avg_err.average}\t#{options.verbose ? avg_err : nil}"
       status << "Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds"
+      status << "Cost\t#{avg_err.average}\t#{options.verbose ? avg_err : nil}"
       if options.model_path && options.save_every > 0 && stats.batch % options.save_every == 0
         net.comments.pop if net.comments[-1] =~ /Cost/
         net.comments << status.join("\n")
         net.save(options.model_path, format: options.model_format)
         status << "Saved network to #{options.model_path}"
       end
-      bar.log(status.join("\n"))
+      bar.log(status.join("\n  "))
       bar.increment
     end
   end

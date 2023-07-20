@@ -45,8 +45,7 @@ module CooCoo::DataSources
     def self.make_set options
       set = self.new
       sources = options.sources.collect do |src_spec|
-        path, colon, args = src_spec.partition(':')
-        args = Shellwords.split(args)
+        path, *args = Shellwords.split(src_spec)
         gen = CooCoo::GenerationScript.new(path, $stderr)
         args, src = gen.call(args)
         raise ArgumentError.new("Unknown arguments: #{args.inspect}") unless args.empty?
