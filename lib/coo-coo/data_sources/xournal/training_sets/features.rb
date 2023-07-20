@@ -1,10 +1,8 @@
 require 'coo-coo/bounding_box'
 
 module CooCoo::DataSources::Xournal
-  # TODO use Xournal::BitmapStream you goof; still need a stream of features from regular Xournals
+  # TODO move Xournal::BitmapStream to this subdir
   module TrainingSets
-    # TD stream [ -> shuffler ] [ -> stroke stream -> transformers... ] -> Image stream -> transformers...
-
     class StrokeInfo
       attr_reader :page_n, :layer_n, :stroke_n
       attr_accessor :stroke, :label
@@ -112,50 +110,43 @@ module CooCoo::DataSources::Xournal
     end
 
     # todo label to index map stored to file, more functionality needed by the annotater
-    # todo separate out the stroke stream from the examples for scanning and training uses
-    # todo mark strokes as skippable during training
-    # todo combine streams from multiple Xournals
     # todo page and layer [de]selection
-    
-    # Renders each example to an image with varying stroke widths, retation, translation, etc.
-    class GraphicFeatures
-      attr_reader :xournal, :labels, :label_map, :renderer
+
+    class StrokeEnumerator
+      attr_reader :xournal, :renderer
       
-      def initialize(xournal:, labels:, label_map: nil,
-                     input_size: nil, use_cairo: nil, pages: nil, min: nil, zoom: nil,
-                     invert: nil, with_skipped: nil, rgb: false)
+      def initialize(xournal:,
+                     use_cairo: nil, pages: nil, min: nil, zoom: nil)
         @xournal = xournal
-        @input_size = input_size || [ 28, 28 ]
-        @labels = labels
-        @label_map = label_map || Hash[labels.labels.with_index.to_a]
         @pages = pages
         @min = min || [ 0.0, 0.0 ]
         @zoom = zoom || 1.0
         @renderer = Renderer.new(use_cairo)
-        @invert = invert
-        @with_skipped = with_skipped
-        @rgb = rgb
-      end
-
-      def name
-        File.dirname(__FILE__)
       end
 
       def size
-        @size ||= @xournal.each_stroke.select do |s, n, page, layer|
-          info = labels.for_stroke(page, layer, n)
-          info && !info.skipped?
-        end.count * ( @invert == :both ? 2 : 1)
+        @size ||= @xournal.num_strokes
       end
       
-      def input_size
-        @input_size[0] * @input_size[1]
+      def each_stroke
+        return to_enum(__method__) unless block_given?
+        
+        pages = if @pages.blank?
+                  (0...@xournal.size)
+                else
+                  @pages.collect(&:to_i)
+                end
+        
+        pages.each do |page|
+          doc_page = @xournal.pages[page]
+          doc_page.layers.each.with_index do |layer, layer_n|
+            layer.each_stroke.with_index  do |stroke, stroke_n|
+              yield(stroke, [ page, layer_n, stroke_n ])
+            end
+          end
+        end
       end
       
-      def output_size
-        @output_size ||= [ @label_map.size, 1 ].max
-      end
-
       def each_canvas &block
         return to_enum(__method__) unless block_given?
 
@@ -174,24 +165,85 @@ module CooCoo::DataSources::Xournal
               # center a circle on the stroke that has a diameter twice the stroke's largest dimension
               canvas = crop_stroke(page_rend, stroke, doc_page.background.color)
               next unless canvas
-              info = labels.for_stroke(page, layer_n, stroke_n)
-              info ||= StrokeInfo.new(page, layer_n, stroke_n, label: info.try(:label), stroke: stroke, skipped: true)
-              info.stroke ||= stroke
-              if @invert != true
-                yield(info, canvas)
-              end
-              if @invert
-                canvas.invert!
-                yield(info, canvas)
-              end
+              id = [ page, layer_n, stroke_n ]
+              yield(canvas, stroke, id)
             end
           end
         end
       end
+            
+      def crop_stroke page_rend, stroke, bg = nil
+        min, max = stroke.minmax
+        w = max[0] - min[0]
+        h = max[1] - min[1]
+        cx = min[0] + w/2
+        cy = min[1] + h/2
+        dia = [ w, h ].max
+        dia += dia
+        rad = dia / 2
+        nwx = cx - rad
+        nwy = cy - rad
+        return nil if rad < 1
+        page_rend.crop(nwx, nwy, dia, dia, bg || 'white')
+      end
+    end
+    
+    # Iterates through a render of each stroke of a Xournal with a corresponding symbolic label.
+    class GraphicFeatures
+      attr_reader :enumerator, :labels, :label_map
+      delegate :xournal, :renderer, to: :enumerator
       
+      def initialize(enumerator:, labels:, label_map: nil,
+                     input_size: nil, with_skipped: nil,
+                     invert: nil, rgb: false)
+        @enumerator = enumerator
+        @input_size = input_size || [ 28, 28 ]
+        @labels = labels
+        @label_map = label_map || Hash[labels.labels.with_index.to_a]
+        @with_skipped = with_skipped
+        @invert = invert
+        @rgb = rgb
+      end
+
+      def name
+        File.dirname(__FILE__)
+      end
+
+      def size
+        @size ||= @enumerator.each_stroke.select do |s, id|
+          info = labels.for_stroke(*id)
+          info && !info.skipped?
+        end.count * ( @invert == :both ? 2 : 1)
+      end
+      
+      def input_size
+        @input_size[0] * @input_size[1]
+      end
+      
+      def output_size
+        @output_size ||= [ @label_map.size, 1 ].max
+      end
+
+      def each_labeled_canvas &block
+        return to_enum(__method__) unless block_given?
+
+        @enumerator.each_canvas do |canvas, stroke, id|
+          info = labels.for_stroke(*id)
+          info ||= StrokeInfo.new(*id, label: info.try(:label), stroke: stroke, skipped: true)
+          info.stroke ||= stroke
+          if @invert != true
+            yield(info, canvas)
+          end
+          if @invert
+            canvas.invert!
+            yield(info, canvas)
+          end
+        end
+      end
+
       def each &block
         return to_enum(__method__) unless block_given?
-        each_canvas do |info, canvas|
+        each_labeled_canvas do |info, canvas|
           next if !@with_skipped && info.skipped?
           # scale the stroke to a standard size like 28x28
           canvas = canvas.resample(*@input_size)
@@ -209,21 +261,6 @@ module CooCoo::DataSources::Xournal
         output
       end
       
-      def crop_stroke page_rend, stroke, bg = nil
-        min, max = stroke.minmax
-        w = max[0] - min[0]
-        h = max[1] - min[1]
-        cx = min[0] + w/2
-        cy = min[1] + h/2
-        dia = [ w, h ].max
-        dia += dia
-        rad = dia / 2
-        nwx = cx - rad
-        nwy = cy - rad
-        return nil if rad < 1
-        page_rend.crop(nwx, nwy, dia, dia, bg || 'white')
-      end
-
       def self.default_options
         options = OpenStruct.new
         options
@@ -252,18 +289,23 @@ module CooCoo::DataSources::Xournal
       def self.make_set options
         doc = CooCoo::DataSources::Xournal.from_file(options.document)
         labels = File.open(options.document + '.labels', 'r') { |io| LabelSet.load(io) }
-        mapping = nil
-        if options.label_mapping
-          mapping = {}
-          File.readlines(options.label_mapping).each.with_index do |line, no|
-            mapping[line.chomp] = no
-          end
-        end
-        
-        new(xournal: doc, labels: labels, label_map: mapping,
-            use_cairo: options.use_cairo,
+        mapping = read_label_map(options.label_mapping) if options.label_mapping
+
+        enum = StrokeEnumerator.new(xournal: doc,
+                                    use_cairo: options.use_cairo)
+        new(enumerator: enum,
+            labels: labels,
+            label_map: mapping,
             invert: options.invert)
       end
+      
+      def self.read_label_map path
+        File.readlines(path).each.with_index.
+          reduce({}) do |h, (line, no)|
+          h[line.chomp] = no
+          h
+        end
+      end         
     end
 
     # Uses the input samples of the strokes for data applying rotation and translation transforms.
