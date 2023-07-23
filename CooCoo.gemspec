@@ -37,7 +37,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'coderay'
 
   s.add_dependency 'rexml'
-  s.add_dependency 'nmatrix'
+  #s.add_dependency 'nmatrix'
   s.add_dependency 'parallel'
   #s.add_dependency 'nokogiri'
   s.add_dependency 'builder'

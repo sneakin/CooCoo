@@ -1,5 +1,3 @@
-require 'nmatrix'
-
 module CooCoo
   module Image
     # todo CUDA versions
