@@ -83,8 +83,11 @@ if $0 =~ /trainer$/
     method(:default_options)
   ]
 elsif $0 == __FILE__
-  include CooCoo
-
+  Vector = CooCoo::Vector
+  Network = CooCoo::Network
+  Drawing = CooCoo::Drawing
+  CostFunctions = CooCoo::CostFunctions
+  
   options = OpenStruct.new
   options.mode = :help
   options.binary = false
@@ -121,11 +124,11 @@ elsif $0 == __FILE__
       options.model_path = path
     end
 
-    o.on('-s', '--split-at LAYER', Integer, 'The layer at which the encoder/decoder split is made. Defaults to #{options.split_at}.') do |i|
+    o.on('-s', '--split-at LAYER', Integer, "The layer at which the encoder/decoder split is made. Defaults to #{options.split_at}.") do |i|
       options.split_at = i.to_i
     end
     
-    o.on('-w', '--width INTEGER', Integer, "The width of the network's input. Defaults to #{options.input_width}.") do |i|
+    o.on('-w', '--width INTEGER', Integer, "The width of the network's input. Defaults to #{options.width}.") do |i|
       options.width = i
     end
 

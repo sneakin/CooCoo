@@ -151,13 +151,18 @@ opts = CooCoo::OptionParser.new do |o|
   o.on('--status-delay SECONDS') do |n|
     options.status_delay = n.to_f
   end
+
+  o.on('--seed INT', Integer) do |n|
+    options.seed = n
+    srand(n)
+  end
   
   o.on('-i', '--initial NAME') do |n|
     options.initial_input = case n[0].downcase
-                            when 'o' then CooCoo::Vector.ones(28 * 28)
+                            when '1' then CooCoo::Vector.ones(28 * 28)
                             when 'r' then CooCoo::Vector.rand(28 * 28)
-                            when 'z' then CooCoo::Vector.zeros(28 * 28)
-                            when 'h' then CooCoo::Vector.new(28 * 28, 0.5)
+                            when '0' then CooCoo::Vector.zeros(28 * 28)
+                            when '1/2' then CooCoo::Vector.new(28 * 28, 0.5)
                             else raise ArgumentError.new("Unknown initial value #{n}")
                             end
   end
