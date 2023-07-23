@@ -1,3 +1,4 @@
+#!/usr/bin/env -S bundle exec ruby
 require 'coo-coo'
 require 'ostruct'
 require 'coo-coo/drawing/sixel'

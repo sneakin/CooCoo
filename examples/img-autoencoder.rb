@@ -1,3 +1,4 @@
+#!/usr/bin/env -S bundle exec ruby
 require 'coo-coo'
 require 'chunky_png'
 require 'coo-coo/data_sources/images'
