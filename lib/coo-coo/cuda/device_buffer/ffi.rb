@@ -118,8 +118,7 @@ EOT
           trace_pre(func, args)
           r = send("buffer_#{func}", *args)
           trace_post(r)
-          return true if r == 0
-          raise APIError.new(r, [ func ] + args)
+          return r
         end
 
         def self.call_buffer(func, *args)
