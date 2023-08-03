@@ -468,6 +468,8 @@ PUBLIC Buffer buffer_slice_2d(const Buffer in, int width, int height, int x, int
   int h = out_height;
   int ox = 0, oy = 0;
 
+  //fprintf(stderr, "slice2d: %ix%i %i,%i %i,%i %i,%i\n", width, height, x, y, ox, oy, w, h);
+  
   if(y+h < 0 || y >= height || x+w < 0 || x >= width) {
     return out;
   }
@@ -494,9 +496,11 @@ PUBLIC Buffer buffer_slice_2d(const Buffer in, int width, int height, int x, int
   if(ii >= in->length || oi >= out->length) {
     return out;
   }
-
+  //fprintf(stderr, "  slice2d: %i %i %i,%i %i,%i %i,%i\n", oi, ii, x, y, ox, oy, w, h);
   cudaError_t err = cudaMemcpy2D(out->data + oi, out_width * sizeof(double),
-                                 in->data + ii, width * sizeof(double), w * sizeof(double), h, cudaMemcpyDeviceToDevice);
+                                 in->data + ii, width * sizeof(double),
+                                 w * sizeof(double), h,
+                                 cudaMemcpyDeviceToDevice);
   if(err != cudaSuccess) {
     buffer_free(out);
     return NULL;

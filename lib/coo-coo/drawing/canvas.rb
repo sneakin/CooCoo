@@ -77,20 +77,20 @@ module CooCoo
         background = ChunkyPNG::Color.parse(options.fetch(:background))
         pad = options.fetch(:pad)
         
-        w = new_width
-        h = new_height
-
-        if maintain_aspect
-          if (width > height && pad) || (width < height && !pad)
-            h = (new_height * height / width.to_f).to_i
-          else
-            w = (new_width * width / height.to_f).to_i
-          end
-        end
-
-        if w == width && h = height
+        if new_width == width && new_height == height
           self.dup
         else
+          w = new_width
+          h = new_height
+
+          if maintain_aspect
+            if (width > height && pad) || (width < height && !pad)
+              h = (new_height * height / width.to_f).to_i
+            else
+              w = (new_width * width / height.to_f).to_i
+            end
+          end
+
           x = new_width / 2.0 - w / 2.0
           y = new_height / 2.0 - h / 2.0
           canvas = self.class.new(new_width, new_height)

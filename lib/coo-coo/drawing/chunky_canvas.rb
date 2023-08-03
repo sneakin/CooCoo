@@ -115,7 +115,7 @@ module CooCoo
 
       # todo sx and sy            
       def blit(img, x, y, w, h, sx = 0, sy = 0)
-        return if x >= width || (x+w) < 0 || y >= height || (y+h) < 0
+        return self if x >= width || (x+w) < 0 || y >= height || (y+h) < 0
         img = promote_data(img)
         x = x.round
         y = y.round
