@@ -1,43 +1,42 @@
 #!/usr/bin/env -S bundle exec ruby
+require 'pathname'
+require 'ostruct'
 require 'coo-coo'
 require 'chunky_png'
 require 'coo-coo/data_sources/images'
 
-class TrainingSet
-  attr_reader :stream
-  
-  def initialize(stream, width, height)
-    @stream = stream
-    @width = width
-    @height = height
-  end
+module AutoEncoder
+  class TrainingSet
+    attr_reader :stream
+    
+    def initialize(stream, width, height)
+      @stream = stream
+      @width = width
+      @height = height
+    end
 
-  def size
-    @stream.size
-  end
-  
-  def output_size
-    input_size
-  end
+    def size
+      @stream.size
+    end
+    
+    def output_size
+      input_size
+    end
 
-  def input_size
-    @stream.channels * @width * @height
-  end
+    def input_size
+      @stream.channels * @width * @height
+    end
 
-  def each(&block)
-    return to_enum(__method__) unless block_given?
+    def each(&block)
+      return to_enum(__method__) unless block_given?
 
-    @stream.each do |path, width, height, pixels|
-      yield(pixels, pixels)
+      @stream.each do |path, width, height, pixels|
+        yield(pixels, pixels)
+      end
     end
   end
-end
 
-if $0 =~ /trainer$/
-  require 'pathname'
-  require 'ostruct'
-
-  def default_options
+  def self.default_options
     options = OpenStruct.new
     options.width = 32
     options.height = nil
@@ -46,7 +45,7 @@ if $0 =~ /trainer$/
     options
   end
 
-  def option_parser options
+  def self.option_parser options = default_options
     CooCoo::OptionParser.new do |o|
       o.banner = "Image autoencoder training set"
       
@@ -68,7 +67,7 @@ if $0 =~ /trainer$/
     end
   end
   
-  def training_set options
+  def self.training_set options
     options.height ||= options.width
     
     raw_stream = CooCoo::DataSources::Images::RawStream.new(*options.images)
@@ -79,10 +78,16 @@ if $0 =~ /trainer$/
     training_set
   end
 
-  [ method(:training_set),
-    method(:option_parser),
-    method(:default_options)
-  ]
+  def self.trainer_triple
+    [ :training_set,
+      :option_parser,
+      :default_options
+    ].collect { |m| method(m) }
+  end    
+end
+
+if $0 =~ /trainer$/
+  AutoEncoder.trainer_triple
 elsif $0 == __FILE__
   Vector = CooCoo::Vector
   Network = CooCoo::Network
