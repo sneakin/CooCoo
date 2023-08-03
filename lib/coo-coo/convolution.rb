@@ -77,7 +77,8 @@ module CooCoo
           gx = grid_x * inner_width #w / horizontal_grid_span.to_f
           gy = grid_y * inner_height #h / vertical_grid_span.to_f
           #puts("flatten #{out.size} #{grid_x} #{grid_y}\t#{gx} #{gy}\t#{inner_width} #{inner_height}")
-          out.set2d!(w, area_output, inner_width, gx, gy)
+          #out.set2d!(w, area_output, inner_width, gx, gy)
+          out.add_2d!(w, area_output, inner_width, gx, gy)
         end
 
         out
