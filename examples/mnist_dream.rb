@@ -159,17 +159,24 @@ opts = CooCoo::OptionParser.new do |o|
   end
   
   o.on('-i', '--initial NAME') do |n|
-    options.initial_input = case n[0].downcase
-                            when '1' then CooCoo::Vector.ones(28 * 28)
-                            when 'r' then CooCoo::Vector.rand(28 * 28)
-                            when '0' then CooCoo::Vector.zeros(28 * 28)
-                            when '1/2' then CooCoo::Vector.new(28 * 28, 0.5)
-                            else raise ArgumentError.new("Unknown initial value #{n}")
+    fn = case n[0].downcase
+         when '1' then :ones
+         when 'r' then :rand
+         when '0' then :zeros
+         when '1/2' then 0.5
+         when /\d|[-+]/ then n.to_f
+         else raise ArgumentError.new("Unknown initial value #{n}")
+         end
+    options.initial_input = if Numeric === fn
+                              CooCoo::Vector.new(28*28, fn)
+                            else
+                              CooCoo::Vector.send(fn, 28*28)
                             end
   end
 end
 
 argv = opts.parse!(ARGV)
+
 net = if File.extname(options.model_path) == '.bin'
         Marshal.load(File.read(options.model_path))
       else
@@ -178,25 +185,26 @@ net = if File.extname(options.model_path) == '.bin'
 
 argv = 10.times if argv.empty?
 
-argv.collect do |digit|
-  digit = digit.to_i
-  $stdout.puts("Generating #{digit}") if options.verbose
-  input = backprop_digit(options.loops, options.rate, options.momentum, net, digit.to_i, options.initial_input, options.verbose, options.status_delay, options.ascii, options.sixel)
-  $stdout.flush
-  [ digit, input ]
-end.each do |digit, input|
-  output, hs = net.predict(input, {})
-  passed = output[digit] > 0.8
-  color = passed ? :green : :red
-  status_char = passed ? "\u2714" : "\u2718"
-  
-  puts("#{digit}".colorize(color))
-  puts('=' * 8)
-  puts
-  puts(output_to_sixel(input)) if options.sixel
-  puts(output_to_ascii(input)) if options.ascii
-  puts(input) if options.print_values
-  puts
-  puts("#{status_char.colorize(color)} Output #{output[digit]} #{output.magnitude} #{options.verbose ? output.inspect : ''}")
-  puts
+CooCoo.rescue_harness do
+  argv.collect do |digit|
+    digit = digit.to_i
+    puts("Generating #{digit}") if options.verbose
+    input = backprop_digit(options.loops, options.rate, options.momentum, net, digit.to_i, options.initial_input, options.verbose, options.status_delay, options.ascii, options.sixel)
+    [ digit, input ]
+  end.each do |digit, input|
+    output, hs = net.predict(input, {})
+    passed = output[digit] > 0.8
+    color = passed ? :green : :red
+    status_char = passed ? "\u2714" : "\u2718"
+    
+    puts("#{digit}".colorize(color))
+    puts('=' * 8)
+    puts
+    puts(output_to_sixel(input)) if options.sixel
+    puts(output_to_ascii(input)) if options.ascii
+    puts(input) if options.print_values
+    puts
+    puts("#{status_char.colorize(color)} Output #{output[digit]} #{output.magnitude} #{options.verbose ? output.inspect : ''}")
+    puts
+  end
 end

@@ -1,11 +1,12 @@
 module CooCoo
   module RescueHarness
     class << self
-      attr_accessor :exception, :action, :value
+      attr_accessor :exception, :exbinding, :action, :value
     end
     
     def self.catch ex, binding
       $ex = self.exception = ex
+      self.exbinding = binding
       self.action = nil
       binding.pry
     end
