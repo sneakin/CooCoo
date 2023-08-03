@@ -39,7 +39,7 @@ module CooCoo
               flatten
           end
           
-          [ png.width, png.height, pixels / 256.0 ]
+          [ png.width, png.height, pixels / 255.0 ]
         end
       end
     end

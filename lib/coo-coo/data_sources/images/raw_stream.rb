@@ -11,7 +11,7 @@ module CooCoo
         end
 
         def load_image(path)
-          ChunkyPNG::Image.from_file(path)
+          CooCoo::Image.load_file(path)
         end
 
         def size

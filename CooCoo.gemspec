@@ -46,4 +46,5 @@ Gem::Specification.new do |s|
   s.add_dependency 'cairo' unless RUBY_PLATFORM =~ /mingw/
   s.add_dependency 'colorize'
   s.add_dependency 'ffi'
+  s.add_dependency 'jpeg'
 end

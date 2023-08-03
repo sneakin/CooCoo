@@ -1,5 +1,26 @@
+require 'jpeg'
+
 module CooCoo
   module Image
+    def self.load_file path
+      ext = File.extname(path.to_s)
+      case ext
+      when /png$/ then ChunkyPNG::Image.from_file(path)
+      when /jpe?g$/ then load_jpeg(path)
+      else raise ArgumentError.new("Unknown image format: #{ext}")
+      end
+    end
+
+    def self.load_jpeg path
+      jpg = Jpeg.open(path)
+      rgbfn = if jpg.gray?
+                lambda { |p| ChunkyPNG::Color.rgb(p, p, p) }
+              else
+                lambda { |p| ChunkyPNG::Color.rgb(*p) }
+              end
+      ChunkyPNG::Image.new(jpg.width, jpg.height, jpg.raw_data.flatten(1).collect(&rgbfn))
+    end
+    
     # todo CUDA versions
     class Base
       attr_reader :width, :height, :bpp, :background
