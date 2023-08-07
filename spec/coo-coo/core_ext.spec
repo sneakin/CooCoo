@@ -2,6 +2,62 @@ require File.join(File.dirname(__FILE__), '..', 'spec_helper')
 require 'coo-coo/core_ext'
 require 'coo-coo/temp-dir'
 
+shared_examples 'CoreExt #rand' do
+  describe '#rand' do
+    it 'returns a random element' do
+      gains = []
+      10.times do |n|
+        x = subject.rand
+        expect(subject).to include(x)
+        gains << x
+      end
+      expect(gains.uniq.size).to be < 10
+    end
+  end
+end
+
+describe Enumerable do
+  describe '#average' do
+    [ [ [ 1, 2, 3, 4 ], 10/4.0 ],
+      [ [], 0 ],
+      [ [10], 10 ],
+      [ 0..5, 10/4.0 ]
+    ].each do |(input, output)|
+      it { expect(input.each.average).to eq(output) }
+    end
+  end
+end
+
+describe Array do
+  subject { [ 1, 2, 3, 4 ] }
+  it_behaves_like 'CoreExt #rand'
+
+  describe '#average' do
+    [ [ [ 1, 2, 3, 4 ], 10/4.0 ],
+      [ [], 0 ],
+      [ [10], 10 ]
+    ].each do |(input, output)|
+      it { expect(input.average).to eq(output) }
+    end
+  end
+end
+
+describe Hash do
+  subject { { a: 1, b: 2, c: 3, d: 4 } }
+  describe '#rand' do
+    it 'returns a random element' do
+      gains = []
+      10.times do |n|
+        x = subject.rand
+        expect(subject.values).to include(x[0])
+        expect(subject[x[1]]).to eq(x[0])
+        gains << x
+      end
+      expect(gains.uniq.size).to be < 10
+    end
+  end
+end
+
 describe String do
   describe '#fill_template' do
     it "replaces each $name with the value from a hash" do

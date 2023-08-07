@@ -56,7 +56,13 @@ class NilClass
     true
   end
 end
-  
+
+module Enumerable
+  def average
+    size == 0 ? 0 : sum / size.to_f
+  end
+end
+
 class Array
   def zero
     self.class.new(size, 0.0)
@@ -73,7 +79,7 @@ end
 
 class Hash
   def rand
-    k = keys[Random.rand(size)]
+    k = keys.rand
     [ self[k], k ]
   end
 end
