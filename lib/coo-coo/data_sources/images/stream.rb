@@ -29,16 +29,7 @@ module CooCoo
         end
 
         def image_to_vector(png)
-          pixels = CooCoo::Vector.new(png.width * png.height * CHANNELS)
-          png.pixels.each_slice(png.width).with_index do |row, i|
-            pixels[i * png.width * CHANNELS, png.width * CHANNELS] = row.
-              collect { |p| [ ChunkyPNG::Color.r(p),
-                              ChunkyPNG::Color.g(p),
-                              ChunkyPNG::Color.b(p)
-                            ] }.
-              flatten
-          end
-          
+          pixels = png.to_vector
           [ png.width, png.height, pixels / 255.0 ]
         end
       end

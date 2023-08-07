@@ -16,7 +16,12 @@ module CooCoo
       end
 
       def self.from_file(path)
-        raise NotImplementError.new
+        img = CooCoo::Image.load_file(path)
+        from_image(img)
+      end
+
+      def self.from_image img
+        from_vector(img.to_vector, img.width)
       end
 
       def self.from_vector(v, width, channels = 3)

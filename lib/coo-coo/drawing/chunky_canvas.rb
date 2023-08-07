@@ -23,18 +23,25 @@ module CooCoo
       end
 
       def self.from_vector(v, width, channels = 3)
+        pixfn = case channels
+                when 4 then lambda { |*p| ChunkyPNG::Color.rgba(*p) }
+                when 3 then lambda { |*p| ChunkyPNG::Color.rgb(*p) }
+                when 1 then lambda { |p| ChunkyPNG::Color.rgb(p, p, p) }
+                else raise ArgumentError.new("Unsupported number of channels: #{channels}")
+                end
         span = width * channels
         img = ChunkyPNG::Image.new(width, v.size / span)
 
         v.each.each_slice(span).with_index do |row, i|
-          img.pixels[i * width, width] = row.each_slice(channels).collect { |p| ChunkyPNG::Color.rgb(*p.collect(&:to_i)) || 0 }
+          img.pixels[i * width, width] = row.each_slice(channels).
+            collect { |p| pixfn.call(*p.collect(&:to_i)) || 0 }
         end
 
         self.new(img)
       end
 
       def self.from_file(path)
-        self.new(ChunkyPNG::Image.from_file(path))
+        self.new(CooCoo::Image.load_file(path))
       end
 
       def dup

@@ -30,7 +30,11 @@ module CooCoo
       end
 
       def self.from_file(path)
-        self.new(Cairo::ImageSurface.from_png(path))
+        if File.extname(path) == 'png'
+          self.new(Cairo::ImageSurface.from_png(path))
+        else
+          super
+        end
       end
 
       def flush

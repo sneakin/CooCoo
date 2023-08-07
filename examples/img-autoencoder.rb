@@ -92,6 +92,7 @@ elsif $0 == __FILE__
   Vector = CooCoo::Vector
   Network = CooCoo::Network
   Drawing = CooCoo::Drawing
+  Image = CooCoo::Image
   CostFunctions = CooCoo::CostFunctions
   
   options = OpenStruct.new

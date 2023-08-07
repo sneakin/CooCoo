@@ -1,4 +1,24 @@
 require 'jpeg'
+require 'chunky_png'
+
+# todo plaster over ChunkyPNG::Image with my own wrapper to: 1. insulate from Chunky; 2. Also wray Jpeg's image to skip a copy?
+class ChunkyPNG::Image
+  def to_vector channels = 3
+    rgbfn = case channels
+            when 4 then lambda { |p| ChunkyPNG::Color.to_truecolor_alpha_bytes(p) }
+            when 3 then lambda { |p| ChunkyPNG::Color.to_truecolor_bytes(p) }
+            when 1 then lambda { |p| ChunkyPNG::Color.to_truecolor_bytes(p).average.to_i }
+            else raise ArgumentError.new("Unsupported number of channels #{channels}")
+            end
+    out = CooCoo::Vector.new(width * height * channels)
+    pixels.each_slice(width).with_index do |row, i|
+      out[i * width * channels, width * channels] = row.
+        collect(&rgbfn).
+        flatten
+    end
+    return out
+  end
+end
 
 module CooCoo
   module Image
