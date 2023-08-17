@@ -640,14 +640,18 @@ double launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer
 
 
 REDUCE_KERNEL(buffer_sum_kernel, a + b, 0.0);
-
 PUBLIC double buffer_sum(const Buffer b)
 {
   return launch_reduce(buffer_sum_kernel, b);
 }
 
-REDUCE_KERNEL(buffer_min_kernel, fmin(a, b), NAN);
+REDUCE_KERNEL(buffer_product_kernel, a * b, 1.0);
+PUBLIC double buffer_product(const Buffer b)
+{
+  return launch_reduce(buffer_product_kernel, b);
+}
 
+REDUCE_KERNEL(buffer_min_kernel, fmin(a, b), NAN);
 PUBLIC double buffer_min(const Buffer b)
 {
   return launch_reduce(buffer_min_kernel, b);
@@ -791,8 +795,9 @@ FUNCTION_OP(collect_inf, { out[i] = isinf(a[i]); });
 
 #undef FUNCTION_OP
 
+// todo rename dot?
 
-__global__ void buffer_dot_inner(double *out, const double *a, const double *b, size_t aw, size_t ah, size_t bw, size_t bh)
+__global__ void buffer_dot_inner(double *out, size_t out_pitch, const double *a, const double *b, size_t aw, size_t ap, size_t ah, size_t bw, size_t bp, size_t bh)
 {
   size_t row = blockIdx.y * blockDim.y + threadIdx.y;
   size_t col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -800,11 +805,11 @@ __global__ void buffer_dot_inner(double *out, const double *a, const double *b, 
   double sum = 0.0;
 
   if (row < ah && col < bw) {
-    for (size_t i = 0; i < bh; i++) {
-      sum += a[row * aw + i] * b[i * bw + col];
+    for (size_t i = 0; i < min(bh, aw); i++) {
+        sum += a[row * ap + i] * b[i * bp + col];
     }
   }
-  out[row * bw + col] = sum;
+  out[row * out_pitch + col] = sum;
 }
 
 PUBLIC Buffer buffer_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, size_t bw, size_t bh)
@@ -816,7 +821,7 @@ PUBLIC Buffer buffer_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, s
     if(out == NULL) return NULL;
 
     dim3 dim(bw, ah);
-    buffer_dot_inner<<< dim, 1 >>>(out->data, a->data, b->data, aw, ah, bw, bh);
+    buffer_dot_inner<<< dim, 1 >>>(out->data, bw, a->data, b->data, aw, aw, ah, bw, bw, bh);
     
     return out;
   }
@@ -900,5 +905,57 @@ PUBLIC Buffer buffer_transpose(const Buffer in, size_t width, size_t height)
   // buffer_transpose_inner<<< width, height >>>(in->data, out->data, width*height, width, height);
   
   return out;
+}
+
+// convolve dot
+
+__global__ void buffer_conv2d_dot_inner(double *out, size_t op,
+                                      const double *a,
+                                      const double *b,
+                                      size_t aw, size_t ah,
+                                      size_t bw, size_t bh,
+                                      int sx, int sy,
+                                      size_t cw, size_t ch,
+                                      dim3 conv_size)
+{
+  // This is called for each convolution box. The A input
+  // is sliced into CWxCH buffers and a dot product of that
+  // and B is stored in OUT.
+  size_t row = blockIdx.y * blockDim.y + threadIdx.y;
+  size_t col = blockIdx.x * blockDim.x + threadIdx.x;
+
+  // todo not a matrix multiplication
+  if (row < conv_size.y && col < conv_size.x) {
+    // Out[i*cw, j*ch] = A[i*sx,j*sy,cw,ch] * B
+    size_t out_start = row * ch * op + col * bw;
+    size_t a_start = row * sy * aw + col * sx;
+    dim3 dim(bw, ch);
+    buffer_dot_inner<<< dim, 1 >>>(out + out_start, op,
+                                   a + a_start,
+                                   b,
+                                   min(cw, aw - sx * col), aw, min(ch, ah - sy * row),
+                                   bw, bw, bh);
+  }
+}
+
+PUBLIC Buffer buffer_conv2d_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, size_t bw, size_t bh, int sx, int sy, size_t cw, size_t ch, double init)
+{
+  if(aw * ah != a->length && bw * bh != b-> length && cw != bh) {
+    return NULL;
+  } else {
+    dim3 convolutions(aw / sx, ah / sy);
+    Buffer out = buffer_new(convolutions.x * bw * convolutions.y * ch, init);
+    if(out == NULL) return NULL;
+
+    buffer_conv2d_dot_inner<<< convolutions, 1 >>>
+      (out->data, convolutions.x * bw,
+       a->data, b->data,
+       aw, ah,
+       bw, bh,
+       sx, sy,
+       cw, ch, convolutions);
+    
+    return out;
+  }
 }
 

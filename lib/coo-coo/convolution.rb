@@ -17,7 +17,7 @@ module CooCoo
       attr_reader :internal_layer
       attr_reader :delta_accumulator
       
-      def initialize(width, height, horizontal_step, vertical_step, internal_layer, input_width, input_height, int_output_width, int_output_height, update_weights_with = :average)
+      def initialize(width, height, horizontal_step, vertical_step, internal_layer, input_width, input_height, int_output_width, int_output_height, update_weights_with = :sum)
         @internal_layer = internal_layer
         @width = width
         @height = height
@@ -30,11 +30,11 @@ module CooCoo
         @int_output_height = int_output_height
         raise ArgumentError.new("Input size mismatch: #{int_output_width * int_output_height} is not #{internal_layer.size}") if internal_layer.size != (int_output_width * int_output_height)
         @delta_accumulator = delta_accumulator || :average
-        raise ArgumentError.new("Weights delta accumulator can only be averaged or summed") unless [ :average, :sum ].include?(@delta_accumulator)
+        raise ArgumentError.new("Weights delta accumulator can only be averaged or summed") unless methods.include?(@delta_accumulator)
       end
 
       def name
-        "%s([ %i, %i ], [ %i, %i ], [ %i, %i ], %s)" % [ self.class.name, input_width, input_height, horizontal_step, vertical_step,  output_width, output_height, internal_layer.name ]
+        "%s([ %i, %i ], [ %i, %i ], [ %i, %i ], [ %i, %i ], %s, %s)" % [ self.class.name, width, height, horizontal_step, vertical_step, input_width, input_height, output_width, output_height, delta_accumulator, internal_layer.name ]
       end
       
       def activation_function
@@ -138,9 +138,6 @@ module CooCoo
 
       def weight_deltas(inputs, deltas)
         #rate = rate / (@horizontal_grid_span * @vertical_grid_span).to_f
-        change = []
-        wd = []
-
         d = []
         each_area do |grid_x, grid_y|
           delta, hs = @internal_layer.
@@ -229,14 +226,26 @@ if __FILE__ == $0
   require 'coo-coo/layer'
   require 'coo-coo/cost_functions'
   
-  WIDTH = 16
-  HEIGHT = 16
-  X_STEP = 4
-  Y_STEP = 4
-  CONV_WIDTH = 4
-  CONV_HEIGHT = 4
-  CONV_OUT_WIDTH = 1
-  CONV_OUT_HEIGHT = 1
+  if ENV.fetch('BIG', '1').to_i == 1
+    WIDTH = 16
+    HEIGHT = 16
+    X_STEP = 4
+    Y_STEP = 4
+    CONV_WIDTH = 8
+    CONV_HEIGHT = 8
+    CONV_OUT_WIDTH = 4
+    CONV_OUT_HEIGHT = 8
+  else
+    WIDTH = 16
+    HEIGHT = 16
+    X_STEP = 4
+    Y_STEP = 4
+    CONV_WIDTH = 4
+    CONV_HEIGHT = 4
+    CONV_OUT_WIDTH = 1
+    CONV_OUT_HEIGHT = 1
+  end
+
   activation = CooCoo::ActivationFunctions.from_name(ENV.fetch('ACTIVATION', 'Logistic'))
   cost_function = CooCoo::CostFunctions.from_name(ENV.fetch('COST', 'MeanSquare'))
   

@@ -61,6 +61,10 @@ module Enumerable
   def average
     size == 0 ? 0 : sum / size.to_f
   end
+
+  def prod
+    reduce(1, &:*)
+  end
 end
 
 class Array

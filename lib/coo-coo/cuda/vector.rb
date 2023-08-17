@@ -156,7 +156,7 @@ module CooCoo
       # @!method sum
       #   Reduces the vector with {#+}.
       #   @return [Float] the sum of +self+
-      delegate :min, :max, :minmax, :sum, :to => :elements
+      delegate :min, :max, :minmax, :sum, :product, :to => :elements
 
       def maxpool(width, height, pool_width, pool_height)
         self.class[@elements.maxpool(width, height, pool_width, pool_height)]
@@ -183,6 +183,16 @@ module CooCoo
           self.class[@elements.dot(w, h, other.elements, ow, oh)]
         elsif other.respond_to?(:each)
           dot(w, h, self.class[other.each], ow, oh)
+        else
+          raise ArgumentError.new("argument is not a #{self.class} or Enumerator")
+        end
+      end
+
+      def conv_box2d_dot(w, h, other, ow, oh, sx, sy, cw = oh, ch = ow, init = 0.0)
+        if other.kind_of?(self.class)
+          self.class[@elements.conv_box2d_dot(w, h, other.elements, ow, oh, sx, sy, cw, ch, init)]
+        elsif other.respond_to?(:each)
+          conv_box2d_dot(w, h, self.class[other.each], ow, oh, sx, sy, cw, ch, init)
         else
           raise ArgumentError.new("argument is not a #{self.class} or Enumerator")
         end

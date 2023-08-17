@@ -26,11 +26,24 @@ describe Enumerable do
       it { expect(input.each.average).to eq(output) }
     end
   end
+
+  describe '#prod' do
+    describe 'with an empty instance' do
+      subject { [] }
+      it { expect(subject.each.prod).to eq(1) }
+    end
+
+    describe 'with sequential numbers' do
+      subject { (1..4) }
+      it { expect(subject.each.prod).to be == 24 }
+    end
+  end
 end
 
 describe Array do
   subject { [ 1, 2, 3, 4 ] }
   it_behaves_like 'CoreExt #rand'
+  it_behaves_like 'Enumerable#prod'
 
   describe '#average' do
     [ [ [ 1, 2, 3, 4 ], 10/4.0 ],
@@ -38,6 +51,18 @@ describe Array do
       [ [10], 10 ]
     ].each do |(input, output)|
       it { expect(input.average).to eq(output) }
+    end
+  end
+
+  describe '#prod' do
+    describe 'with an empty instance' do
+      subject { [] }
+      it { expect(subject.prod).to eq(1) }
+    end
+
+    describe 'with sequential numbers' do
+      subject { [1,2,3,4] }
+      it { expect(subject.prod).to be == 24 }
     end
   end
 end

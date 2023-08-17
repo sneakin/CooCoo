@@ -448,6 +448,28 @@ shared_examples "for an AbstractVector" do
     end
   end
 
+  describe '#prod' do
+    describe 'with zeros' do
+      subject { described_class.zeros(32) }
+      it { expect(subject.prod).to eq(0) }
+    end
+
+    describe 'with ones' do
+      subject { described_class.ones(32) }
+      it { expect(subject.prod).to eq(1) }
+    end
+    
+    describe 'with a random vector' do
+      subject { described_class.rand(32) }
+      it { expect(subject.prod).to be <= 1.0 }
+    end
+
+    describe 'with a sequential vector' do
+      subject { described_class[[1,2,3,4]] }
+      it { expect(subject.prod).to be == 24 }
+    end
+  end
+
   [ :abs, :sqrt, :log, :log10, :log2, :floor, :ceil, :round ].each do |func|
     describe "\##{func}" do
       subject { described_class[16.times.each].send(func) }
@@ -569,6 +591,99 @@ shared_examples "for an AbstractVector" do
       
       it { expect { subject.dot(4, 4, 3, 4, 1) }.to raise_error(ArgumentError) }
       it { expect { subject.dot(4, 4, 3, 1, 1) }.to raise_error(ArgumentError) }
+    end
+  end
+
+  describe '#conv_box2d_dot' do
+    describe 'happy over a 2x2' do
+      subject { described_class[4.times] }
+      describe 'single step' do
+        it 'performs one dot product' do
+          expect(subject.conv_box2d_dot(2,2,described_class.identity(2),2,2,2,2,2,2)).
+            to eq(described_class[4.times])
+        end
+      end
+      describe 'two steps' do
+        it 'performs two dot products' do
+          expect(subject.conv_box2d_dot(2,2,described_class.identity(2),2,2,1,1,2,2)).
+            to eq(described_class[[0,1,1,0,
+                                   2,3,3,0,
+                                   2,3,3,0,
+                                   0,0,0,0]])
+        end
+      end
+    end
+    describe 'over a 4x4' do
+      subject { described_class[16.times] }
+      describe 'stepping 4x4' do
+        it 'performs one dot product' do
+          expect(subject.conv_box2d_dot(4,4,described_class.identity(4),4,4,4,4,4,4)).
+            to eq(described_class[16.times])
+        end
+      end
+      describe 'stepping 2x2 of a 2x2' do
+        it 'performs 2x2 dot products' do
+          expect(subject.conv_box2d_dot(4,4,described_class.identity(2),2,2,2,2,2,2)).
+            to eq(described_class[[0,1,2,3,
+                                   4,5,6,7,
+                                   8,9,10,11,
+                                   12,13,14,15]])
+        end
+      end
+      describe 'stepping 1x2 of a 1x4' do
+        it 'performs 4x2 dot products' do
+          # [ 0  1  2  3 ]   * 1    = 0+10+200+3000
+          #   4  5  6  7       10
+          #   8  9  10 11      100
+          #   12 13 24 15      1000
+          r = subject.conv_box2d_dot(4,4,[1,10,100,1000],1,4,1,2,4,1)
+          puts("4x1",*r.each_slice(4).to_a.collect(&:inspect))
+          expect(r.size).to eq(1*1 * 4/1 * 4/2)
+          expect(r).
+            to eq(described_class[[3210, 321, 32, 3,
+                                  12098, 1209, 120, 11]])
+        end
+      end
+      describe 'stepping 1x2 of a 4x1' do
+        it 'performs 4x2 dot products' do
+          # --
+          # 0  1  2  3   * 1 10 100 1000 = 
+          # 4  5  6  7
+          # 8  9  10 11
+          # 12 13 24 15
+          # --
+          a = subject.slice_2d(4,4,0,0,1,4).dot(1,4,[1,10,100,1000],4,1)
+          puts("1x4",*a.each_slice(4).to_a.collect(&:inspect))
+          r = subject.conv_box2d_dot(4,4,[1,10,100,1000],4,1,1,2,1,4)
+          puts("1x4",*r.each_slice(16).to_a.collect(&:inspect))
+          expect(r.size).to eq(4*4 * 4/1 * 4/2)
+          expect(r).
+            to eq(described_class[[0, 0, 0, 0, 1, 10, 100, 1000, 2, 20, 200, 2000, 3, 30, 300, 3000,
+                                   4, 40, 400, 4000, 5, 50, 500, 5000, 6, 60, 600, 6000, 7, 70, 700, 7000,
+                                   8, 80, 800, 8000, 9, 90, 900, 9000, 10, 100, 1000, 10000, 11, 110, 1100, 11000,
+                                   12, 120, 1200, 12000, 13, 130, 1300, 13000, 14, 140, 1400, 14000, 15, 150, 1500, 15000,
+                                   8, 80, 800, 8000, 9, 90, 900, 9000, 10, 100, 1000, 10000, 11, 110, 1100, 11000,
+                                   12, 120, 1200, 12000, 13, 130, 1300, 13000, 14, 140, 1400, 14000, 15, 150, 1500, 15000,
+                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+        end
+      end
+      describe 'stepping 1x1 of a 2x2' do
+        it 'performs 4x4 dot products' do
+          r = subject.conv_box2d_dot(4,4,described_class.identity(2),2,2,1,1,2,2)
+          expect(r.size).to eq(2*2 * 4/1 * 4/1)
+          expect(r).
+            to eq(described_class[[0,1,1,2,2,3,3,0,
+                                   4,5,5,6,6,7,7,0,
+                                   4,5,5,6,6,7,7,0,
+                                   8,9,9,10,10,11,11,0,
+                                   8,9,9,10,10,11,11,0,
+                                   12,13,13,14,14,15,15,0,
+                                   12,13,13,14,14,15,15,0,
+                                   0,0,0,0,0,0,0,0
+                                  ]])
+        end
+      end
     end
   end
   

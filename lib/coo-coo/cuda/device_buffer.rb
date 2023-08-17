@@ -111,6 +111,10 @@ module CooCoo
         FFI.buffer_sum(self)
       end
 
+      def prod
+        FFI.buffer_product(self)
+      end
+
       def maxpool(width, height, pool_width, pool_height)
         raise ArgumentError.new("width * height exceed buffer size") if width * height > size
         raise ArgumentError.new("pool width must be > 0") if pool_width <= 0
@@ -136,10 +140,15 @@ module CooCoo
         end
       end
 
-      def conv_dot_vector_box2d(w, h, other, ow, oh, conv_w, conv_h, step_x, step_y)
+      def conv_box2d_dot(w, h, other, ow, oh, step_x, step_y, conv_w, conv_h, init = 0.0)
         raise TypeError.new("#{other.class} needs to be #{self.class}") unless other.kind_of?(self.class)
+        raise ArgumentError.new("other is null") if other.null?
+        raise ArgumentError.new("self is null") if null?
+        raise ArgumentError.new("convolution width (#{conv_w}) must match the other's height (#{oh})") if conv_w != oh
+        raise ArgumentError.new("width (#{w}) * height (#{h}) < size (#{size})") if size < w * h
+        raise ArgumentError.new("other's width * height != other's size (#{ow} * #{oh} != #{other.size})") if other.size != ow * oh
 
-        FFI.conv_dot_vector_box2d(self, w, h, other, ow, oh, conv_w, conv_h, step_x, step_y)
+        FFI.conv2d_dot(self, w, h, other, ow, oh, step_x, step_y, conv_w, conv_h, init)
       end
 
       def slice_2d(width, height, x, y, out_width, out_height, initial = 0.0)

@@ -38,8 +38,8 @@ describe CooCoo::Convolution::BoxLayer do
 
     it { expect(subject.output_width).to eq(layer_output_width) }
     it { expect(subject.output_height).to eq(layer_output_height) }
-    it { expect(subject.horizontal_span).to eq((layer_width / hstep.to_f).ceil) }
-    it { expect(subject.vertical_span).to eq((layer_height / vstep.to_f).ceil) }    
+    it { expect(subject.horizontal_grid_span).to eq((layer_width / hstep.to_f).ceil) }
+    it { expect(subject.vertical_grid_span).to eq((layer_height / vstep.to_f).ceil) }    
 
     describe '#forward outputs' do
       it 'can be sliced into a 2d grid' do

@@ -165,6 +165,24 @@ module CooCoo
         end
       end
 
+      def conv_box2d_dot(width, height,
+                         other, owidth, oheight,
+                         step_x, step_y, conv_width, conv_height,
+                         init_value = 0.0)
+        span_x = (width / step_x).ceil
+        span_y = (height / step_y).ceil
+        out = self.class.new(span_y * conv_height * owidth * span_x, init_value)
+        span_y.times do |row|
+          span_x.times do |col|
+            slice = slice_2d(width, height, col*step_x, row*step_y,
+                             conv_width, conv_height)
+            result = slice.dot(conv_width, conv_height, other, owidth, oheight)
+            out.set2d!(owidth * span_x, result, owidth, col * owidth, row * conv_height)
+          end
+        end
+        out
+      end
+      
       def transpose width, height
         self.class[@elements.each_slice(width).to_a[0, height].transpose.flatten]
       end

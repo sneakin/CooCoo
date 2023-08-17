@@ -55,6 +55,10 @@ module CooCoo
       def average
         sum / size
       end
+
+      def prod
+        each.prod
+      end
       
       def max
         minmax[1]

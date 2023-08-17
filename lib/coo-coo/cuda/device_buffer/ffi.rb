@@ -83,10 +83,12 @@ EOT
         #buffer_function :divd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
 
         buffer_function :sum, [ DeviceBuffer ], :double
+        buffer_function :product, [ DeviceBuffer ], :double
         buffer_function :min, [ DeviceBuffer ], :double
         buffer_function :max, [ DeviceBuffer ], :double
           
         buffer_function :dot, [ DeviceBuffer, :size_t, :size_t, DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
+        buffer_function :conv2d_dot, [ DeviceBuffer, :size_t, :size_t, DeviceBuffer, :size_t, :size_t, :int, :int, :size_t, :size_t, :double ], DeviceBuffer.auto_ptr
         buffer_function :identity, [ :size_t ], DeviceBuffer.auto_ptr
         buffer_function :diagflat, [ DeviceBuffer ], DeviceBuffer.auto_ptr
         buffer_function :transpose, [ DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
