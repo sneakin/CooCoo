@@ -33,7 +33,7 @@ module CooCoo
             CostFunctions.from_name(v)
           end
           
-          o.on('--cost NAME', '--cost-function NAME', "The function to minimize during training. Choices are: #{CostFunctions.named_classes.join(', ')}", CostFunctions::Base) do |v|
+          o.on('--cost NAME', '--cost-function NAME', CostFunctions::Base, "The function to minimize during training. Choices are: #{CostFunctions.named_classes.join(', ')}") do |v|
             options.cost_function = v
           end
           

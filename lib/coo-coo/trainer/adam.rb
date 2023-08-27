@@ -24,7 +24,7 @@ module CooCoo
             options.beta1 = n
           end
 
-          o.on('--beta2 FLOAT', Float, "The forgetting factor for the first moment. Defaults to #{BETA2}") do |n|
+          o.on('--beta2 FLOAT', Float, "The forgetting factor for the second moment. Defaults to #{BETA2}") do |n|
             options.beta2 = n
           end
 

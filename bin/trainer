@@ -33,8 +33,9 @@ options.model_format = :marshal
 options.prototype = nil
 options.save_every = 1
 options.trainer = nil
-options.num_tests = 20
+options.num_tests = nil
 options.start_tests_at = 0
+options.start_training_at = 0
 options.test_cost = CooCoo::CostFunctions::MeanSquare
 options.classifying = false
 options.passing = 0.01
@@ -75,6 +76,10 @@ opts = CooCoo::OptionParser.new do |o|
   end
 
   o.on('-s', '--skip NUMBER') do |n|
+    options.start_training_at = n.to_i
+  end
+
+  o.on('--tests-skip NUMBER') do |n|
     options.start_tests_at = n.to_i
   end
 
@@ -166,25 +171,51 @@ puts("\tInputs: #{net.num_inputs}")
 puts("\tOutputs: #{net.num_outputs}")
 puts("\tLayers: #{net.num_layers}")
 net.layers.each_with_index do |l, i|
-  puts("\t\t#{i}\t#{l.num_inputs}\t#{l.size}\t#{l.name}")
+  puts("\t%3i: %-8i %-8i #{l.name}" % [ i, l.num_inputs, l.size ])
 end
+puts
+puts("Training data:")
+puts("\tPath: #{options.dataset}")
+puts("\tSize: #{training_set.size} examples")
+puts("\tSkipping #{options.start_training_at}")
+puts("\tInput size: #{training_set.input_size}")
+puts("\tOutput size: #{training_set.output_size}")
+puts
 
 $stdout.flush
 
+Signal.trap('USR2') do
+  $stderr.puts("Signal USR2 received. Performing GC.")
+  GC.start
+end
+
 if options.trainer
   CooCoo.rescue_harness do
-    num_batches = (options.epochs * training_set.size / trainer_options.batch_size.to_f).ceil
+    ts_size = training_set.size - options.start_training_at
+    num_batches = (options.epochs * ts_size / trainer_options.batch_size.to_f).ceil
     
-    puts("Training #{training_set.size} examples in #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name} using #{trainer_options.cost_function.name}.")
+    puts("Training #{ts_size} examples in #{num_batches} batches of #{trainer_options.batch_size} examples for #{options.epochs} epochs at a rate of #{trainer_options.learning_rate} with #{trainer.name} using #{trainer_options.cost_function.name}.")
     net.comments << "#{Time.now}: Training with command: #{Shellwords.join([ $0 ] + ARGV)}"
-    
+
+    training_enum = training_set.each
+    training_enum = training_enum.cycle(options.epochs)
+    training_enum = training_enum.drop(options.start_training_at) if options.start_training_at > 0
+
     bar = CooCoo::ProgressBar.create(:total => num_batches)
-    
+
+    old_sig = Signal.trap('USR1') do
+      bar.log("Signal USR1 received.")
+      if options.model_path
+        net.save(options.model_path, format: options.model_format)
+        bar.log("Saved network to #{options.model_path}")
+      end
+    end
+
     trainer.train({ network: net,
-                    data: training_set.each.cycle(options.epochs)
+                    data: training_enum
                   }.merge(trainer_options.to_h)) do |stats|
       avg_err = stats.average_loss
-      raise "Cost went to NAN" if avg_err.nan?
+      raise "Cost went to NAN: #{avg_err.inspect}" if avg_err.nan?
       status = []
       status << "Batch #{stats.batch}/#{num_batches} took #{stats.total_time} seconds"
       status << "Cost\t#{avg_err.average}\t#{options.verbose ? avg_err : nil}"
@@ -197,6 +228,14 @@ if options.trainer
       bar.log(status.join("\n  "))
       bar.increment
     end
+
+    if options.model_path
+      net.comments << "Training #{options.epochs} epochs finished."
+      net.save(options.model_path, format: options.model_format)
+      bar.log("Saved network to #{options.model_path}")
+    end
+
+    Signal.trap('USR1', old_sig)
   end
 end
 
@@ -206,11 +245,12 @@ CROSSMARK = "\u2718".red
 if options.num_tests
   num_tests = [ training_set.size, options.num_tests ].min
   puts("Running #{num_tests} tests starting from #{options.start_tests_at}:")
-  e = training_set.each
-  e = e.drop(options.start_tests_at) if options.start_tests_at > 0
+  set = training_set.each
+  set = set.drop(options.start_tests_at) if options.start_tests_at > 0
   passes = 0
-  e.first(num_tests).
-    each_with_index do |(target, pixels), i|
+  set = set.first(num_tests) if options.num_tests > 0
+  $stderr.puts("Testing #{set.empty?}")
+  set.each_with_index do |(target, pixels), i|
     out, hs = net.predict(pixels)
     loss = options.test_cost.call(target, out)
     avg_loss = loss.average
