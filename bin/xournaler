@@ -350,7 +350,7 @@ def prep_xournal args
   end
 end
 
-def learn_journal args
+def learn_xournal args
   # use a prepped xournal to learn what strokes mean
 end
 
