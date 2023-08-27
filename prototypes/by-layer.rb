@@ -16,9 +16,9 @@ def option_parser options
       options.activation_function = CooCoo::ActivationFunctions.from_name(n)
     end
 
-    o.on('--input-size W,H,...') do |v|
+    o.on('--input-size W,H') do |v|
       options.input_size = CooCoo::Utils.split_csi(v)
-      options.layers << options.input_size
+      options.layers << [ :input_size, options.input_size ]
     end
     
     o.on('--layer SIZE', 'Add a layer with SIZE neurons.') do |n|
@@ -97,7 +97,7 @@ def generate(options, input_size, output_size)
       last_size = [ size ]
     when :linear then
       net.layer(layer = CooCoo::LinearLayer.new(last_size.prod, args[0]))
-      last_size = [ layer.size ]
+      # last_size = [ layer.size ]
     when :recurrent_frontend then
       recurrent = CooCoo::Recurrence::Frontend.new(last_size.prod, size)
       net.layer(recurrent)
