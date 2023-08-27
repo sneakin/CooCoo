@@ -11,7 +11,7 @@ module CooCoo
     class Vector < CooCoo::Math::AbstractVector
       def initialize(length, initial_value = 0.0, &block)
         if length != nil && length <= 0
-          raise ArgumentError.new("Invalid Vector size")
+          raise ArgumentError.new("Invalid Vector size: #{length}")
         elsif length != nil
           @elements = DeviceBuffer.create(length, initial_value)
           if block

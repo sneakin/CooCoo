@@ -23,6 +23,12 @@ module CooCoo
         end
       end
 
+      def self.one_hot(size, n, init = 0.0, hot = 1.0)
+        v = new(size, init)
+        v[n] = hot
+        v
+      end
+      
       def _dump(depth)
         to_a.pack('E*')
       end

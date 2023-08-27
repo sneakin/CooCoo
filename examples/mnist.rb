@@ -132,7 +132,8 @@ module MNist
   end
 
   class DataStream
-    def initialize(labels_path = TRAIN_LABELS_PATH, images_path = TRAIN_IMAGES_PATH)
+    def initialize(labels_path = TRAIN_LABELS_PATH, images_path = TRAIN_IMAGES_PATH,
+                   with_blank: false)
       if (labels_path == TRAIN_LABELS_PATH && images_path == TRAIN_IMAGES_PATH) ||
          (labels_path == TEST_LABELS_PATH && images_path == TEST_IMAGES_PATH)
         if !File.exist?(labels_path) || !File.exist?(images_path)
@@ -145,26 +146,43 @@ module MNist
       
       @labels_path = labels_path
       @images_path = images_path
-
+      @with_blank = with_blank
+      @blank_label = 10
+      
       read_metadata
     end
 
-    attr_reader :size
+    attr_reader :num_labels
     attr_reader :width
     attr_reader :height
+    attr_reader :blank_label
+
+    def size
+      @size ||= (num_labels + (with_blank? ? num_labels / 100.0 : 0)).round
+    end
+    
+    def raw_data; self; end
+    def with_blank?; @with_blank; end
     
     def each(&block)
       return enum_for(__method__) unless block_given?
 
       begin
         streamer = DataStreamer.new(@labels_path, @images_path)
+        ex = nil
         
         begin
-          ex = streamer.next
-          if ex
-            block.call(ex)
+          block.call(blank_example) if @with_blank
+          100.times do
+            ex = streamer.next
+            if ex
+              block.call(ex)
+            else
+              break
+            end
           end
         end until ex == nil
+        
       ensure
         streamer.close
       end
@@ -176,7 +194,7 @@ module MNist
 
     private
     def read_metadata
-      read_size
+      read_num_labels
       read_dimensions
     end
 
@@ -190,26 +208,37 @@ module MNist
       end
     end
     
-    def read_size
+    def read_num_labels
       CooCoo::Utils.open_filez(@labels_path) do |f|
         magic, number = f.read(4 * 2).unpack('NN')
         raise RuntimeError.new("Invalid magic number #{magic} in #{@labels_path}") if magic != 0x801
 
-        @size = number
+        @num_labels = number
       end
     end
 
+    def blank_example
+      @blank_example ||= Example.new(blank_label, CooCoo::Vector.zeros(width*height))
+    end
+
     public
-    class Inverter < Enumerator
-      attr_reader :size, :raw_data
-      
-      def initialize(data, inverts_only)
-        @size = data.size * (inverts_only ? 2 : 1)
+    class DataEnumerator < Enumerator
+      attr_reader :size, :data, :raw_data
+
+      def initialize data, size = nil, &cb
+        @size = size || data.size
         @raw_data = data
         @data = data.to_enum
+        super(&cb)
+      end
+      
+      def with_blank?; raw_data.with_blank?; end
+    end
+    
+    class Inverter < DataEnumerator
+      def initialize(data, inverts_only)
         @inverts_only = inverts_only
-        
-        super() do |y|
+        super(data, data.size * (inverts_only ? 2 : 1)) do |y|
           loop do
             example = @data.next
             img = example.pixels.to_a.flatten
@@ -222,18 +251,12 @@ module MNist
       end
     end
 
-    class Rotator < Enumerator
-      attr_reader :size, :raw_data
-      
+    class Rotator < DataEnumerator
       def initialize(data, rotations, rotation_range, random = false)
-        @size = data.size * rotations
-        @raw_data = data
-        @data = data.to_enum
         @rotations = rotations
         @rotation_range = rotation_range
         @random = random
-        
-        super() do |y|
+        super(data, data.size * rotations) do |y|
           loop do
             example = @data.next
             @rotations.times do |r|
@@ -265,19 +288,14 @@ module MNist
       end
     end
 
-    class Translator < Enumerator
-      attr_reader :size, :raw_data
-      
+    class Translator < DataEnumerator
       def initialize(data, num_translations, dx, dy, random = false)
-        @size = data.size * num_translations
-        @raw_data = data
-        @data = data.to_enum
         @num_translations = num_translations
         @dx = dx
         @dy = dy
         @random = random
-        
-        super() do |yielder|
+
+        super(data, data.size * num_translations) do |yielder|
           loop do
             example = @data.next
             @num_translations.times do |r|
@@ -318,18 +336,12 @@ module MNist
     # todo eliminate the three enumelators here with a single abstract Transformer that takes a transform chain
     # todo Scaler needs to expand the image size, follow with a crop transform
     
-    class Scaler < Enumerator
-      attr_reader :size, :raw_data
-      
+    class Scaler < DataEnumerator
       def initialize(data, num_translations, amount, random = false)
-        @size = data.size * num_translations
-        @raw_data = data
-        @data = data.to_enum
         @num_translations = num_translations
         @min_scale, @max_scale = amount
         @random = random
-        
-        super() do |yielder|
+        super(data, data.size * num_translations) do |yielder|
           loop do
             example = @data.next
             @num_translations.times do |r|
@@ -372,19 +384,24 @@ module MNist
     attr_reader :output_size
     
     def initialize(data_stream = MNist::DataStream.new(MNist::TRAIN_LABELS_PATH, MNist::TRAIN_IMAGES_PATH),
-                   output_size = nil)
+                   output_size = nil,
+                   softmaxed: false)
       @stream = data_stream
-      @output_size = output_size || 10
+      @output_size = output_size || (10 + (@stream.with_blank? ? 1 : 0))
+      @softmaxed = softmaxed
     end
 
+    def softmaxed?; @softmaxed; end
+    
     def name
       File.dirname(__FILE__)
     end
     
     def input_size
-      Width*Height
+      @input_size ||= Width*Height
     end
-    
+
+    # Returns the number of examples.
     def size
       @stream.size
     end
@@ -395,14 +412,18 @@ module MNist
       enum = @stream.each
       loop do
         example = enum.next
+        block.call([ label_vector(example.label),
+                     CooCoo::Vector[example.pixels] / 255.0
+                   ])
+      end
+    end
 
-        a = CooCoo::Vector.new(output_size, 0.0)
-        a[example.label] = 1.0
-        m = [ a,
-              CooCoo::Vector[example.pixels] / 255.0
-        ]
-        #$stderr.puts("#{m[0]}\t#{m[1]}")
-        block.call(m)
+    def label_vector(n)
+      label = CooCoo::Vector.one_hot(output_size, n)
+      if softmaxed?
+        CooCoo::ActivationFunctions::SoftMax.instance.call(label)
+      else
+        label
       end
     end
   end
@@ -484,11 +505,27 @@ module MNist
         options.invert = true
         options.inverts_only = true
       end
+
+      o.on('--softmax-examples') do
+        options.softmax_examples = true
+      end
+      
+      o.on('--with-blank', 'Include a zeroed blank example.') do
+        options.with_blank = true
+      end
+
+      o.on('--with-angle') do
+        options.with_angle = true
+      end
+
+      o.on('--with-gravity') do
+        options.with_gravity = true
+      end
     end
   end
   
   def self.training_set(options)
-    data = MNist::DataStream.new(options.labels_path, options.images_path)
+    data = MNist::DataStream.new(options.labels_path, options.images_path, with_blank: options.with_blank)
     if options.rotations > 0 && options.rotation_amount > 0
       data = MNist::DataStream::Rotator.new(data, options.rotations, options.rotation_amount / 180.0 * ::Math::PI, true)
     end
@@ -505,7 +542,8 @@ module MNist
     if options.invert
       data = MNist::DataStream::Inverter.new(data, options.inverts_only)
     end
-    MNist::TrainingSet.new(data, options.num_labels)
+    MNist::TrainingSet.new(data, options.num_labels,
+                           softmaxed: options.softmax_examples)
   end
 end
 
