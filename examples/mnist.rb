@@ -238,7 +238,7 @@ module MNist
     class Inverter < DataEnumerator
       def initialize(data, inverts_only)
         @inverts_only = inverts_only
-        super(data, data.size * (inverts_only ? 2 : 1)) do |y|
+        super(data, data.size * (inverts_only ? 1 : 2)) do |y|
           loop do
             example = @data.next
             img = example.pixels.to_a.flatten
