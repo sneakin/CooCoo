@@ -12,7 +12,7 @@ module CooCoo
       end
     end
 
-    attr_reader :defaults
+    attr_reader :defaults, :options
 
     def initialize(path, log)
       @path = path
@@ -23,6 +23,9 @@ module CooCoo
     def load(path)
       env = EvalBinding.new(@log)
       @generator, @parser, @defaults = eval(File.read(path), env.get_binding, path)
+      raise RuntimeError.new("No generator supplied by #{path}") if @generator == nil
+      raise RuntimeError.new("No option parser supplied by #{path}") if @parser == nil
+      raise RuntimeError.new("No defaults supplied by #{path}") if @defaults == nil
       @path = path
       self
     end
@@ -40,6 +43,7 @@ module CooCoo
 
     def call(argv, *args)
       opts, argv = parse_args(argv)
+      @options = opts
       [ argv, @generator.call(opts, *args) ]
     end
   end
