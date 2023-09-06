@@ -63,8 +63,8 @@ module MNist
 
     def each_pixel(&block)
       return to_enum(__method__) unless block_given?
-      28.times do |y|
-        28.times do |x|
+      MNist::Height.times do |y|
+        MNist::Width.times do |x|
           yield(pixel(x, y))
         end
       end

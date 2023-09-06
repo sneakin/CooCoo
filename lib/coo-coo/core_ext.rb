@@ -39,6 +39,14 @@ class Object
     end
   end
 
+  def self.predicate(*names)
+    names.each do |n|
+      class_eval <<-EOT
+def #{n}?; @#{n}; end
+EOT
+    end
+  end
+
   def try meth, *args, &cb
     send(meth, *args, &cb)
   end
@@ -129,6 +137,20 @@ class String
 
   def blank?
     empty?
+  end
+
+  alias _to_i to_i
+  
+  def to_i base = :x
+    if base == :x
+      case self
+      when /^0x(.+)/ then $1._to_i(16)
+      when /^(\d+)x(.+)/ then $2._to_i($1._to_i(10))
+      else _to_i(10)
+      end
+    else
+      _to_i(base)
+    end
   end
 end
 

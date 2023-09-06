@@ -208,11 +208,6 @@ module CooCoo
         self.class.new(@image.crop(x.to_i, y.to_i, w.to_i, h.to_i))
       end
       
-      def text(txt, x, y, font, font_size, font_style = nil)
-        # $stderr.puts("Warning: #{self.class.name}\#text is not implemented.")
-        self
-      end
-
       def invert!
         @image.pixels.each_with_index { |p, n|
           @image.pixels[n] = (0xFFFFFF00 - (p & 0xFFFFFF00) & 0xFFFFFF00) | (p & 0xFF)

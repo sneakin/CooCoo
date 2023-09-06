@@ -107,17 +107,43 @@ module CooCoo
         self
       end
 
-      def text(txt, x, y, font, font_size, style = Cairo::FONT_SLANT_NORMAL)
+      def select_font(name, size,
+                      slant = nil,
+                      weight = nil)
+        @context.select_font_face(name, map_slant(slant), map_weight(weight))
+        @context.font_size = size
+        self
+      end
+      
+      def text(txt, x, y, font, font_size, slant = nil, weight = nil)
         set_color(fill_color)
-        @context.select_font_face(font, style)
-        @context.font_size = font_size
-        ty = y + font_size
+        select_font(font, font_size, slant, weight)
+        ty = y
         txt.split("\n").each do |line|
+          ext = @context.text_extents(line)
+          ty -= ext.y_bearing
           @context.move_to(x, ty)
           @context.show_text(line)
-          ty = ty + font_size
         end
         self
+      end
+
+      def text_extents(txt, font, font_size, slant = nil, weight = nil)
+        @context.save
+        select_font(font, font_size, slant, weight)
+        # split txt into lines, use the largest width and sum up the heights
+        ext = TextExtents.new
+        txt.split("\n").each do |line|
+          line_ext = @context.text_extents(line)
+          ext.size[0] = line_ext.width if line_ext.width > ext.size[0]
+          ext.bearing[0] = line_ext.x_bearing if line_ext.x_bearing > ext.bearing[0]
+          ext.advance[0] = line_ext.x_advance if line_ext.x_advance > ext.advance[0]
+          ext.size[1] += line_ext.height
+          ext.bearing[1] += line_ext.y_bearing
+          ext.advance[1] += line_ext.y_advance
+        end
+        @context.restore
+        ext
       end
 
       def to_blob
@@ -160,6 +186,26 @@ module CooCoo
       def set_color(c)
         rgba = Vector[ChunkyPNG::Color.to_truecolor_alpha_bytes(c)] / 255.0
         @context.set_source_rgba(*rgba)
+      end
+
+      FontSlants = {
+        nil => Cairo::FONT_SLANT_NORMAL,
+        normal: Cairo::FONT_SLANT_NORMAL,
+        italic: Cairo::FONT_SLANT_ITALIC,
+        oblique: Cairo::FONT_SLANT_OBLIQUE
+      }
+      FontWeights = {
+        nil => Cairo::FONT_WEIGHT_NORMAL,
+        normal:  Cairo::FONT_WEIGHT_NORMAL,
+        bold: Cairo::FONT_WEIGHT_BOLD
+      }
+
+      def map_slant(slant)
+        FontSlants.fetch(slant)
+      end
+      
+      def map_weight(weight)
+        FontWeights.fetch(weight)
       end
     end
   end

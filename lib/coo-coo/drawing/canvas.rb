@@ -3,6 +3,16 @@ require 'coo-coo/math'
 
 module CooCoo
   module Drawing
+    class TextExtents
+      attr_reader :size, :bearing, :advance
+      
+      def initialize(size = nil, bearing = nil, advance = nil)
+        @size = Ruby::Vector[size || [0, 0]]
+        @bearing = Ruby::Vector[bearing || [0, 0]]
+        @advance = Ruby::Vector[advance || [0, 0]]
+      end
+    end
+    
     class Canvas
       attr_accessor :fill_color, :stroke_color
       attr_reader :width, :height
@@ -65,7 +75,15 @@ module CooCoo
         self
       end
 
-      def text(txt, x, y, font, size, style = nil)
+      def select_font(name, size, style = nil, weight = nil)
+        self
+      end
+      
+      def text_extents(txt, font, font_size, style = nil, weight = nil)
+        TextExtents.new
+      end
+      
+      def text(txt, x, y, font, size, style = nil, weight = nil)
         self
       end
 

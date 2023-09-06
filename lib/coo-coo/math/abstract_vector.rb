@@ -25,7 +25,7 @@ module CooCoo
 
       def self.one_hot(size, n, init = 0.0, hot = 1.0)
         v = new(size, init)
-        v[n] = hot
+        v[n] = hot if (0...size).include?(n)
         v
       end
       

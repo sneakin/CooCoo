@@ -75,6 +75,7 @@ if $0 == __FILE__
     puts
   end
 elsif $0 =~ /trainer$/
+  # todo does this even work? Does use the EMnist data stream?
   [ MNist.method(:training_set),
     MNist.method(:option_parser),
     EMNist.method(:default_options) ]
