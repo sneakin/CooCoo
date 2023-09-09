@@ -1,0 +1,99 @@
+#+TITLE: CooCoo Todo
+#+TODO: TODO DOING DONE WAIT CANCELED
+
+* Xournal / OCR [0%]
+
+** TODO Labeling documents
+
+** TODO Training [0%]
+ - [ ] from documents
+ - [ ] training sets
+
+*** WAIT MNist, emnist [0%]
+  - [ ] Training & output of:
+    - [ ] inverted
+    - [ ] angle
+    - [ ] translation
+    - [ ] scale?
+    - [ ] blur
+    - [ ] opacity over ???
+  - [ ] Combining MNist and EMNist: label to output mapping
+  - [ ] RGB coloring
+  - [-] Cairo text rendered examples
+    - [ ] standalone and with context in words
+    - [X] Many fonts and styles and sizes
+  - [ ] Random noise background
+  - [ ] Random letter/number background
+  - [ ] Delay yielding of composed CUDA vectors: memory is getting used up that can not be freed as Enumerable#cycle maintains references to the CUDA Vectors.
+    
+*** Bounding box, 2D arrays, and plaintext
+  - [ ] Layers
+    - [ ] Maxpool 2d
+    - [ ] Deconvolve
+    - [ ] Edge detector?
+  - [ ] word search (with backgrounds)
+  - [ ] word messes: search but with random angles and sizes
+
+** TODO Scanning [%]
+  - [ ] inputs
+    - [ ] Xournals
+    - [ ] images
+    - [ ] PDF
+  - [ ] Outputs
+    - [ ] labeled bounding box
+    - [ ] to 2d array of characters and details
+    - [ ] plain text approximating layout
+
+* Bugs [0%]
+
+** TODO dot vs product
+
+** TODO Convolution::Box2d
+
+** TODO Conv2d could use CUDA on the backprop and update.
+
+** Adam trainer only equalized all outputs
+
+** Too few tests
+
+* Enhancements
+
+** by-layer: Box2d subnetworks from file, updatable or not.
+
+** Human readable network output lables.
+
+** Tool scripts
+*** Tool to edit networks: add outputs, add inputs, add layers, delete, etc.
+*** Tool to run STDIN input through a network.
+*** Tool to load and preview a data set.
+
+** CUDA powered image transform and filter stacks
+
+** Ruby and CUDA vector interop: small vectors (<4) stay as Ruby, Ruby vectors promote to CUDA if the other operand is CUDA.
+
+** Convolve all vector ops?
+
+** Audio dataset
+Wake words? Speaker/noise identification
+Full speech to text
+Text to speech
+Song ID
+
+** Training a range of layers instead of just the "output".
+
+** Parallel batches / multiple Network; forward calls: variant of convolution w/ dx=dy=0.
+
+** Parallelize convolutions: run whole networks w/o calling back to Ruby.
+
+* Misc
+
+** Documentation
+
+How to:
+  - [ ] run the existing data sets.
+  - [ ] use the tools
+  - [ ] use the trainer
+  - [ ] create date sets
+  - [ ] Xournals
+  - [ ] General OCR
+  - [ ] API
