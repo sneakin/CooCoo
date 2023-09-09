@@ -199,7 +199,7 @@ if options.trainer
     net.comments << "#{Time.now}: Training with command: #{Shellwords.join([ $0 ] + ARGV)}"
 
     training_enum = training_set.each
-    training_enum = training_enum.cycle(options.epochs)
+    training_enum = training_enum.cycle(options.epochs) if options.epochs > 1
     training_enum = training_enum.drop(options.start_training_at) if options.start_training_at > 0
 
     bar = CooCoo::ProgressBar.create(:total => num_batches)
