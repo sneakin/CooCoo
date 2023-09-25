@@ -343,7 +343,7 @@ module CooCoo
           xmin, xmax = @samples.collect(&:x).minmax
           ymin, ymax = @samples.collect(&:y).minmax
           
-          [ [ xmin, ymin ], [ xmax, ymax ] ]
+          [ Ruby::Vector[[ xmin, ymin ]], Ruby::Vector[[ xmax, ymax ]] ]
         end
       end
 

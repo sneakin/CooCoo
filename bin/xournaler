@@ -8,6 +8,15 @@ require 'coo-coo/data_sources/xournal/bitmap_stream'
 require 'coo-coo/data_sources/xournal/training_sets/features'
 
 def xournal_info args
+  opts = OptionParser.new do |o|
+    o.banner = <<-EOT
+Print information about a Xournal file.
+
+Usage: #{$0} info [options] files...
+EOT
+  end
+  args = opts.parse!(args)
+  
   # render full pages to an image
   args.each do |path|
     doc = CooCoo::DataSources::Xournal.from_file(path)
@@ -123,25 +132,8 @@ def render_pages args
   end
 end
 
-def crop_stroke page_rend, stroke, bg = nil
-  min, max = stroke.minmax
-  w = max[0] - min[0]
-  h = max[1] - min[1]
-  cx = min[0] + w/2
-  cy = min[1] + h/2
-  dia = [ w, h ].max
-  dia += dia
-  rad = dia / 2
-  nwx = cx - rad
-  nwy = cy - rad
-  puts("  %i %ix%i #{min.inspect} #{max.inspect}, %ix%i %i %ix%i" % [ stroke.size, w, h, cx, cy, dia, nwx, nwy ])
-
-  return nil if rad < 1
-  page_rend.crop(nwx, nwy, dia, dia, bg || 'white')
-end
-
-def render_features args
-  # render strokes and embedded images as individual images
+def features_cmd args
+  # render and edit strokes and embedded images as individual images
   options = OpenStruct.new
   options.width = 28
   options.height = 28
@@ -152,6 +144,12 @@ def render_features args
   options.min = [ 0, 0 ]
   
   args = OptionParser.new do |o|
+    o.banner = <<-EOT
+Render and edit strokes and embedded images as individual images.
+
+Usage: #{$0} features [options] [-a] xournals...
+EOT
+    
     o.on('-w', '--width INTEGER', Integer) do |n|
       options.width = n.to_i
     end
@@ -229,13 +227,17 @@ def render_features args
     end
     changed = false
 
+    enum = CooCoo::DataSources::Xournal::TrainingSets::StrokeEnumerator.
+      new(xournal: doc,
+          pages: pages,
+          use_cairo: options.use_cairo)
     stream = CooCoo::DataSources::Xournal::TrainingSets::GraphicFeatures.
-      new(xournal: doc, labels: labels, pages: pages,
-          use_cairo: options.use_cairo, invert: options.invert,
+      new(enumerator: enum, labels: labels,
+          invert: options.invert,
           rgb: options.rgb,
           with_skipped: options.with_skipped)
 
-    stream.each_canvas do |info, canvas|
+    stream.each_labeled_canvas do |info, canvas|
       next if !options.with_skipped && info.skipped?
       canvas = canvas.resample(options.width, options.height)
       puts("%i %i/%i/%i %f,%f %f,%f" % [ stream.output_for(info.label).each_with_index.max[1], *info.id, *info.minmax.flatten ])
@@ -299,6 +301,12 @@ def label_map_cmd args
   specials = []
   
   paths = OptionParser.new do |o|
+    o.banner = <<-EOT
+Print out a useable label to output mapping from the labels used in Xournal label annotation files.
+
+Usage: #{$0} label_map labelsets...
+EOT
+    
     o.on('--with-blank') do
       specials << ''
     end
@@ -318,14 +326,15 @@ def label_map_cmd args
   puts(*specials, *(all_labels.sort.uniq - ['']))
 end
 
-def scan_xournal args
-  # use a neural network to classifier a Xournal stroke by stroke.
-end
-
-def prep_xournal args
-  # annotate a xournal for learning: each stroke needs a label for training
-  # todo show each stroke and ask what it is? write all that to a file for training and use.
+def print_label_set args
+  # Print out a xournal's label set.
+  options = OpenStruct.new
   args = OptionParser.new do |o|
+    o.banner = <<-EOT
+Print a Xournal's label set used for learning.
+
+Usage: #{$0} print_labels xournals...
+EOT
   end.parse!(args)
 
   args.each do |path|
@@ -336,6 +345,10 @@ def prep_xournal args
     else
       pages.collect(&:to_i)
     end
+
+    label_set = CooCoo::DataSources::Xournal::TrainingSets::LabelSet.new
+    labels_path = file + '.labels'
+    File.open(labels_path, 'r') { |io| label_set.load(io) } if File.exist?(labels_path)
     
     puts(file)
     pages.each do |page|
@@ -343,15 +356,30 @@ def prep_xournal args
       doc_page.layers.each.with_index do |layer, layer_n|
         layer.each_stroke.with_index  do |stroke, stroke_n|
           min, max = stroke.minmax
-          puts("%i/%i/%i %f,%f %f,%f " % [ page, layer_n, stroke_n, *min, *max ])
+          info = label_set.for_stroke(page, layer_n, stroke_n)
+          label = info.try(:label) || ':skipped'
+          puts("%i/%i/%i %f,%f %f,%f %s" % [ page, layer_n, stroke_n, *min, *max, label ])
         end
       end
     end
   end
 end
 
-def learn_xournal args
+def scan_xournal args
+  # use a neural network to classifier a Xournal stroke by stroke.
+end
+
+def exec_trainer dataset, *args
+  root = Pathname.new(__FILE__).dirname.dirname
+  trainer = root.join('bin', 'trainer')
+  dataset = root.join(*dataset)
+  Process.exec(trainer.to_s, '-d', dataset.to_s, *args)
+end
+
+def train_xournal args
   # use a prepped xournal to learn what strokes mean
+  exec_trainer(['lib', 'coo-coo', 'data_sources', 'xournal', 'training_sets', 'features.rb'],
+               *args)
 end
 
 def curry_method sym, *args
@@ -442,8 +470,8 @@ def training_doc_generate args
 end
 
 def training_doc_learn args
-  paths = OptionParser.new do |o|
-  end.parse(args)
+  exec_trainer(['lib', 'coo-coo', 'data_sources', 'xournal', 'bitmap_stream.rb'],
+               *args)
 end
 
 def grid_bounds td, pos
@@ -569,21 +597,22 @@ if $0 == __FILE__
     help: :usage,
     info: :xournal_info,
     pages: :render_pages,
-    features: :render_features,
+    features: :features_cmd,
     label_map: :label_map_cmd,
+    print_labels: :print_label_set,
+    train: :train_xournal,
     scan: :scan_xournal,
-    prep: :prep_xournal,
-    learn: :learn_xournal,
     training_doc: :cmd_training_doc
   }
 
   def usage args
     puts("Usage: #{$0} command [options...]")
-    puts("Commands: %s" % [ Commands.keys.join(', ') ])
+    puts("Commands: %s" % [ Commands.keys.collect { |c| c.to_s.gsub('_', '-') }.join(', ') ])
   end
 
   args = ARGV[1..-1]
-  cmd_name = ARGV[0] || 'help'
+  cmd_name = (ARGV[0] || 'help').gsub('-', '_')
+  cmd_name = 'help' if cmd_name =~ /-h|--help/
   cmd = Commands.fetch(cmd_name.to_sym)
   send(cmd, args)
 end

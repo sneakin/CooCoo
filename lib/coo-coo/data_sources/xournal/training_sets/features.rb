@@ -268,6 +268,8 @@ module CooCoo::DataSources::Xournal
 
       def self.option_parser options
         CooCoo::OptionParser.new do |o|
+          o.banner = 'Graphically rendered labeled Xournal features:'
+          
           o.on('-d', '--document PATH') do |v|
             options.document = v
           end
