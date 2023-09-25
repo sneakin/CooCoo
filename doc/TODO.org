@@ -4,11 +4,13 @@
 * Xournal / OCR [0%]
 
 ** TODO Labeling documents
+Class hierarchy and file organization
 
 ** TODO Training [0%]
  - [ ] from documents
  - [ ] training sets
-
+ - [ ] Transformations & filtering
+   
 *** WAIT MNist, emnist [0%]
   - [ ] Training & output of:
     - [ ] inverted
@@ -41,6 +43,7 @@
     - [ ] PDF
   - [ ] Outputs
     - [ ] labeled bounding box
+    - [ ] merged bounding boxes into words (word segmentation network?)
     - [ ] to 2d array of characters and details
     - [ ] plain text approximating layout
 
@@ -93,7 +96,15 @@ How to:
   - [ ] run the existing data sets.
   - [ ] use the tools
   - [ ] use the trainer
-  - [ ] create date sets
+  - [ ] creating date sets
+  - [ ] merged data set
   - [ ] Xournals
+    - [ ] Training documents
+    - [ ] Labeling Xournals
+    - [ ] Learning
+    - [ ] Scanning
   - [ ] General OCR
+    - [ ] MNist training
+    - [ ] Cairo training
+    - [ ] Scanning
   - [ ] API
