@@ -202,7 +202,7 @@ if options.trainer
     training_enum = training_enum.cycle(options.epochs) if options.epochs > 1
     training_enum = training_enum.drop(options.start_training_at) if options.start_training_at > 0
 
-    bar = CooCoo::ProgressBar.create(:total => num_batches)
+    bar = CooCoo::ProgressBar.create(:total => 1 + num_batches)
 
     old_sig = Signal.trap('USR1') do
       bar.log("Signal USR1 received.")
