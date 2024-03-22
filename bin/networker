@@ -140,7 +140,7 @@ def generate_cmd argv
 
   raise ArgumentError.new("No output path provided.") if options.output.blank?
   
-  puts("Generating network from #{options.prototype} that's %i -> %i" % [ options.input_size, options.output_size ])
+  puts("Generating network from #{options.prototype} that's %i -> %i" % [ options.input_size || -1, options.output_size || -1 ])
   net_gen = CooCoo::GenerationScript.new(options.prototype.to_s, $stdout)
   argv, net = net_gen.call(argv, options.input_size, options.output_size)
   puts("Saving network to #{options.output}")
@@ -176,8 +176,14 @@ end
 Commands = {
   'info' => :info_cmd,
   'generate' => :generate_cmd,
-  'draw' => :draw_cmd
+  'draw' => :draw_cmd,
+  'help' => :usage
 }
+
+def usage args
+  puts("Usage: %s command [options]" % [ $0 ])
+  puts("Commands: %s" % [ Commands.keys.join(', ') ])
+end
 
 if $0 == __FILE__
   argv = ARGV.dup
@@ -186,6 +192,6 @@ if $0 == __FILE__
   if meth
     send(meth, argv)
   else
-    raise "Unknown command: #{cmd}"
+    puts("Unknown command: #{cmd}")
   end
 end

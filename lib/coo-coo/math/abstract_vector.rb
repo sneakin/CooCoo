@@ -1,7 +1,10 @@
+require 'coo-coo/ext/slice_2d'
 
 module CooCoo
   module Math
     class AbstractVector
+      include CooCoo::Ext::Slice2d
+      
       def self.rand(length, range = nil)
         new(length) do |i|
           args = [ range ] if range
@@ -94,48 +97,35 @@ module CooCoo
         end
       end
 
-      def slice_2d(src_width, src_height, origin_x, origin_y, width, height, initial = 0.0)
-        samples = height.times.collect do |y|
-          py = origin_y + y
-
-          width.times.collect do |x|
-            px = origin_x + x
-            if px >= 0 && px < src_width
-              i = py * src_width + px
-              if i >= 0 && i < size
-                self[i]
-              else
-                initial
-              end
-            else
-              initial
-            end
-          end
-        end.flatten
-
-        self.class[samples]
-      end
-
       def set2d_with!(width, src, src_width, x, y)
         raise ArgumentError.new("src's size needs to be a multiple of the width") if src.kind_of?(self.class) && src.size % src_width > 0
         
         src.each_slice(src_width).with_index do |row, i|
           index = (y+i) * width + x
-          next if index < 0 || index >= size
-          row.each_with_index do |p, px|
-            break if (x + px) >= width
-            next if (x + px) < 0
-            self[index.to_i + px] = if block_given?
-                                      yield(self[index.to_i + px], p)
-                                    else
-                                      p
-                                    end
-          end
+          next if index < 0
+          break if index >= size
+          #if block_given?
+            row.each_with_index do |p, px|
+              break if (x + px) >= width
+              next if (x + px) < 0
+              self[index.to_i + px] = if block_given?
+                                        yield(self[index.to_i + px], p)
+                                      else
+                                        p
+                                      end
+            end
+          #else
+          #  self[index.to_i, src_width] = row[0, src_width]
+          #end
         end
 
         self
       end
 
+      def slice_2d(src_width, src_height, origin_x, origin_y, width, height, initial = 0.0)
+        self.class[super]
+      end
+      
       def set2d!(width, src, src_width, x, y)
         set2d_with!(width, src, src_width, x, y)
       end
@@ -180,6 +170,31 @@ module CooCoo
 
       def infinite?
         each.any?(&:infinite?)
+      end
+
+      def maxpool1d_idx pool_size
+        each_with_index.
+          each_slice(pool_size).
+          collect { |p|
+          max = p.reduce([ -Float::INFINITY, nil ]) { |a, el| a[0] < el[0] ? el : a }
+          max[1]
+        }
+      end
+      
+      def maxpool1d pool_size
+        self.class[each_slice(pool_size).collect(&:max)]
+      end
+      
+      def maxpool2d w, h, pw, ph
+        self.class[each_slice_2d(w, h, pw, ph).collect(&:max)]
+      end
+
+      def maxpool2d_idx w, h, pw, ph
+        each_with_index.to_a.each_slice_2d(w, h, pw, ph).collect { |p|
+          p.reduce([ -Float::INFINITY, nil ]) { |a, el|
+            a[0] < el[0] ? el : a
+          }
+        }.collect { |el| el[1] }
       end
     end
   end

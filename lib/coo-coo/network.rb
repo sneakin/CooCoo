@@ -66,7 +66,7 @@ module CooCoo
 
     def activation_function
       unless @activation_function
-        layer = @layers.find { |l| l.activation_function }
+        layer = @layers.find { |l| l.respond_to?(:activation_function) ? l.activation_function : nil }
         @activation_function = layer.activation_function
       end
             
@@ -75,7 +75,7 @@ module CooCoo
 
     def output_activation_function
       unless @output_activation_function
-        layer = @layers.reverse.find { |l| l.activation_function }
+        layer = @layers.reverse.find { |l| l.respond_to?(:activation_function) ? l.activation_function : nil }
         @output_activation_function = layer.activation_function
       end
 

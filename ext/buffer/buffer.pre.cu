@@ -25,9 +25,9 @@ __device__ int grid(int ndims)
 }
 
 static int _initialized = -1;
-static size_t _block_size = 1024;
+__managed__ static size_t _block_size = 1024;
 static dim3 _block_dim(1024, 1024, 64);
-static size_t _max_grid_size = 2147483647;
+__managed__ static size_t _max_grid_size = 2147483647;
 static dim3 _max_grid_dim(2147483647, 65535, 65535);
 
 //static int _threads_per_block = 1;
@@ -562,6 +562,8 @@ PUBLIC cudaError_t buffer_set2dv(Buffer dest, size_t dest_width, const void *src
 typedef double (*ReduceOp)(double a, double b);
 typedef void (*ReduceKernel)(const double *, double *, size_t, size_t);
 
+// todo may only work w/ sizes that are powers of two
+
 #define REDUCE_KERNEL(NAME, OP, INITIAL)                                \
   double NAME ## _initial_value = INITIAL;                              \
   double NAME ## _op(double a, double b)                                \
@@ -959,3 +961,196 @@ PUBLIC Buffer buffer_conv2d_dot(const Buffer a, size_t aw, size_t ah, const Buff
   }
 }
 
+__global__ void buffer_maxpool1d_kernel(const double *in, size_t in_size, size_t pool_size, double *out)
+{
+  extern __shared__ double data[];
+  int in_x = blockIdx.x * blockDim.x + threadIdx.x;
+  int n;
+  
+  data[threadIdx.x] = in_x < in_size ? in[in_x] : -INFINITY;
+  __syncthreads();
+
+  for(n = blockDim.x / 2; n > 0; n = n / 2) {
+    if(threadIdx.x < n) {
+      data[threadIdx.x] = data[threadIdx.x] > data[threadIdx.x + n] ? data[threadIdx.x] : data[threadIdx.x + n];
+      __syncthreads();
+    }
+  }
+
+  if(threadIdx.x == 0) {
+    out[blockIdx.x] = out[blockIdx.x] > data[0] ? out[blockIdx.x] : data[0];
+  }
+}
+
+PUBLIC Buffer buffer_maxpool1d(const Buffer buf, size_t req_pool_size)
+{
+  size_t pool_size = min(buf->length, req_pool_size);
+  size_t n = (buf->length + pool_size - 1) / pool_size;
+  Buffer out = buffer_new(n, -INFINITY);
+  buffer_maxpool1d_kernel<<< n, pool_size, pool_size * sizeof(double) >>>(buf->data, buf->length, pool_size, out->data);
+  return out;
+}
+
+__global__ void buffer_maxpool1d_idx_kernel(const double *in, size_t in_size, size_t pool_size, double *out, double *out_vals)
+{
+  extern __shared__ double data[];
+  int *indexes = (int *)data;
+  double *values = (double *)(data + blockDim.x);
+  int in_x = blockIdx.x * blockDim.x + threadIdx.x;
+  int n;
+
+  if(in_x < in_size) {
+    values[threadIdx.x] = in[in_x];
+    indexes[threadIdx.x] = in_x;
+  } else {
+    values[threadIdx.x] = -INFINITY;
+    indexes[threadIdx.x] = in_x;
+  }
+  __syncthreads();
+
+  for(n = blockDim.x / 2; n > 0; n = n / 2) {
+    if(threadIdx.x < n) {
+      if(values[threadIdx.x] < values[threadIdx.x + n]) {
+        values[threadIdx.x] = values[threadIdx.x + n];
+        indexes[threadIdx.x] = indexes[threadIdx.x + n];
+        __syncthreads();
+      }
+    }
+  }
+
+  if(threadIdx.x == 0) {
+    if(out_vals[blockIdx.x] < values[0]) {
+      out_vals[blockIdx.x] = values[0];
+      out[blockIdx.x] = indexes[0];
+    }
+  }
+}
+
+// todo return both the indexes and values
+
+PUBLIC Buffer buffer_maxpool1d_idx(const Buffer buf, size_t req_pool_size)
+{
+  size_t pool_size = min(buf->length, req_pool_size);
+  size_t n = (buf->length + pool_size - 1) / pool_size;
+  Buffer out = buffer_new(n, -1.0);
+  Buffer values = buffer_new(n, -INFINITY);
+  buffer_maxpool1d_idx_kernel<<< n, pool_size, pool_size * (sizeof(int) + sizeof(double)) >>>(buf->data, buf->length, pool_size, out->data, values->data);
+  buffer_free(values);
+  return out;
+}
+
+__global__ void buffer_maxpool2d_kernel(const double *in, dim3 in_dim, dim3 blocks, dim3 pool_size, double *out)
+{
+  extern __shared__ double data[];
+  int in_x = blockIdx.x * blockDim.x + threadIdx.x;
+  int in_y = blockIdx.y * blockDim.y + threadIdx.y;
+  int idx = in_y * in_dim.x + in_x;
+  int nx, ny;
+
+  data[threadIdx.y * blockDim.x + threadIdx.x] = idx < in_dim.x*in_dim.y ? in[idx] : -INFINITY;
+  __syncthreads();
+
+  /*
+  printf("X %i\tY %i\t\t"
+         "Bx %i\tBy %i\t"
+         "W %i\tH %i\t"
+         "idx %i\tn = %lf\n",
+         threadIdx.x, threadIdx.y,
+         blockIdx.x, blockIdx.y,
+         blockDim.x, blockDim.y,
+         idx, data[threadIdx.y * blockDim.x + threadIdx.x]);
+  */
+  
+  for(ny = blockDim.y / 2; ny > 0; ny = ny / 2) {
+    if(threadIdx.y < ny) {
+      for(nx = blockDim.x / 2; nx > 0; nx = nx / 2) {
+        if(threadIdx.x < nx) {
+          int i = threadIdx.y * blockDim.x + threadIdx.x;
+          int j = ny * blockDim.x + nx;
+          data[i] = data[i] > data[i + j] ? data[i] : data[i + j];
+          __syncthreads();
+        }
+      }
+    }
+  }
+  
+  if(threadIdx.y == 0 && threadIdx.x == 0) {
+    int i = blockIdx.y * blocks.x + blockIdx.x;
+    out[i] = out[i] > data[0] ? out[i] : data[0];
+  }
+}
+
+PUBLIC Buffer buffer_maxpool2d(const Buffer buf, size_t buf_w, size_t buf_h, size_t req_pool_w, size_t req_pool_h)
+{
+  size_t pool_w = min(buf_w, req_pool_w);
+  size_t pool_h = min(buf_h, req_pool_h);
+  dim3 pool_dim = { pool_w, pool_h };
+  dim3 buf_d = { buf_w, buf_h };
+  size_t nx = (buf_w + pool_w - 1) / pool_w;
+  size_t ny = (buf_h + pool_h - 1) / pool_h;
+  dim3 n = { nx, ny };
+  Buffer out = buffer_new(nx*ny, -INFINITY);
+  buffer_maxpool2d_kernel<<< n, pool_dim, pool_w * pool_h * sizeof(double) >>>(buf->data, buf_d, n, pool_dim, out->data);
+  return out;
+}
+
+__global__ void buffer_maxpool2d_idx_kernel(const double *in, dim3 in_dim, dim3 blocks, dim3 pool_size, double *out, double *out_vals)
+{
+  extern __shared__ double data[];
+  int *indexes = (int *)data;
+  double *values = (double *)((int *)data + blockDim.x*blockDim.y);
+
+  int in_x = blockIdx.x * blockDim.x + threadIdx.x;
+  int in_y = blockIdx.y * blockDim.y + threadIdx.y;
+  int idx = in_y * in_dim.x + in_x;
+  int nx, ny;
+
+  if(idx < in_dim.x*in_dim.y) {
+    values[threadIdx.y * blockDim.x + threadIdx.x] = in[idx];
+    indexes[threadIdx.y * blockDim.x + threadIdx.x] = idx;
+  } else {
+    values[threadIdx.y * blockDim.x + threadIdx.x] = -INFINITY;
+    indexes[threadIdx.y * blockDim.x + threadIdx.x] = idx;
+  }
+  __syncthreads();
+
+  for(ny = blockDim.y / 2; ny > 0; ny = ny / 2) {
+    if(threadIdx.y < ny) {
+      for(nx = blockDim.x / 2; nx > 0; nx = nx / 2) {
+        if(threadIdx.x < nx) {
+          int i = threadIdx.y * blockDim.x + threadIdx.x;
+          int j = ny * blockDim.x + nx;
+          if(values[i] < values[i + j]) {
+            values[i] = values[i + j];
+            indexes[i] = indexes[i + j];
+            __syncthreads();
+          }
+        }
+      }
+    }
+  }
+  
+  if(threadIdx.y == 0 && threadIdx.x == 0) {
+    int i = blockIdx.y * blocks.x + blockIdx.x;
+    if(out[i] < values[0]) {
+      out_vals[i] = values[0];
+      out[i] = indexes[0];
+    }
+  }
+}
+
+PUBLIC Buffer buffer_maxpool2d_idx(const Buffer buf, size_t buf_w, size_t buf_h, size_t req_pool_w, size_t req_pool_h)
+{
+  size_t pool_w = min(buf_w, req_pool_w);
+  size_t pool_h = min(buf_h, req_pool_h);
+  dim3 pool_dim = { pool_w, pool_h };
+  dim3 buf_d = { buf_w, buf_h };
+  size_t nx = (buf_w + pool_w - 1) / pool_w;
+  size_t ny = (buf_h + pool_h - 1) / pool_h;
+  dim3 n = { nx, ny };
+  Buffer out = buffer_new(nx*ny, -INFINITY);
+  Buffer out_vals = buffer_new(nx*ny, -INFINITY);
+  buffer_maxpool2d_idx_kernel<<< n, pool_dim, pool_w * pool_h * (sizeof(int) + sizeof(double)) >>>(buf->data, buf_d, n, pool_dim, out->data, out_vals->data);
+  buffer_free(out_vals);
+  return out;
+}

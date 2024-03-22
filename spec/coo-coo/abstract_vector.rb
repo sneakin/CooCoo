@@ -1067,4 +1067,110 @@ shared_examples "for an AbstractVector" do
     # todo bad dimensions: too big
     # todo smaller dimensions
   end  
+
+  describe '#maxpool1d' do
+    describe 'with a reversed sequence' do
+      subject { described_class[16.times.to_a.reverse] }
+      it 'returns the max for each span' do
+        expect(subject.maxpool1d(4)).to eq([15,11,7,3])
+        expect(subject.maxpool1d(2)).to eq(subject.each.collect(&:to_i).select(&:odd?))
+        expect(subject.maxpool1d(10)).to eq([15,5])
+        expect(subject.maxpool1d(20)).to eq([15])
+      end
+    end
+
+    describe 'with a sequence' do
+      subject { described_class[16.times.to_a] }
+      it 'returns the max for each span' do
+        expect(subject.maxpool1d(4)).to eq([3,7,11,15])
+        expect(subject.maxpool1d(2)).to eq(subject.each.collect(&:to_i).select(&:odd?))
+        expect(subject.maxpool1d(8)).to eq([7,15])
+        expect(subject.maxpool1d(10)).to eq([9,15])
+        expect(subject.maxpool1d(20)).to eq([15])
+      end
+    end
+  end
+
+  describe '#maxpool1d_idx' do
+    describe 'with a reversed sequence' do
+      subject { described_class[16.times.to_a.reverse] }
+      it 'returns the indexes for the maximum value in each span' do
+        expect(subject.maxpool1d_idx(4)).to eq([0,4,8,12])
+        expect(subject.maxpool1d_idx(2)).to eq((0...16).select(&:even?))
+        expect(subject.maxpool1d_idx(10)).to eq([0,10])
+        expect(subject.maxpool1d_idx(20)).to eq([0])
+      end
+    end
+    describe 'with a sequence' do
+      subject { described_class[16.times.to_a] }
+      it 'returns the indexes for the maximum value in each span' do
+        expect(subject.maxpool1d_idx(4)).to eq([3,7,11,15])
+        expect(subject.maxpool1d_idx(2)).to eq((0...16).select(&:odd?))
+        expect(subject.maxpool1d_idx(10)).to eq([9,15])
+        expect(subject.maxpool1d_idx(20)).to eq([15])
+      end
+    end
+  end
+
+  describe '#maxpool2d' do
+    describe 'with a reversed sequence' do
+      subject { described_class[16.times.to_a.reverse] }
+      # [[15, 14, 13, 12],
+      #  [11, 10, 9, 8],
+      #  [7, 6, 5, 4],
+      #  [3, 2, 1, 0]]
+      it 'returns the max for each span' do
+        expect(subject.maxpool2d(4,4,2,2)).to eq([15, 13, 7, 5])
+        expect(subject.maxpool2d(4, 4, 4, 4)).to eq([15])
+        expect(subject.maxpool2d(8, 2, 2, 2)).to eq([15, 13, 11, 9])
+        expect(subject.maxpool2d(4, 4, 4, 2)).to eq([15, 7])
+        expect(subject.maxpool2d(4, 4, 2, 4)).to eq([15, 13])
+      end
+    end
+    describe 'with a sequence' do
+      # [[0, 1, 2, 3],
+      #  [4, 5, 6, 7],
+      #  [8, 9, 10, 11],
+      #  [12, 13, 14, 15]]
+      subject { described_class[16.times.to_a] }
+      it 'returns the max for each span' do
+        expect(subject.maxpool2d(4,4,2,2)).to eq([5, 7, 13, 15])
+        expect(subject.maxpool2d(4, 4, 4, 4)).to eq([15])
+        expect(subject.maxpool2d(8, 2, 2, 2)).to eq([9, 11, 13, 15])
+        expect(subject.maxpool2d(4, 4, 4, 2)).to eq([7, 15])
+        expect(subject.maxpool2d(4, 4, 2, 4)).to eq([13, 15])
+      end
+    end
+  end
+
+  describe '#maxpool2d_idx' do
+    describe 'with a reversed sequence' do
+      subject { described_class[16.times.to_a.reverse] }
+      # [[15, 14, 13, 12],
+      #  [11, 10, 9, 8],
+      #  [7, 6, 5, 4],
+      #  [3, 2, 1, 0]]
+      it 'returns the max for each span' do
+        expect(subject.maxpool2d_idx(4,4,2,2)).to eq([0, 2, 8, 10])
+        expect(subject.maxpool2d_idx(4, 4, 4, 4)).to eq([0])
+        expect(subject.maxpool2d_idx(8, 2, 2, 2)).to eq([0, 2, 4, 6])
+        expect(subject.maxpool2d_idx(4, 4, 4, 2)).to eq([0, 8])
+        expect(subject.maxpool2d_idx(4, 4, 2, 4)).to eq([0, 2])
+      end
+    end
+    describe 'with a sequence' do
+      # [[0, 1, 2, 3],
+      #  [4, 5, 6, 7],
+      #  [8, 9, 10, 11],
+      #  [12, 13, 14, 15]]
+      subject { described_class[16.times.to_a] }
+      it 'returns the max for each span' do
+        expect(subject.maxpool2d_idx(4,4,2,2)).to eq([5, 7, 13, 15])
+        expect(subject.maxpool2d_idx(4, 4, 4, 4)).to eq([15])
+        expect(subject.maxpool2d_idx(8, 2, 2, 2)).to eq([9, 11, 13, 15])
+        expect(subject.maxpool2d_idx(4, 4, 4, 2)).to eq([7, 15])
+        expect(subject.maxpool2d_idx(4, 4, 2, 4)).to eq([13, 15])
+      end
+    end
+  end  
 end

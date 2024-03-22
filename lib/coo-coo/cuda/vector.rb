@@ -158,10 +158,22 @@ module CooCoo
       #   @return [Float] the sum of +self+
       delegate :min, :max, :minmax, :sum, :product, :to => :elements
 
-      def maxpool(width, height, pool_width, pool_height)
-        self.class[@elements.maxpool(width, height, pool_width, pool_height)]
+      def maxpool1d_idx pool_size
+        self.class[@elements.maxpool1d_idx(pool_size)]
+      end
+      
+      def maxpool1d pool_size
+        self.class[@elements.maxpool1d(pool_size)]
+      end
+      
+      def maxpool2d w, h, pw, ph
+        self.class[@elements.maxpool2d(w, h, pw, ph)]
       end
 
+      def maxpool2d_idx w, h, pw, ph
+        self.class[@elements.maxpool2d_idx(w, h, pw, ph)]
+      end
+      
       def average
         @elements.sum / size
       end

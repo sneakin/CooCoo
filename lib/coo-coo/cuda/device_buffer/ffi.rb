@@ -92,7 +92,11 @@ EOT
         buffer_function :identity, [ :size_t ], DeviceBuffer.auto_ptr
         buffer_function :diagflat, [ DeviceBuffer ], DeviceBuffer.auto_ptr
         buffer_function :transpose, [ DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
-        
+        buffer_function :maxpool1d, [ DeviceBuffer, :size_t ], DeviceBuffer.auto_ptr
+        buffer_function :maxpool1d_idx, [ DeviceBuffer, :size_t ], DeviceBuffer.auto_ptr
+        buffer_function :maxpool2d, [ DeviceBuffer, :size_t, :size_t, :size_t, :size_t ], DeviceBuffer.auto_ptr
+        buffer_function :maxpool2d_idx, [ DeviceBuffer, :size_t, :size_t, :size_t, :size_t ], DeviceBuffer.auto_ptr
+          
         [ :abs, :exp, :log, :log10, :log2, :sqrt,
           :sin, :asin, :cos, :acos, :tan, :atan,
           :sinh, :asinh, :cosh, :acosh, :tanh, :atanh,

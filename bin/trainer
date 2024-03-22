@@ -171,7 +171,7 @@ puts("\tInputs: #{net.num_inputs}")
 puts("\tOutputs: #{net.num_outputs}")
 puts("\tLayers: #{net.num_layers}")
 net.layers.each_with_index do |l, i|
-  puts("\t%3i: %-8i %-8i #{l.name}" % [ i, l.num_inputs, l.size ])
+  puts("\t%3i: %-8i %-8s #{l.name}" % [ i, l.num_inputs, l.size.inspect ])
 end
 puts
 puts("Training data:")

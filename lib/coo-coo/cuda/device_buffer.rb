@@ -115,6 +115,23 @@ module CooCoo
         FFI.buffer_product(self)
       end
 
+      def maxpool1d pool_size
+        FFI.maxpool1d(self, pool_size)
+      end
+      
+      def maxpool1d_idx pool_size
+        FFI.maxpool1d_idx(self, pool_size)
+      end
+      
+      def maxpool2d w, h, pw, ph
+        FFI.maxpool2d(self, w, h, pw, ph)
+      end
+      
+      def maxpool2d_idx w, h, pw, ph
+        FFI.maxpool2d_idx(self, w, h, pw, ph)
+      end
+
+      # todo remove
       def maxpool(width, height, pool_width, pool_height)
         raise ArgumentError.new("width * height exceed buffer size") if width * height > size
         raise ArgumentError.new("pool width must be > 0") if pool_width <= 0

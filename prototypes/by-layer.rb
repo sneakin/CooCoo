@@ -73,6 +73,17 @@ def option_parser options
       options.conv_updater = v
     end
 
+    o.on('--maxpool2d WIDTH,HEIGHT') do |v|
+      w, h = CooCoo::Utils.split_csi(v)
+      h ||= w
+      options.layers << [ :maxpool2d, [w, h] ]
+    end
+    
+    o.on('--maxpool1d WIDTH') do |v|
+      w = v.to_i
+      options.layers << [ :maxpool1d, [w] ]
+    end
+    
     o.on('--softmax', 'Adds a SoftMax layer to the end of the network.') do
       options.softmax = true
     end
@@ -119,6 +130,14 @@ def generate(options, input_size, output_size)
       layer = CooCoo::Convolution::Conv2dLayer.new(*last_size, *cstep, inner, *size, *csize)
       net.layer(layer)
       last_size = [ layer.output_width, layer.output_height ]
+    when :maxpool1d
+      layer = CooCoo::MaxPool1dLayer.new(last_size.prod, *size)
+      net.layer(layer)
+      last_size = [ layer.size ]
+    when :maxpool2d
+      layer = CooCoo::MaxPool2dLayer.new(*last_size, *size)
+      net.layer(layer)
+      last_size = [ layer.size_x, layer.size_y ]
     end
   end
 
