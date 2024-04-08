@@ -1,7 +1,7 @@
 require 'coo-coo/core_ext'
 
 shared_examples "for an AbstractVector" do
-  epsilon = 0.000000001
+  epsilon = FFI::TypeDefs[:buffer_value].size == 8 ? 0.00000001 : 0.001
 
   describe '.new' do
     describe 'with a size of zero' do
@@ -513,7 +513,7 @@ shared_examples "for an AbstractVector" do
           if i < 1.0
             expect(o.nan?).to be(true)
           else
-            expect(o).to eq(Math.acosh(i))
+            expect(o).to be_within(epsilon).of(Math.acosh(i))
           end
         end
       end
@@ -531,7 +531,7 @@ shared_examples "for an AbstractVector" do
   describe '#magnitude' do
     subject { described_class[[1, 2, 3]] }
     
-    it 'returns the squareroot of the sum of the squares of each element' do
+    it 'returns the square root of the sum of the squares of each element' do
       expect(subject.magnitude).to eq(Math.sqrt(1*1 + 2*2 + 3*3))
     end
   end
@@ -540,7 +540,12 @@ shared_examples "for an AbstractVector" do
     subject { described_class[[1.0, 2.0, 3.0]] }
 
     it "returns the vector divided by its magnitude" do
-      expect(subject.normalize).to eq(described_class[[1/Math.sqrt(14.0), 2/Math.sqrt(14.0), 3/Math.sqrt(14.0)]])
+      expecting = described_class[[1/Math.sqrt(14.0),
+                                   2/Math.sqrt(14.0),
+                                   3/Math.sqrt(14.0)]]
+      subject.normalize.each.zip(expecting.each) do |r, e|
+        expect(r).to be_within(epsilon).of(e)
+      end
     end
 
     it { expect(subject.normalize).to be_kind_of(described_class) }
@@ -625,7 +630,6 @@ shared_examples "for an AbstractVector" do
           #   8  9  10 11      100
           #   12 13 24 15      1000
           r = subject.conv_box2d_dot(4,4,[1,10,100,1000],1,4,1,2,4,1)
-          puts("4x1",*r.each_slice(4).to_a.collect(&:inspect))
           expect(r.size).to eq(1*1 * 4/1 * 4/2)
           expect(r).
             to eq(described_class[[3210, 321, 32, 3,
@@ -641,9 +645,7 @@ shared_examples "for an AbstractVector" do
           # 12 13 24 15
           # --
           a = subject.slice_2d(4,4,0,0,1,4).dot(1,4,[1,10,100,1000],4,1)
-          puts("1x4",*a.each_slice(4).to_a.collect(&:inspect))
           r = subject.conv_box2d_dot(4,4,[1,10,100,1000],4,1,1,2,1,4)
-          puts("1x4",*r.each_slice(16).to_a.collect(&:inspect))
           expect(r.size).to eq(4*4 * 4/1 * 4/2)
           expect(r).
             to eq(described_class[[0, 0, 0, 0, 1, 10, 100, 1000, 2, 20, 200, 2000, 3, 30, 300, 3000,

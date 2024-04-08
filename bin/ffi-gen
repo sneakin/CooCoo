@@ -8,10 +8,12 @@ class ExportScanner
 
   attr_reader :structs
   attr_reader :functions
-
+  attr_reader :basic_types
+  
   def initialize(typedefs = Hash.new)
     @functions = Array.new
     @structs = Array.new
+    @basic_types = Array.new
     @typedefs = typedefs
   end
 
@@ -69,7 +71,8 @@ class ExportScanner
 
   StructDef = Struct.new(:name, :definition, :fields)
   StructField = Struct.new(:name, :definition, :type, :pointer)
-
+  BasicType = Struct.new(:definition, :type, :name)
+  
   def scan_struct_field(field)
     m = field.match(/\s*(((\w+) )+\s*(([*]+)?(\w+))\s*)/m)
     if m
@@ -81,24 +84,32 @@ class ExportScanner
     fields.collect { |field| scan_struct_field(field) }.reject(&:nil?)
   end
 
-  def scan_for_structs_inner(data, acc = [])
+  def scan_for_structs(data, acc = [])
     m = data.match(/(typedef\s+struct\s+(\w+)\s+{(.*)}\s+[*](\w+);)(.*)/m)
     if m
       acc << StructDef.new(m[4], m[1], scan_struct_fields(m[3].split(';').collect(&:strip)))
-      scan_for_structs_inner(m[5], acc)
+      scan_for_structs(m[5], acc)
     else
       acc
     end
   end
   
-  def scan_for_structs(path)
-    scan_for_structs_inner(File.read(path))
+  def scan_for_basic_types(data, acc = [])
+    m = data.match(/(typedef\s+(\w+)\s+(\w+);)(.*)/m)
+    if m
+      acc << BasicType.new(m[1], m[2], m[3])
+      scan_for_basic_types(m[3], acc)
+    else
+      acc
+    end
   end
-
+  
   def scan(path)
     @functions += scan_for_functions(path)
-    @structs += scan_for_structs(path)
-
+    data = File.read(path)
+    @structs += scan_for_structs(data)
+    @basic_types += scan_for_basic_types(data)
+    
     self
   end
 
@@ -111,6 +122,7 @@ class ExportScanner
 \#include "public.h"
 
 extern "C" {
+  #{basic_types.collect(&:definition).join('\n')}
   #{structs.collect(&:definition).join('\n')}
 
   #{functions.collect(&:definition).join(";\n  ")};
@@ -123,7 +135,8 @@ EOT
   def ffi_type(a, pointer = nil, unmanaged = nil)
     a = @typedefs[a] if @typedefs.has_key?(a)
     if FFI::TypeDefs[a.to_sym]
-      ":" + FFI::TypeDefs.key(FFI::TypeDefs[a.to_sym]).to_s
+      # ":" + FFI::TypeDefs.key(FFI::TypeDefs[a.to_sym]).to_s
+      ":#{a}"
     elsif pointer
       if unmanaged
         "#{a}.ptr"
@@ -163,7 +176,14 @@ class #{s.name} < ::FFI::Struct
 end
 EOT
   end
-  
+
+  def ffi_basic_type(type)
+    ft = ffi_type(type.type)
+    # @typedefs[type.name] = ft
+    ::FFI.typedef(type.type.to_sym, type.name.to_sym)
+    "::FFI.typedef(%s, :%s)" % [ ft, type.name ]
+  end
+
   def ffi(name, library)
     <<-EOT
 module #{name}
@@ -171,6 +191,7 @@ module #{name}
     extend ::FFI::Library
     ffi_lib Pathname.new(__FILE__).join('..', "#{library}.#{RbConfig::CONFIG['DLEXT']}").to_s
 
+#{basic_types.collect { |s| ffi_basic_type(s) }.compact.join("\n")}
 #{structs.collect { |s| ffi_struct(s) }.compact.join("\n")}
 #{functions.collect { |f| ffi_def(f) }.compact.join("\n")}
   end

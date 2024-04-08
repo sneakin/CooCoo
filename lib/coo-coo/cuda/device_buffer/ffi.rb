@@ -14,7 +14,7 @@ module CooCoo
                  :y, :int,
                  :z, :int)
         end
-        
+
         def self.buffer_function(*args)
           if args.size == 3
             func, args, return_type = args
@@ -53,17 +53,17 @@ EOT
         buffer_function :total_bytes_allocated, [], :size_t
         buffer_function :num_allocated, [], :long_long
 
-        buffer_function :new, [ :size_t, :double ], DeviceBuffer.auto_ptr
+        buffer_function :new, [ :size_t, :buffer_value ], DeviceBuffer.auto_ptr
         buffer_function :free, [ DeviceBuffer ], :size_t
         buffer_function :length, [ DeviceBuffer ], :size_t
         buffer_function :set, [ DeviceBuffer, DeviceBuffer ], :int
         buffer_function :setv, [ DeviceBuffer, :pointer, :size_t ], :int
         buffer_function :setvn, [ DeviceBuffer, :size_t, :pointer, :size_t ], :int
-        buffer_function :setd, [ DeviceBuffer, :double, :size_t, :size_t ], :int
-        buffer_function :set_element, [ DeviceBuffer, :size_t, :double ], :int
+        buffer_function :setd, [ DeviceBuffer, :buffer_value, :size_t, :size_t ], :int
+        buffer_function :set_element, [ DeviceBuffer, :size_t, :buffer_value ], :int
         buffer_function :get, [ DeviceBuffer, :pointer, :size_t ], :int
         buffer_function :slice, [ DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
-        buffer_function :slice_2d, [ DeviceBuffer, :size_t, :size_t, :size_t, :size_t, :size_t, :size_t, :double ], DeviceBuffer.auto_ptr
+        buffer_function :slice_2d, [ DeviceBuffer, :size_t, :size_t, :size_t, :size_t, :size_t, :size_t, :buffer_value ], DeviceBuffer.auto_ptr
         buffer_function :set2d, [ DeviceBuffer, :size_t, DeviceBuffer, :size_t, :size_t, :size_t ], :int
         buffer_function :set2dv, [ DeviceBuffer, :size_t, :pointer, :size_t, :size_t, :size_t, :size_t ], :int
         buffer_function :host_slice, [ DeviceBuffer, :pointer, :size_t, :size_t ], :int
@@ -74,21 +74,21 @@ EOT
         ].each do |binary_op|
           buffer_function binary_op, [ DeviceBuffer, DeviceBuffer ], DeviceBuffer.auto_ptr
           buffer_function "#{binary_op}_2d", [ DeviceBuffer, :size_t, DeviceBuffer, :size_t, :size_t, :size_t, :size_t, :size_t ], :int
-          buffer_function "#{binary_op}d", [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
+          buffer_function "#{binary_op}d", [ DeviceBuffer, :buffer_value ], DeviceBuffer.auto_ptr
         end
         buffer_function :eq, [ DeviceBuffer, DeviceBuffer ], :int
-        #buffer_function :addd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
-        #buffer_function :subd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
-        #buffer_function :muld, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
-        #buffer_function :divd, [ DeviceBuffer, :double ], DeviceBuffer.auto_ptr
+        #buffer_function :addd, [ DeviceBuffer, :buffer_value ], DeviceBuffer.auto_ptr
+        #buffer_function :subd, [ DeviceBuffer, :buffer_value ], DeviceBuffer.auto_ptr
+        #buffer_function :muld, [ DeviceBuffer, :buffer_value ], DeviceBuffer.auto_ptr
+        #buffer_function :divd, [ DeviceBuffer, :buffer_value ], DeviceBuffer.auto_ptr
 
-        buffer_function :sum, [ DeviceBuffer ], :double
-        buffer_function :product, [ DeviceBuffer ], :double
-        buffer_function :min, [ DeviceBuffer ], :double
-        buffer_function :max, [ DeviceBuffer ], :double
+        buffer_function :sum, [ DeviceBuffer ], :buffer_value
+        buffer_function :product, [ DeviceBuffer ], :buffer_value
+        buffer_function :min, [ DeviceBuffer ], :buffer_value
+        buffer_function :max, [ DeviceBuffer ], :buffer_value
           
         buffer_function :dot, [ DeviceBuffer, :size_t, :size_t, DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr
-        buffer_function :conv2d_dot, [ DeviceBuffer, :size_t, :size_t, DeviceBuffer, :size_t, :size_t, :int, :int, :size_t, :size_t, :double ], DeviceBuffer.auto_ptr
+        buffer_function :conv2d_dot, [ DeviceBuffer, :size_t, :size_t, DeviceBuffer, :size_t, :size_t, :int, :int, :size_t, :size_t, :buffer_value ], DeviceBuffer.auto_ptr
         buffer_function :identity, [ :size_t ], DeviceBuffer.auto_ptr
         buffer_function :diagflat, [ DeviceBuffer ], DeviceBuffer.auto_ptr
         buffer_function :transpose, [ DeviceBuffer, :size_t, :size_t ], DeviceBuffer.auto_ptr

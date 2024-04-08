@@ -36,8 +36,18 @@ module CooCoo
         end
       end
       
-      def initialize(size, type = :double)
+      def initialize(size, type = nil)
         @size = size
+        if type == nil
+          type = case FFI::TypeDefs[:buffer_value]
+                 when FFI::Type::Builtin::INT8 then :char
+                 when FFI::Type::Builtin::LONG then :long
+                 when FFI::Type::Builtin::FLOAT32 then :float
+                 when FFI::Type::Builtin::FLOAT64 then :double
+                 else raise ArgumentError, "invalid type: #{type}"
+                 end
+        end
+        raise ArgumentError, "invalid type: #{type}" unless TYPE_GETTER.keys.include?(type)
         @type = type
         @buffer = ::FFI::MemoryPointer.new(type, size)
       end

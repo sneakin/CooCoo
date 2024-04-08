@@ -5,10 +5,11 @@
 #include "buffer.h"
 
 #ifdef IN_PUBLIC
+typedef float BufferValue;
 typedef struct Buffer_s
 {
   size_t length;
-  double *data;
+  BufferValue *data;
 } *Buffer;
 #endif
 
@@ -118,7 +119,7 @@ PUBLIC cudaError_t cuda_free(void *ptr, size_t bytes)
   return err;
 }
 
-typedef void (*kernel_func_t)(int len, double *out, const double *a, const double *b, int grid_offset, void *);
+typedef void (*kernel_func_t)(int len, BufferValue *out, const BufferValue *a, const BufferValue *b, int grid_offset, void *);
 
 Buffer launch_kerneln(kernel_func_t kernel, int length, const Buffer a, const Buffer b, void *data)
 {
@@ -155,9 +156,38 @@ Buffer launch_kernel(kernel_func_t kernel, const Buffer a, const Buffer b, void 
   }
 }
 
-typedef void (*kerneld_func_t)(int, double *, const double *, double, int);
+__device__ void dev_launch_kerneln(kernel_func_t kernel, Buffer out, int length, const Buffer a, const Buffer b, void *data)
+{
+  size_t i;
 
-Buffer launchd_kernel(kerneld_func_t kernel, const Buffer a, double b, size_t offset)
+  if(a != NULL) {
+    size_t grid_size = (length + _block_size - 1) / _block_size;
+    
+    if(grid_size >= _max_grid_size) {
+      for(i = 0; i < (grid_size / _max_grid_size); i++) {
+        kernel<<< _max_grid_size, _block_size >>>(length, out->data, a->data, b? b->data : NULL, i * _max_grid_size, data);
+      }
+    } else {
+      kernel<<< grid_size, _block_size >>>(length, out->data, a->data, b? b->data : NULL, 0, data);
+    }
+    return;
+  } else {
+    return;
+  }
+}
+
+__device__ void dev_launch_kernel(kernel_func_t kernel, Buffer out, const Buffer a, const Buffer b, void *data)
+{
+  if(a != NULL && (b == NULL || a->length == b->length)) {
+    dev_launch_kerneln(kernel, out, a->length, a, b, data);
+  } else {
+    return;
+  }
+}
+
+typedef void (*kerneld_func_t)(int, BufferValue *, const BufferValue *, BufferValue, int);
+
+Buffer launchd_kernel(kerneld_func_t kernel, const Buffer a, BufferValue b, size_t offset)
 {
   Buffer out;
   size_t i;
@@ -180,7 +210,7 @@ Buffer launchd_kernel(kerneld_func_t kernel, const Buffer a, double b, size_t of
   return out;
 }
 
-typedef void (*kernel_2d_func_t)(double *a, size_t aw, size_t ah, const double *b, size_t bw, size_t bh, int x, int y, size_t w, size_t h, size_t grid_offset);
+typedef void (*kernel_2d_func_t)(BufferValue *a, size_t aw, size_t ah, const BufferValue *b, size_t bw, size_t bh, int x, int y, size_t w, size_t h, size_t grid_offset);
 
 cudaError_t launch_2d_kernel(kernel_2d_func_t kernel, Buffer a, size_t aw, const Buffer b, size_t bw, int x, int y, size_t w, size_t h, void *data)
 {
@@ -224,9 +254,9 @@ cudaError_t launch_2d_kernel(kernel_2d_func_t kernel, Buffer a, size_t aw, const
 }
 
 
-typedef void (*modkerneld_func_t)(int, double *, double, int);
+typedef void (*modkerneld_func_t)(int, BufferValue *, BufferValue, int);
 
-void launchd_modkernel(modkerneld_func_t kernel, const Buffer a, double b, size_t offset)
+void launchd_modkernel(modkerneld_func_t kernel, const Buffer a, BufferValue b, size_t offset)
 {
   size_t i;
   size_t length = a->length - offset;
@@ -277,7 +307,7 @@ PUBLIC cudaError_t buffer_init(int device)
   }
 }
 
-__global__ void buffer_setd_inner(int len, double *a, double b, int grid_offset)
+__global__ void buffer_setd_inner(int len, BufferValue *a, BufferValue b, int grid_offset)
 {
   int i = grid_offset + grid(1);
   if(i < len) {
@@ -285,14 +315,14 @@ __global__ void buffer_setd_inner(int len, double *a, double b, int grid_offset)
   }
 }
 
-PUBLIC cudaError_t buffer_setd(Buffer b, double value, size_t offset, size_t length)
+PUBLIC cudaError_t buffer_setd(Buffer b, BufferValue value, size_t offset, size_t length)
 {
   if(value == 0.0) {
     if(offset < b->length) {
       if(offset + length >= b->length) {
         length = b->length - offset;
       }
-      return cudaMemset(b->data, 0, length * sizeof(double));
+      return cudaMemset(b->data, 0, length * sizeof(BufferValue));
     } else {
       return cudaSuccess;
     }
@@ -302,9 +332,9 @@ PUBLIC cudaError_t buffer_setd(Buffer b, double value, size_t offset, size_t len
   }
 }
 
-PUBLIC Buffer buffer_new(size_t length, double initial_value)
+PUBLIC Buffer buffer_new(size_t length, BufferValue initial_value)
 {
-  size_t bytes = length * sizeof(double);
+  size_t bytes = length * sizeof(BufferValue);
     
   if(buffer_init(0) != 0 || bytes >= _total_memory) {
     return NULL;
@@ -332,7 +362,7 @@ PUBLIC cudaError_t buffer_free(Buffer buffer)
 {
   if(buffer != NULL) {
     if(buffer->data != NULL) {
-      cudaError_t err = cuda_free(buffer->data, buffer->length * sizeof(double));
+      cudaError_t err = cuda_free(buffer->data, buffer->length * sizeof(BufferValue));
       if(err != cudaSuccess) {
         return err;
       }
@@ -353,7 +383,7 @@ PUBLIC cudaError_t buffer_set(Buffer buffer, Buffer other)
   if(length > buffer->length) {
     length = buffer->length;
   }
-  return cudaMemcpy(buffer->data, other->data, length * sizeof(double), cudaMemcpyDeviceToDevice);
+  return cudaMemcpy(buffer->data, other->data, length * sizeof(BufferValue), cudaMemcpyDeviceToDevice);
 }
 
 PUBLIC cudaError_t buffer_setn(Buffer buffer, size_t offset, Buffer other, size_t length)
@@ -364,7 +394,7 @@ PUBLIC cudaError_t buffer_setn(Buffer buffer, size_t offset, Buffer other, size_
   if((offset + length) > buffer->length) {
     length = buffer->length - offset;
   }
-  return cudaMemcpy(buffer->data + offset, other->data, length * sizeof(double), cudaMemcpyDeviceToDevice);
+  return cudaMemcpy(buffer->data + offset, other->data, length * sizeof(BufferValue), cudaMemcpyDeviceToDevice);
 }
 
 PUBLIC cudaError_t buffer_setvn(Buffer buffer, size_t offset, void *data, size_t length)
@@ -372,7 +402,7 @@ PUBLIC cudaError_t buffer_setvn(Buffer buffer, size_t offset, void *data, size_t
   if((offset + length) > buffer->length) {
     length = buffer->length - offset;
   }
-  return cudaMemcpy(buffer->data + offset, data, length * sizeof(double), cudaMemcpyHostToDevice);
+  return cudaMemcpy(buffer->data + offset, data, length * sizeof(BufferValue), cudaMemcpyHostToDevice);
 }
 
 PUBLIC cudaError_t buffer_setv(Buffer buffer, void *data, size_t length)
@@ -380,20 +410,20 @@ PUBLIC cudaError_t buffer_setv(Buffer buffer, void *data, size_t length)
   return buffer_setvn(buffer, 0, data, length);
 }
 
-PUBLIC cudaError_t buffer_set_element(Buffer buffer, size_t n, double v)
+PUBLIC cudaError_t buffer_set_element(Buffer buffer, size_t n, BufferValue v)
 {
   if(buffer != NULL && n < buffer->length) {
-    return cudaMemcpy(buffer->data + n, &v, sizeof(double), cudaMemcpyHostToDevice);
+    return cudaMemcpy(buffer->data + n, &v, sizeof(BufferValue), cudaMemcpyHostToDevice);
   } else {
     return cudaErrorUnknown;
   }
 }
 
-PUBLIC double buffer_get_element(Buffer buffer, size_t n)
+PUBLIC BufferValue buffer_get_element(Buffer buffer, size_t n)
 {
   if(buffer != NULL && n < buffer->length) {
-    double out;
-    cudaMemcpy(&out, buffer->data + n, sizeof(double), cudaMemcpyDeviceToHost);
+    BufferValue out;
+    cudaMemcpy(&out, buffer->data + n, sizeof(BufferValue), cudaMemcpyDeviceToHost);
     return out;
   } else {
     return NAN;
@@ -408,7 +438,7 @@ PUBLIC cudaError_t buffer_get(Buffer buffer, void *out, size_t max_length)
     max_length = buffer->length;
   }
   
-  cudaError_t err = cudaMemcpy(out, buffer->data, max_length * sizeof(double), cudaMemcpyDeviceToHost);
+  cudaError_t err = cudaMemcpy(out, buffer->data, max_length * sizeof(BufferValue), cudaMemcpyDeviceToHost);
 
   return err;
 }
@@ -423,7 +453,7 @@ PUBLIC Buffer buffer_slice(Buffer buffer, size_t n, size_t max_length)
       max_length = buffer->length - n;
     }
 
-    cudaError_t err = cudaMemcpy(out->data, buffer->data + n, max_length * sizeof(double), cudaMemcpyDeviceToDevice);
+    cudaError_t err = cudaMemcpy(out->data, buffer->data + n, max_length * sizeof(BufferValue), cudaMemcpyDeviceToDevice);
 
     if(err == cudaSuccess) {
       return out;
@@ -443,7 +473,7 @@ PUBLIC cudaError_t buffer_host_slice(Buffer buffer, void *out, size_t n, size_t 
       max_length = buffer->length - n;
     }
     
-    cudaError_t err = cudaMemcpy(out, buffer->data + n, max_length * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaError_t err = cudaMemcpy(out, buffer->data + n, max_length * sizeof(BufferValue), cudaMemcpyDeviceToHost);
     return err;
   } else {
     return cudaErrorUnknown;
@@ -459,7 +489,7 @@ PUBLIC size_t buffer_length(const Buffer b)
   }
 }
 
-PUBLIC Buffer buffer_slice_2d(const Buffer in, int width, int height, int x, int y, int out_width, int out_height, double empty)
+PUBLIC Buffer buffer_slice_2d(const Buffer in, int width, int height, int x, int y, int out_width, int out_height, BufferValue empty)
 {
   Buffer out = buffer_new(out_width * out_height, empty);
   if(out == NULL) return NULL;
@@ -497,9 +527,9 @@ PUBLIC Buffer buffer_slice_2d(const Buffer in, int width, int height, int x, int
     return out;
   }
   //fprintf(stderr, "  slice2d: %i %i %i,%i %i,%i %i,%i\n", oi, ii, x, y, ox, oy, w, h);
-  cudaError_t err = cudaMemcpy2D(out->data + oi, out_width * sizeof(double),
-                                 in->data + ii, width * sizeof(double),
-                                 w * sizeof(double), h,
+  cudaError_t err = cudaMemcpy2D(out->data + oi, out_width * sizeof(BufferValue),
+                                 in->data + ii, width * sizeof(BufferValue),
+                                 w * sizeof(BufferValue), h,
                                  cudaMemcpyDeviceToDevice);
   if(err != cudaSuccess) {
     buffer_free(out);
@@ -535,9 +565,9 @@ cudaError_t buffer_set2d_inner(Buffer dest, size_t dest_width, const void *src, 
     return cudaSuccess;
   }
   cudaError_t err = cudaMemcpy2D(dest->data + idx,
-                                 dest_width * sizeof(double),
-                                 src, src_width * sizeof(double),
-                                 copy_width * sizeof(double),
+                                 dest_width * sizeof(BufferValue),
+                                 src, src_width * sizeof(BufferValue),
+                                 copy_width * sizeof(BufferValue),
                                  copy_height,
                                  kind);
   return err;
@@ -559,25 +589,25 @@ PUBLIC cudaError_t buffer_set2dv(Buffer dest, size_t dest_width, const void *src
   return buffer_set2d_inner(dest, dest_width, src, src_width, src_height, x, y, cudaMemcpyHostToDevice);
 }
 
-typedef double (*ReduceOp)(double a, double b);
-typedef void (*ReduceKernel)(const double *, double *, size_t, size_t);
+typedef BufferValue (*ReduceOp)(BufferValue a, BufferValue b);
+typedef void (*ReduceKernel)(const BufferValue *, BufferValue *, size_t, size_t);
 
 // todo may only work w/ sizes that are powers of two
 
 #define REDUCE_KERNEL(NAME, OP, INITIAL)                                \
-  double NAME ## _initial_value = INITIAL;                              \
-  double NAME ## _op(double a, double b)                                \
+  BufferValue NAME ## _initial_value = INITIAL;                              \
+  BufferValue NAME ## _op(BufferValue a, BufferValue b)                                \
   {                                                                     \
     return OP;                                                          \
   }                                                                     \
-  __device__ double NAME ## _op_device(double a, double b)              \
+  __device__ BufferValue NAME ## _op_device(BufferValue a, BufferValue b)              \
   {                                                                     \
     return OP;                                                          \
   }                                                                     \
                                                                         \
-  __global__ void NAME(const double *data, double *partial_sums, size_t length, size_t offset) \
+  __global__ void NAME(const BufferValue *data, BufferValue *partial_sums, size_t length, size_t offset) \
   {                                                                     \
-    extern __shared__ double sdata[];                                   \
+    extern __shared__ BufferValue sdata[];                                   \
     int i = offset + grid(1);                                           \
     int n;                                                              \
                                                                         \
@@ -596,13 +626,15 @@ typedef void (*ReduceKernel)(const double *, double *, size_t, size_t);
     }                                                                   \
   }
 
-double launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer b, double initial)
+// todo reduce2d for pooling
+
+BufferValue launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer b, BufferValue initial)
 {
   size_t i;
   size_t grid_size = (b->length + _block_size - 1) / _block_size;
   Buffer partial_buffer;
-  double *partial_sums;
-  double out = initial;
+  BufferValue *partial_sums;
+  BufferValue out = initial;
   size_t usable_grid = grid_size;
 
   if(b == NULL || b->length == 0) {
@@ -616,14 +648,14 @@ double launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer
   int num_partials = usable_grid;
   partial_buffer = buffer_new(num_partials, initial);
   if(partial_buffer == NULL) return NAN;
-  partial_sums = (double *)malloc(sizeof(double) * num_partials);
+  partial_sums = (BufferValue *)malloc(sizeof(BufferValue) * num_partials);
   if(partial_sums == NULL) {
     buffer_free(partial_buffer);
     return NAN;
   }
 
   for(i = 0; i < grid_size / usable_grid; i++) {
-    reduce_kernel<<< usable_grid, _block_size, _block_size * sizeof(double) >>>(b->data, partial_buffer->data, b->length, i * usable_grid);
+    reduce_kernel<<< usable_grid, _block_size, _block_size * sizeof(BufferValue) >>>(b->data, partial_buffer->data, b->length, i * usable_grid);
 
     buffer_get(partial_buffer, partial_sums, num_partials);
 
@@ -642,25 +674,25 @@ double launch_reduce_inner(ReduceOp op, ReduceKernel reduce_kernel, const Buffer
 
 
 REDUCE_KERNEL(buffer_sum_kernel, a + b, 0.0);
-PUBLIC double buffer_sum(const Buffer b)
+PUBLIC BufferValue buffer_sum(const Buffer b)
 {
   return launch_reduce(buffer_sum_kernel, b);
 }
 
 REDUCE_KERNEL(buffer_product_kernel, a * b, 1.0);
-PUBLIC double buffer_product(const Buffer b)
+PUBLIC BufferValue buffer_product(const Buffer b)
 {
   return launch_reduce(buffer_product_kernel, b);
 }
 
 REDUCE_KERNEL(buffer_min_kernel, fmin(a, b), NAN);
-PUBLIC double buffer_min(const Buffer b)
+PUBLIC BufferValue buffer_min(const Buffer b)
 {
   return launch_reduce(buffer_min_kernel, b);
 }
 
 REDUCE_KERNEL(buffer_max_kernel, fmax(a, b), NAN);
-PUBLIC double buffer_max(const Buffer b)
+PUBLIC BufferValue buffer_max(const Buffer b)
 {
   return launch_reduce(buffer_max_kernel, b);
 }
@@ -668,12 +700,12 @@ PUBLIC double buffer_max(const Buffer b)
 // todo overrun potential adding grid_size in the cuda kernel
 
 #define BINARY_OP(name, operation)                                      \
-  __device__ inline double buffer_ ## name ## _op(double a, double b)          \
+  __device__ inline BufferValue buffer_ ## name ## _op(BufferValue a, BufferValue b)          \
   {                                                                     \
     return(operation);                                                  \
   }                                                                     \
                                                                         \
-  __global__ void buffer_ ## name ##_inner(int len, double *out, const double *a, const double *b, int grid_offset, void *) \
+  __global__ void buffer_ ## name ##_inner(int len, BufferValue *out, const BufferValue *a, const BufferValue *b, int grid_offset, void *) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
     if(i < len) {                                                       \
@@ -681,12 +713,16 @@ PUBLIC double buffer_max(const Buffer b)
     }                                                                   \
   }                                                                     \
                                                                         \
+  __device__ void dev_buffer_ ## name(Buffer out, const Buffer a, const Buffer b) \
+  {                                                                     \
+    dev_launch_kernel(buffer_ ## name ## _inner, out, a, b, NULL);       \
+  }                                                                     \
   PUBLIC Buffer buffer_ ## name(const Buffer a, const Buffer b)         \
   {                                                                     \
     return launch_kernel(buffer_ ## name ## _inner, a, b, NULL);        \
   }                                                                     \
                                                                         \
-  __global__ void buffer_ ## name ## _2d_inner(double *a, size_t aw, size_t ah, const double *b, size_t bw, size_t bh, int x, int y, size_t w, size_t h, size_t grid_offset) \
+  __global__ void buffer_ ## name ## _2d_inner(BufferValue *a, size_t aw, size_t ah, const BufferValue *b, size_t bw, size_t bh, int x, int y, size_t w, size_t h, size_t grid_offset) \
   {                                                                     \
     int bx = blockIdx.x * blockDim.x + threadIdx.x;                     \
     int by = blockIdx.y * blockDim.y + threadIdx.y;                     \
@@ -707,7 +743,7 @@ PUBLIC double buffer_max(const Buffer b)
     return launch_2d_kernel(buffer_ ## name ## _2d_inner, a, aw, b, bw, x, y, w, h, NULL); \
   }                                                                     \
                                                                         \
-  __global__ void buffer_ ## name ## d_inner(int len, double *out, const double *a, const double b, int grid_offset) \
+  __global__ void buffer_ ## name ## d_inner(int len, BufferValue *out, const BufferValue *a, const BufferValue b, int grid_offset) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
     if(i < len) {                                                       \
@@ -715,7 +751,7 @@ PUBLIC double buffer_max(const Buffer b)
     }                                                                   \
   }                                                                     \
                                                                         \
-  PUBLIC Buffer buffer_ ## name ## d(const Buffer a, double b)            \
+  PUBLIC Buffer buffer_ ## name ## d(const Buffer a, BufferValue b)            \
   {                                                                     \
     return launchd_kernel(buffer_ ## name ## d_inner, a, b, 0);         \
   }
@@ -731,11 +767,11 @@ BINARY_OP(collect_lt, a < b);
 BINARY_OP(collect_lte, a <= b);
 BINARY_OP(collect_gt, a > b);
 BINARY_OP(collect_gte, a >= b);
-BINARY_OP(bsl, (double)((unsigned long)a << (unsigned long)b));
-BINARY_OP(bsr, (double)((unsigned long)a >> (unsigned long)b));
-BINARY_OP(and, (double)((unsigned long)a & (unsigned long)b));
-BINARY_OP(or, (double)((unsigned long)a | (unsigned long)b));
-BINARY_OP(xor, (double)((unsigned long)a ^ (unsigned long)b));
+BINARY_OP(bsl, (BufferValue)((unsigned long)a << (unsigned long)b));
+BINARY_OP(bsr, (BufferValue)((unsigned long)a >> (unsigned long)b));
+BINARY_OP(and, (BufferValue)((unsigned long)a & (unsigned long)b));
+BINARY_OP(or, (BufferValue)((unsigned long)a | (unsigned long)b));
+BINARY_OP(xor, (BufferValue)((unsigned long)a ^ (unsigned long)b));
 
 #undef BINARY_OP
 
@@ -745,7 +781,7 @@ PUBLIC int buffer_eq(const Buffer a, const Buffer b)
   Buffer results = buffer_collect_eq(a, b);
   if(results != NULL) {
     // reduce
-    double sum = buffer_sum(results);
+    BufferValue sum = buffer_sum(results);
     
     // clean up
     buffer_free(results);
@@ -757,7 +793,7 @@ PUBLIC int buffer_eq(const Buffer a, const Buffer b)
 }
 
 #define FUNCTION_OP(name, operation) \
-  __global__ void buffer_ ## name ## _inner(int len, double *out, const double *a, const double b, int grid_offset) \
+  __global__ void buffer_ ## name ## _inner(int len, BufferValue *out, const BufferValue *a, const BufferValue b, int grid_offset) \
   {                                                                     \
     int i = grid_offset + grid(1);                                      \
     if(i < len) {                                                       \
@@ -799,12 +835,12 @@ FUNCTION_OP(collect_inf, { out[i] = isinf(a[i]); });
 
 // todo rename dot?
 
-__global__ void buffer_dot_inner(double *out, size_t out_pitch, const double *a, const double *b, size_t aw, size_t ap, size_t ah, size_t bw, size_t bp, size_t bh)
+__global__ void buffer_dot_inner(BufferValue *out, size_t out_pitch, const BufferValue *a, const BufferValue *b, size_t aw, size_t ap, size_t ah, size_t bw, size_t bp, size_t bh)
 {
   size_t row = blockIdx.y * blockDim.y + threadIdx.y;
   size_t col = blockIdx.x * blockDim.x + threadIdx.x;
 
-  double sum = 0.0;
+  BufferValue sum = 0.0;
 
   if (row < ah && col < bw) {
     for (size_t i = 0; i < min(bh, aw); i++) {
@@ -829,7 +865,7 @@ PUBLIC Buffer buffer_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, s
   }
 }
 
-__global__ void buffer_identity_inner(double *a, size_t size, size_t grid_offset)
+__global__ void buffer_identity_inner(BufferValue *a, size_t size, size_t grid_offset)
 {
   size_t col = blockIdx.x * blockDim.x + threadIdx.x + grid_offset;
   size_t i = col * (size_t)size + col;
@@ -859,7 +895,7 @@ PUBLIC Buffer buffer_identity(size_t size)
   return out;
 }
 
-__global__ void buffer_diagflat_inner(double *data, const double *a, size_t len)
+__global__ void buffer_diagflat_inner(BufferValue *data, const BufferValue *a, size_t len)
 {
   size_t col = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -878,8 +914,8 @@ PUBLIC Buffer buffer_diagflat(const Buffer a)
   return i;
 }
 
-__global__ void buffer_transpose_inner(double *out, size_t outw, size_t outh, const double *in, size_t inw, size_t inh, int x, int y, size_t w, size_t h, size_t grid_offset)
-//__global__ void buffer_transpose_inner(const double *in, double *out, size_t size, size_t width, size_t height)
+__global__ void buffer_transpose_inner(BufferValue *out, size_t outw, size_t outh, const BufferValue *in, size_t inw, size_t inh, int x, int y, size_t w, size_t h, size_t grid_offset)
+//__global__ void buffer_transpose_inner(const BufferValue *in, BufferValue *out, size_t size, size_t width, size_t height)
 {
   int bx = blockIdx.x * blockDim.x + threadIdx.x;
   int by = blockIdx.y * blockDim.y + threadIdx.y;
@@ -911,9 +947,9 @@ PUBLIC Buffer buffer_transpose(const Buffer in, size_t width, size_t height)
 
 // convolve dot
 
-__global__ void buffer_conv2d_dot_inner(double *out, size_t op,
-                                      const double *a,
-                                      const double *b,
+__global__ void buffer_conv2d_dot_inner(BufferValue *out, size_t op,
+                                      const BufferValue *a,
+                                      const BufferValue *b,
                                       size_t aw, size_t ah,
                                       size_t bw, size_t bh,
                                       int sx, int sy,
@@ -940,7 +976,7 @@ __global__ void buffer_conv2d_dot_inner(double *out, size_t op,
   }
 }
 
-PUBLIC Buffer buffer_conv2d_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, size_t bw, size_t bh, int sx, int sy, size_t cw, size_t ch, double init)
+PUBLIC Buffer buffer_conv2d_dot(const Buffer a, size_t aw, size_t ah, const Buffer b, size_t bw, size_t bh, int sx, int sy, size_t cw, size_t ch, BufferValue init)
 {
   if(aw * ah != a->length && bw * bh != b-> length && cw != bh) {
     return NULL;
@@ -961,9 +997,9 @@ PUBLIC Buffer buffer_conv2d_dot(const Buffer a, size_t aw, size_t ah, const Buff
   }
 }
 
-__global__ void buffer_maxpool1d_kernel(const double *in, size_t in_size, size_t pool_size, double *out)
+__global__ void buffer_maxpool1d_kernel(const BufferValue *in, size_t in_size, size_t pool_size, BufferValue *out)
 {
-  extern __shared__ double data[];
+  extern __shared__ BufferValue data[];
   int in_x = blockIdx.x * blockDim.x + threadIdx.x;
   int n;
   
@@ -987,15 +1023,15 @@ PUBLIC Buffer buffer_maxpool1d(const Buffer buf, size_t req_pool_size)
   size_t pool_size = min(buf->length, req_pool_size);
   size_t n = (buf->length + pool_size - 1) / pool_size;
   Buffer out = buffer_new(n, -INFINITY);
-  buffer_maxpool1d_kernel<<< n, pool_size, pool_size * sizeof(double) >>>(buf->data, buf->length, pool_size, out->data);
+  buffer_maxpool1d_kernel<<< n, pool_size, pool_size * sizeof(BufferValue) >>>(buf->data, buf->length, pool_size, out->data);
   return out;
 }
 
-__global__ void buffer_maxpool1d_idx_kernel(const double *in, size_t in_size, size_t pool_size, double *out, double *out_vals)
+__global__ void buffer_maxpool1d_idx_kernel(const BufferValue *in, size_t in_size, size_t pool_size, BufferValue *out, BufferValue *out_vals)
 {
-  extern __shared__ double data[];
+  extern __shared__ BufferValue data[];
   int *indexes = (int *)data;
-  double *values = (double *)(data + blockDim.x);
+  BufferValue *values = (BufferValue *)(data + blockDim.x);
   int in_x = blockIdx.x * blockDim.x + threadIdx.x;
   int n;
 
@@ -1034,14 +1070,14 @@ PUBLIC Buffer buffer_maxpool1d_idx(const Buffer buf, size_t req_pool_size)
   size_t n = (buf->length + pool_size - 1) / pool_size;
   Buffer out = buffer_new(n, -1.0);
   Buffer values = buffer_new(n, -INFINITY);
-  buffer_maxpool1d_idx_kernel<<< n, pool_size, pool_size * (sizeof(int) + sizeof(double)) >>>(buf->data, buf->length, pool_size, out->data, values->data);
+  buffer_maxpool1d_idx_kernel<<< n, pool_size, pool_size * (sizeof(int) + sizeof(BufferValue)) >>>(buf->data, buf->length, pool_size, out->data, values->data);
   buffer_free(values);
   return out;
 }
 
-__global__ void buffer_maxpool2d_kernel(const double *in, dim3 in_dim, dim3 blocks, dim3 pool_size, double *out)
+__global__ void buffer_maxpool2d_kernel(const BufferValue *in, dim3 in_dim, dim3 blocks, dim3 pool_size, BufferValue *out)
 {
-  extern __shared__ double data[];
+  extern __shared__ BufferValue data[];
   int in_x = blockIdx.x * blockDim.x + threadIdx.x;
   int in_y = blockIdx.y * blockDim.y + threadIdx.y;
   int idx = in_y * in_dim.x + in_x;
@@ -1090,15 +1126,15 @@ PUBLIC Buffer buffer_maxpool2d(const Buffer buf, size_t buf_w, size_t buf_h, siz
   size_t ny = (buf_h + pool_h - 1) / pool_h;
   dim3 n = { nx, ny };
   Buffer out = buffer_new(nx*ny, -INFINITY);
-  buffer_maxpool2d_kernel<<< n, pool_dim, pool_w * pool_h * sizeof(double) >>>(buf->data, buf_d, n, pool_dim, out->data);
+  buffer_maxpool2d_kernel<<< n, pool_dim, pool_w * pool_h * sizeof(BufferValue) >>>(buf->data, buf_d, n, pool_dim, out->data);
   return out;
 }
 
-__global__ void buffer_maxpool2d_idx_kernel(const double *in, dim3 in_dim, dim3 blocks, dim3 pool_size, double *out, double *out_vals)
+__global__ void buffer_maxpool2d_idx_kernel(const BufferValue *in, dim3 in_dim, dim3 blocks, dim3 pool_size, BufferValue *out, BufferValue *out_vals)
 {
-  extern __shared__ double data[];
+  extern __shared__ BufferValue data[];
   int *indexes = (int *)data;
-  double *values = (double *)((int *)data + blockDim.x*blockDim.y);
+  BufferValue *values = (BufferValue *)((int *)data + blockDim.x*blockDim.y);
 
   int in_x = blockIdx.x * blockDim.x + threadIdx.x;
   int in_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -1150,7 +1186,7 @@ PUBLIC Buffer buffer_maxpool2d_idx(const Buffer buf, size_t buf_w, size_t buf_h,
   dim3 n = { nx, ny };
   Buffer out = buffer_new(nx*ny, -INFINITY);
   Buffer out_vals = buffer_new(nx*ny, -INFINITY);
-  buffer_maxpool2d_idx_kernel<<< n, pool_dim, pool_w * pool_h * (sizeof(int) + sizeof(double)) >>>(buf->data, buf_d, n, pool_dim, out->data, out_vals->data);
+  buffer_maxpool2d_idx_kernel<<< n, pool_dim, pool_w * pool_h * (sizeof(int) + sizeof(BufferValue)) >>>(buf->data, buf_d, n, pool_dim, out->data, out_vals->data);
   buffer_free(out_vals);
   return out;
 }

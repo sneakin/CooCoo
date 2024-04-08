@@ -1,5 +1,8 @@
 require 'pathname'
 require 'ffi'
+
+FFI.typedef :float, :buffer_value
+        
 require 'coo-coo/cuda/error'
 require 'coo-coo/cuda/host_buffer'
 

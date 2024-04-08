@@ -10,7 +10,7 @@ typedef struct Matrix2D_s
 {
   size_t width, height;
   Buffer buffer;
-  double **rows;
+  BufferValue **rows;
 } *Matrix2D;
 #endif
 
@@ -24,7 +24,7 @@ PUBLIC Matrix2D matrix_new(Buffer b, size_t w, size_t h)
   m->width = w;
   m->height = h;
   m->buffer = b;
-  m->rows = (double **)malloc(sizeof(double) * h);
+  m->rows = (BufferValue **)malloc(sizeof(BufferValue) * h);
   
   for(size_t i = 0; i < h; i++) {
     m->rows[i] = b->data + (i * w);
