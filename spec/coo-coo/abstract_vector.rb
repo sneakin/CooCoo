@@ -1,7 +1,10 @@
 require 'coo-coo/core_ext'
 
 shared_examples "for an AbstractVector" do
-  epsilon = FFI::TypeDefs[:buffer_value].size == 8 ? 0.00000001 : 0.001
+  epsilon = case FFI::TypeDefs[:buffer_value]&.size
+    when 8 then 0.00000001
+    else 0.001
+    end
 
   describe '.new' do
     describe 'with a size of zero' do

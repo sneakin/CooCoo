@@ -106,9 +106,9 @@ class File
     File.open(tmp, mode || "w", 0600, &block)
 
     # create a backup file
-    if File.exists?(path)
+    if File.exist?(path)
       # remove any existing backup
-      if File.exists?(bak)
+      if File.exist?(bak)
         File.delete(bak)
       end
 
@@ -120,8 +120,8 @@ class File
     
     self
   rescue
-    File.delete(tmp) if File.exists?(tmp)
-    File.rename(bak, path) if !File.exists?(path) && File.exists?(bak)
+    File.delete(tmp) if File.exist?(tmp)
+    File.rename(bak, path) if !File.exist?(path) && File.exist?(bak)
     raise
   end
 end

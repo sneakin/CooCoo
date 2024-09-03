@@ -3,7 +3,7 @@ module CooCoo
     attr_reader :path
     
     def initialize tmpdir: nil, prefix: nil, id: nil
-      tmpdir = Pathname.new(tmpdir || '/tmp')
+      tmpdir = Pathname.new(tmpdir || ENV.fetch('TMPDIR', '/tmp'))
       @path = generate_name(tmpdir, prefix, id)
       mkdir
       Kernel.at_exit do

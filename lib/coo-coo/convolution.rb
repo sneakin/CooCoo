@@ -30,7 +30,7 @@ module CooCoo
         @int_output_height = int_output_height
         raise ArgumentError.new("Input size mismatch: #{int_output_width * int_output_height} is not #{internal_layer.size}") if internal_layer.size != (int_output_width * int_output_height)
         @delta_accumulator = delta_accumulator || :average
-        raise ArgumentError.new("Weights delta accumulator can only be averaged or summed") unless methods.include?(@delta_accumulator)
+        #raise ArgumentError.new("Weights delta accumulator can only be averaged or summed. Not #{delta_accumulator.inspect}") unless methods.include?(@delta_accumulator)
       end
 
       def name

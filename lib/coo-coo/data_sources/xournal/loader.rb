@@ -47,6 +47,8 @@ module CooCoo
           self.
             new(Document.new(title, root['version'])).
             from_xml(xml)
+        rescue REXML::ParseException
+          raise Error.new($!.message)
         end
 
         def from_xml(xml)
