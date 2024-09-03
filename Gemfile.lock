@@ -2,6 +2,7 @@ PATH
   remote: .
   specs:
     CooCoo (0.2.1)
+      base64
       builder
       cairo
       chunky_png
@@ -15,6 +16,7 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
+    base64 (0.2.0)
     bigdecimal (3.1.8)
     builder (3.3.0)
     cairo (1.17.13)

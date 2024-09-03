@@ -41,6 +41,7 @@ Gem::Specification.new do |s|
   #s.add_dependency 'nmatrix'
   s.add_dependency 'parallel'
   #s.add_dependency 'nokogiri'
+  s.add_dependency 'base64'
   s.add_dependency 'builder'
   s.add_dependency 'ruby-progressbar'
   s.add_dependency 'chunky_png'
