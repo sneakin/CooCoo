@@ -612,7 +612,7 @@ if $0 == __FILE__
 
   args = ARGV[1..-1]
   cmd_name = (ARGV[0] || 'help').gsub('-', '_')
-  cmd_name = 'help' if cmd_name =~ /-h|--help/
+  cmd_name = 'help' if cmd_name =~ /\A[-_]*h(elp)?/
   cmd = Commands.fetch(cmd_name.to_sym)
   send(cmd, args)
 end
