@@ -1,4 +1,5 @@
 require 'ffi'
+require_relative 'device_buffer'
 
 module CooCoo
   module CUDA
@@ -39,7 +40,7 @@ module CooCoo
       def initialize(size, type = nil)
         @size = size
         if type == nil
-          type = case FFI::TypeDefs[:buffer_value]
+          type = case FFI.find_type(:buffer_value)
                  when FFI::Type::Builtin::INT8 then :char
                  when FFI::Type::Builtin::LONG then :long
                  when FFI::Type::Builtin::FLOAT32 then :float

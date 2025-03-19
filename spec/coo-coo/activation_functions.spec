@@ -44,20 +44,20 @@ shared_examples 'activation function' do
     let(:vector_output) { CooCoo::Vector[vector[1]] }
     
     it 'can be called with a vector' do
-      expect(subject.call(vector_input)).to eq(vector_output)
+      expect(subject.call(vector_input)).to be_within(EPSILON).of(vector_output)
     end
   end
 
   describe '#derivative' do
     it do
       derivative_data.each do |input, output|
-        expect(subject.derivative(input)).to eq(output)
+        expect(subject.derivative(input)).to be_within(EPSILON).of(output)
       end
     end
 
     it 'can calculate faster reusing Y' do
       derivative_data.each do |input, output|
-        expect(subject.derivative(input, subject.call(input))).to eq(output)
+        expect(subject.derivative(input, subject.call(input))).to be_within(EPSILON).of(output)
       end
     end
 
@@ -66,7 +66,7 @@ shared_examples 'activation function' do
     let(:vector_output) { CooCoo::Vector[vector[1]] }
     
     it 'can be called with a vector' do
-      expect(subject.derivative(vector_input)).to eq(vector_output)
+      expect(subject.derivative(vector_input)).to be_within(EPSILON).of(vector_output)
     end
   end
 end

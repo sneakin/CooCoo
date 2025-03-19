@@ -2,7 +2,7 @@ require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'coo-coo', 'platfor
 require 'shellwords'
 
 NVCC = ENV.fetch("NVCC", "nvcc")
-NVCCFLAGS = []
+NVCCFLAGS = [ '-rdc=true' ]
 NVCCFLAGS << "-g" if ENV['DEBUG']
 
 if CooCoo::Platform.windows?

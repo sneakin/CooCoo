@@ -51,8 +51,6 @@ shared_examples 'for a CUDA vector' do
 end
 
 describe CooCoo::CUDA::Vector do
-  EPSILON = FFI::TypeDefs[:buffer_value].size == 8 ? 0.00000001 : 0.001
-
   include_examples 'for an AbstractVector'
   
   before do
@@ -62,7 +60,7 @@ describe CooCoo::CUDA::Vector do
   end
 
   context 'vector larger than the memory' do
-    it { expect { described_class.new(CooCoo::CUDA::Runtime.total_global_mem / FFI::TypeDefs[:buffer_value].size + 1) }.to raise_error(CooCoo::CUDA::NullResultError) }
+    it { expect { described_class.new(CooCoo::CUDA::Runtime.total_global_mem / FFI.find_type(:buffer_value).size + 1) }.to raise_error(CooCoo::CUDA::NullResultError) }
   end
 
   # 79
