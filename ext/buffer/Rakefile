@@ -3,7 +3,7 @@ require 'shellwords'
 
 NVCC = ENV.fetch("NVCC", "nvcc")
 NVCCFLAGS = [ '-rdc=true' ]
-NVCCFLAGS << "-g" if ENV['DEBUG']
+(NVCCFLAGS << '-g' << '-DDEBUG') if ENV['DEBUG'] =~ /^[1yt]/i
 
 if CooCoo::Platform.windows?
   #NVCCFLAGS="--cl-version=2015"
