@@ -2,6 +2,7 @@ module CooCoo
   module Ext
     module Slice2d
       def each_slice_2d(src_width, src_height, width, height, initial = 0.0, &block)
+        raise ArgumentError.new("Invalid slice size: #{width} x #{height}") if width <= 0 || height <= 0
         return to_enum(__method__, src_width, src_height, width, height, initial) unless block
         ((src_height + height - 1) / height).times do |y|
           ((src_width + width - 1) / width).times do |x|

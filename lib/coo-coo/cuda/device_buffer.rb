@@ -119,18 +119,24 @@ module CooCoo
       end
 
       def maxpool1d pool_size
+        raise ArgumentError.new("pool size must be > 0") if pool_size <= 0
         FFI.maxpool1d(self, pool_size)
       end
       
       def maxpool1d_idx pool_size
+        raise ArgumentError.new("pool size must be > 0") if pool_size <= 0
         FFI.maxpool1d_idx(self, pool_size)
       end
       
       def maxpool2d w, h, pw, ph
+        raise ArgumentError.new("pool width must be > 0") if pw <= 0
+        raise ArgumentError.new("pool height must be > 0") if ph <= 0
         FFI.maxpool2d(self, w, h, pw, ph)
       end
       
       def maxpool2d_idx w, h, pw, ph
+        raise ArgumentError.new("pool width must be > 0") if pw <= 0
+        raise ArgumentError.new("pool height must be > 0") if ph <= 0
         FFI.maxpool2d_idx(self, w, h, pw, ph)
       end
 

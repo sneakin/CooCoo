@@ -190,7 +190,7 @@ module CooCoo
       end
 
       def maxpool2d_idx w, h, pw, ph
-        each_with_index.to_a.each_slice_2d(w, h, pw, ph).collect { |p|
+        each_with_index.to_a.each_slice_2d(w, h, pw, ph, [ 0, nil ]).collect { |p|
           p.reduce([ -Float::INFINITY, nil ]) { |a, el|
             a[0] < el[0] ? el : a
           }

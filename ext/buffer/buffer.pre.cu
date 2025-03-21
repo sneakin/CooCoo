@@ -1002,19 +1002,29 @@ __global__ void buffer_maxpool1d_kernel(const BufferValue *in, size_t in_size, s
   extern __shared__ BufferValue data[];
   int in_x = blockIdx.x * blockDim.x + threadIdx.x;
   int n;
+  int w = blockDim.x;
   
   data[threadIdx.x] = in_x < in_size ? in[in_x] : -INFINITY;
   __syncthreads();
 
-  for(n = blockDim.x / 2; n > 0; n = n / 2) {
+  if(w & 1) {
+    w -= 1;
+    if(threadIdx.x == 0) {
+      data[threadIdx.x] = max(data[threadIdx.x], data[threadIdx.x + w]);
+    }
+  }
+  for(n = w/2; n > 0; n = n / 2) {
     if(threadIdx.x < n) {
-      data[threadIdx.x] = data[threadIdx.x] > data[threadIdx.x + n] ? data[threadIdx.x] : data[threadIdx.x + n];
+      data[threadIdx.x] = max(data[threadIdx.x], data[threadIdx.x + n]);
+      if(n & 1) {
+        data[threadIdx.x] = max(data[threadIdx.x], data[threadIdx.x + n - 1]);
+      }
       __syncthreads();
     }
   }
 
   if(threadIdx.x == 0) {
-    out[blockIdx.x] = out[blockIdx.x] > data[0] ? out[blockIdx.x] : data[0];
+    out[blockIdx.x] = max(out[blockIdx.x], data[0]);
   }
 }
 
@@ -1034,6 +1044,7 @@ __global__ void buffer_maxpool1d_idx_kernel(const BufferValue *in, size_t in_siz
   BufferValue *values = (BufferValue *)(data + blockDim.x);
   int in_x = blockIdx.x * blockDim.x + threadIdx.x;
   int n;
+  int w = blockDim.x;
 
   if(in_x < in_size) {
     values[threadIdx.x] = in[in_x];
@@ -1044,12 +1055,24 @@ __global__ void buffer_maxpool1d_idx_kernel(const BufferValue *in, size_t in_siz
   }
   __syncthreads();
 
-  for(n = blockDim.x / 2; n > 0; n = n / 2) {
+  if(w & 1) {
+    w -= 1;
+    if(threadIdx.x == 0 && values[threadIdx.x] < values[threadIdx.x + w]) {
+      values[threadIdx.x] = values[threadIdx.x + w];
+      indexes[threadIdx.x] = indexes[threadIdx.x + w];
+    }
+  }
+  for(n = w / 2; n > 0; n = n / 2) {
     if(threadIdx.x < n) {
       if(values[threadIdx.x] < values[threadIdx.x + n]) {
         values[threadIdx.x] = values[threadIdx.x + n];
         indexes[threadIdx.x] = indexes[threadIdx.x + n];
-        __syncthreads();
+      }
+      if(threadIdx.x == 0 && (n & 1)) {
+        if(values[threadIdx.x] < values[threadIdx.x + n - 1]) {
+          values[threadIdx.x] = values[threadIdx.x + n - 1];
+          indexes[threadIdx.x] = indexes[threadIdx.x + n - 1];
+        }
       }
     }
   }
@@ -1075,44 +1098,140 @@ PUBLIC Buffer buffer_maxpool1d_idx(const Buffer buf, size_t req_pool_size)
   return out;
 }
 
+#ifdef DEBUG
+#define DLOG(nx, ny, var) \
+  printf("   P %3i %3i,   N %3i %3i,   X %3i %3i,   T %3i %3i,   B %3i %3i,   D %.2f %.2f\n", \
+         in_p.x+((nx) < -1 ? 0 : (nx)), in_p.y+((ny) < -1 ? 0 : (ny)),      \
+         nx, ny,                                                        \
+         i, var,                                                        \
+         threadIdx.x, threadIdx.y,                                      \
+         blockIdx.x, blockIdx.y,                                        \
+         data[i], data[i+var])
+#else
+#define DLOG(nx, ny, var)
+#endif
+
+__device__ void buffer_maxpool2d_line(BufferValue *data, int w, dim3 in_dim, int i, dim3 in_p, int ny)
+{
+  int nx;
+  for(nx = w / 2; nx > 0; nx = nx / 2) {
+    if(threadIdx.x < nx) {
+      if((in_p.x+nx) < in_dim.x) {
+        int j = ny * blockDim.x + nx;
+        DLOG(nx, ny, j);
+        data[i] = max(data[i], data[i + j]);
+      }
+      __syncthreads();
+
+      if(threadIdx.x == 0 && (nx & 1)) {
+        if((in_p.x+nx-1) < in_dim.x) {
+          int j = ny * blockDim.x + (nx - 1);
+          DLOG(nx, ny, j);
+          data[i] = max(data[i], data[i + j]);
+        }
+      }
+      __syncthreads();
+    }
+  }
+}
+
 __global__ void buffer_maxpool2d_kernel(const BufferValue *in, dim3 in_dim, dim3 blocks, dim3 pool_size, BufferValue *out)
 {
   extern __shared__ BufferValue data[];
-  int in_x = blockIdx.x * blockDim.x + threadIdx.x;
-  int in_y = blockIdx.y * blockDim.y + threadIdx.y;
-  int idx = in_y * in_dim.x + in_x;
+  const dim3 in_p = {
+    blockIdx.x * blockDim.x + threadIdx.x,
+    blockIdx.y * blockDim.y + threadIdx.y
+  };
+  const int idx = in_p.y * in_dim.x + in_p.x;
+  const int i = threadIdx.y * blockDim.x + threadIdx.x;
+  int w = blockDim.x, h = blockDim.y;
   int nx, ny;
 
-  data[threadIdx.y * blockDim.x + threadIdx.x] = idx < in_dim.x*in_dim.y ? in[idx] : -INFINITY;
+  data[i] = idx < in_dim.x*in_dim.y ? in[idx] : -INFINITY;
   __syncthreads();
 
-  /*
+#ifdef DEBUG
   printf("X %i\tY %i\t\t"
+         "TX %i\tTY %i\t"
          "Bx %i\tBy %i\t"
          "W %i\tH %i\t"
          "idx %i\tn = %lf\n",
+         in_p.x, in_p.y,
          threadIdx.x, threadIdx.y,
          blockIdx.x, blockIdx.y,
          blockDim.x, blockDim.y,
          idx, data[threadIdx.y * blockDim.x + threadIdx.x]);
-  */
+#endif
   
-  for(ny = blockDim.y / 2; ny > 0; ny = ny / 2) {
-    if(threadIdx.y < ny) {
-      for(nx = blockDim.x / 2; nx > 0; nx = nx / 2) {
-        if(threadIdx.x < nx) {
-          int i = threadIdx.y * blockDim.x + threadIdx.x;
-          int j = ny * blockDim.x + nx;
-          data[i] = data[i] > data[i + j] ? data[i] : data[i + j];
-          __syncthreads();
+  if(w & 1) {
+    w -= 1;
+    if(threadIdx.x == 0) {
+      if(h & 1) {
+        h -= 1;
+        if(threadIdx.y == 0) {
+          int j = h * blockDim.x + w;
+          DLOG(-2, h, j);
+          data[i] = max(data[i], data[i + j]);
         }
+      }
+      __syncthreads();
+      for(ny = h / 2; ny > 0; ny = ny / 2) {
+        if(threadIdx.y < ny && (in_p.y+ny) < in_dim.y) {
+          int j = ny * blockDim.x + w;
+          DLOG(-1, ny, j);
+          data[i] = max(data[i], data[i + j]);
+        }
+        __syncthreads();
+        if(threadIdx.y == 0 && (ny & 1)) {
+          int j = (ny - 1) * blockDim.x + w;
+          DLOG(-1, ny, j);
+          data[i] = max(data[i], data[i + j]);
+        }
+        __syncthreads();
       }
     }
   }
+  if(h & 1) {
+    h -= 1;
+    if(threadIdx.y == 0) {
+      if(w & 1) {
+        w -= 1;
+        if(threadIdx.x == 0) {
+          DLOG(w, -2, w);
+          data[i] = max(data[i], data[i + w]);
+        }
+      }
+      __syncthreads();
+      buffer_maxpool2d_line(data, w, in_dim, i, in_p, h);
+    }
+  }  
+  for(ny = h / 2; ny > 0; ny = ny / 2) {
+    if(threadIdx.y < ny) {
+      if((in_p.y+ny) < in_dim.y) {
+        buffer_maxpool2d_line(data, w, in_dim, i, in_p, ny);
+      }
+
+      __syncthreads();
+      if(threadIdx.y == 0) {
+        if(ny & 1 && (in_p.y+ny-1) < in_dim.y) {
+          buffer_maxpool2d_line(data, w, in_dim, i, in_p, ny - 1);
+        }
+      }
+
+      __syncthreads();
+    }
+  }
   
+  if(threadIdx.x == 0) {
+    buffer_maxpool2d_line(data, w, in_dim, i, in_p, 0);
+  }
+
   if(threadIdx.y == 0 && threadIdx.x == 0) {
     int i = blockIdx.y * blocks.x + blockIdx.x;
-    out[i] = out[i] > data[0] ? out[i] : data[0];
+#ifdef DEBUG
+    printf("  Bx %3i %3i   D %.2f %.2f\n", blockIdx.x, blockIdx.y, out[i], data[0]);
+#endif
+    out[i] = max(out[i], data[0]);
   }
 }
 
@@ -1130,42 +1249,145 @@ PUBLIC Buffer buffer_maxpool2d(const Buffer buf, size_t buf_w, size_t buf_h, siz
   return out;
 }
 
+#undef DLOG
+
+#ifdef DEBUG
+#define DLOG(nx, ny, var) \
+  printf("   P %3i %3i,   N %3i %3i,   X %3i %3i,   T %3i %3i,   B %3i %3i,   D %.2f %.2f\n", \
+         in_p.x+((nx) < -1 ? 0 : (nx)), in_p.y+((ny) < -1 ? 0 : (ny)),      \
+         nx, ny,                                                        \
+         i, var,                                                        \
+         threadIdx.x, threadIdx.y,                                      \
+         blockIdx.x, blockIdx.y,                                        \
+         values[i], values[i+var])
+#else
+#define DLOG(nx, ny, var)
+#endif
+
+__device__ void buffer_maxpool2d_idx_line(BufferValue *values, int *indexes, int w, dim3 in_dim, int i, dim3 in_p, int ny)
+{
+  int nx;
+  for(nx = w / 2; nx > 0; nx = nx / 2) {
+    if(threadIdx.x < nx) {
+      if((in_p.x+nx) < in_dim.x) {
+        int j = ny * blockDim.x + nx;
+        DLOG(nx, ny, j);
+        if(values[i] < values[i + j]) {
+          values[i] = values[i + j];
+          indexes[i] = indexes[i + j];
+        }
+      }
+      __syncthreads();
+
+      if(threadIdx.x == 0 && (nx & 1)) {
+        if((in_p.x+nx-1) < in_dim.x) {
+          int j = ny * blockDim.x + (nx - 1);
+          DLOG(nx, ny, j);
+          if(values[i] < values[i + j]) {
+            values[i] = values[i + j];
+            indexes[i] = indexes[i + j];
+          }
+        }
+      }
+      __syncthreads();
+    }
+  }
+}
+
 __global__ void buffer_maxpool2d_idx_kernel(const BufferValue *in, dim3 in_dim, dim3 blocks, dim3 pool_size, BufferValue *out, BufferValue *out_vals)
 {
   extern __shared__ BufferValue data[];
   int *indexes = (int *)data;
   BufferValue *values = (BufferValue *)((int *)data + blockDim.x*blockDim.y);
 
-  int in_x = blockIdx.x * blockDim.x + threadIdx.x;
-  int in_y = blockIdx.y * blockDim.y + threadIdx.y;
-  int idx = in_y * in_dim.x + in_x;
+  const dim3 in_p = {
+    blockIdx.x * blockDim.x + threadIdx.x,
+    blockIdx.y * blockDim.y + threadIdx.y
+  };
+  const int idx = in_p.y * in_dim.x + in_p.x;
+  const int i = threadIdx.y * blockDim.x + threadIdx.x;
+  int w = blockDim.x, h = blockDim.y;
   int nx, ny;
 
-  if(idx < in_dim.x*in_dim.y) {
-    values[threadIdx.y * blockDim.x + threadIdx.x] = in[idx];
-    indexes[threadIdx.y * blockDim.x + threadIdx.x] = idx;
-  } else {
-    values[threadIdx.y * blockDim.x + threadIdx.x] = -INFINITY;
-    indexes[threadIdx.y * blockDim.x + threadIdx.x] = idx;
-  }
+  values[threadIdx.y * blockDim.x + threadIdx.x] = idx < in_dim.x*in_dim.y ? in[idx] : -INFINITY;
+  indexes[threadIdx.y * blockDim.x + threadIdx.x] = idx;
   __syncthreads();
 
-  for(ny = blockDim.y / 2; ny > 0; ny = ny / 2) {
-    if(threadIdx.y < ny) {
-      for(nx = blockDim.x / 2; nx > 0; nx = nx / 2) {
-        if(threadIdx.x < nx) {
-          int i = threadIdx.y * blockDim.x + threadIdx.x;
-          int j = ny * blockDim.x + nx;
+  if(w & 1) {
+    w -= 1;
+    if(threadIdx.x == 0) {
+      if(h & 1) {
+        h -= 1;
+        if(threadIdx.y == 0) {
+          int j = h * blockDim.x + w;
+          DLOG(-2, h, j);
           if(values[i] < values[i + j]) {
             values[i] = values[i + j];
             indexes[i] = indexes[i + j];
-            __syncthreads();
           }
         }
       }
+      __syncthreads();
+      for(ny = h / 2; ny > 0; ny = ny / 2) {
+        if(threadIdx.y < ny && (in_p.y+ny) < in_dim.y) {
+          int j = ny * blockDim.x + w;
+          DLOG(-1, ny, j);
+          if(values[i] < values[i + j]) {
+            values[i] = values[i + j];
+            indexes[i] = indexes[i + j];
+          }
+        }
+        __syncthreads();
+        if(threadIdx.y == 0 && (ny & 1)) {
+          int j = (ny - 1) * blockDim.x + w;
+          DLOG(-1, ny, j);
+          if(values[i] < values[i + j]) {
+            values[i] = values[i + j];
+            indexes[i] = indexes[i + j];
+          }
+        }
+        __syncthreads();
+      }
+    }
+  }
+  if(h & 1) {
+    h -= 1;
+    if(threadIdx.y == 0) {
+      if(w & 1) {
+        w -= 1;
+        if(threadIdx.x == 0) {
+          DLOG(w, -2, w);
+          if(values[i] < values[i + w]) {
+            values[i] = values[i + w];
+            indexes[i] = indexes[i + w];
+          }
+        }
+      }
+      __syncthreads();
+      buffer_maxpool2d_idx_line(values, indexes, w, in_dim, i, in_p, h);
+    }
+  }  
+  for(ny = h / 2; ny > 0; ny = ny / 2) {
+    if(threadIdx.y < ny) {
+      if((in_p.y+ny) < in_dim.y) {
+        buffer_maxpool2d_idx_line(values, indexes, w, in_dim, i, in_p, ny);
+      }
+
+      __syncthreads();
+      if(threadIdx.y == 0) {
+        if(ny & 1 && (in_p.y+ny-1) < in_dim.y) {
+          buffer_maxpool2d_idx_line(values, indexes, w, in_dim, i, in_p, ny - 1);
+        }
+      }
+
+      __syncthreads();
     }
   }
   
+  if(threadIdx.x == 0) {
+    buffer_maxpool2d_idx_line(values, indexes, w, in_dim, i, in_p, 0);
+  }
+
   if(threadIdx.y == 0 && threadIdx.x == 0) {
     int i = blockIdx.y * blocks.x + blockIdx.x;
     if(out[i] < values[0]) {
@@ -1174,6 +1396,8 @@ __global__ void buffer_maxpool2d_idx_kernel(const BufferValue *in, dim3 in_dim, 
     }
   }
 }
+
+#undef DLOG
 
 PUBLIC Buffer buffer_maxpool2d_idx(const Buffer buf, size_t buf_w, size_t buf_h, size_t req_pool_w, size_t req_pool_h)
 {
