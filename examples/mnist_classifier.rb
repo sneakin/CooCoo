@@ -11,9 +11,9 @@ require 'coo-coo/drawing/sixel'
 require 'colorize'
 
 def backup(path)
-  if File.exists?(path)
+  if File.exist?(path)
     backup = path.to_s + "~"
-    if File.exists?(backup)
+    if File.exist?(backup)
       File.delete(backup)
     end
     FileUtils.copy(path, backup)
@@ -43,6 +43,7 @@ options.conv_size = 16
 options.conv_hidden_out = 4
 options.conv_step = 8
 options.stacked_convolution = false
+options.maxpool = false
 options.test_images_path = MNist::TEST_IMAGES_PATH
 options.test_labels_path = MNist::TEST_LABELS_PATH
 
@@ -161,6 +162,11 @@ opts = CooCoo::OptionParser.new do |o|
   o.on('--stacked-convolutions') do
     options.stacked_convolutions = true
   end
+
+  o.on('--maxpool X,Y') do |v|
+    x, y = CooCoo::Utils.split_csi(v)
+    options.maxpool = [ x, y || x ]
+  end
 end
 
 argv = opts.parse!(ARGV)
@@ -180,7 +186,7 @@ data = MNist::DataStream.new
 
 net = CooCoo::Network.new
 
-if options.model_path && File.exists?(options.model_path)
+if options.model_path && File.exist?(options.model_path)
   puts("Loading #{options.model_path}")
   net = CooCoo::Network.load(options.model_path, format: options.model_format)
 else
@@ -222,6 +228,12 @@ else
       area = l.size
     end
 
+    if options.maxpool
+      l = CooCoo::MaxPool2dLayer.new(l.output_width, l.output_height, *options.maxpool)
+      net.layer(l)
+      area = l.size
+    end
+  
     if (options.hidden_layers || 0) > 0
       net.layer(CooCoo::Layer.new(area, options.hidden_size, options.activation_function))
       if options.hidden_layers > 2

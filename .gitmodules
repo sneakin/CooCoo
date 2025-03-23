@@ -1,0 +1,3 @@
+[submodule "examples/mnist"]
+	path = examples/mnist
+	url = https://github.com/fgnt/mnist
